@@ -5,10 +5,10 @@
 #include "Core/RIParticipantComponent.h"
 #include "AI/RIAIController.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/SkyAtmosphereComponent.h"
 #include "Engine/StaticMeshActor.h"
 #include "Engine/DirectionalLight.h"
 #include "Engine/SkyLight.h"
-#include "Engine/SkyAtmosphere.h"
 #include "Components/DirectionalLightComponent.h"
 #include "Components/SkyLightComponent.h"
 #include "GameFramework/PlayerController.h"
@@ -37,8 +37,8 @@ void ARIDemoWorldBuilder::BuildWorld(ARIRaceManager* InRaceManager, APlayerContr
 
     if (ADirectionalLight* Sun = GetWorld()->SpawnActor<ADirectionalLight>(FVector::ZeroVector, FRotator(-48.0f, -28.0f, 0.0f)))
     {
-        Sun->GetLightComponent()->SetIntensity(8.0f);
-        Sun->GetLightComponent()->SetAtmosphereSunLight(true);
+        Sun->GetComponent()->SetIntensity(8.0f);
+        Sun->GetComponent()->SetAtmosphereSunLight(true);
     }
     if (ASkyLight* Sky = GetWorld()->SpawnActor<ASkyLight>())
     {
