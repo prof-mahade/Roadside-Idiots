@@ -30,6 +30,9 @@ public:
     UFUNCTION(BlueprintCallable, Category="Roadside Idiots|Bike")
     void RecoverBike();
 
+    UFUNCTION(BlueprintCallable, Category="Roadside Idiots|Bike")
+    void SetRecoveryTransform(const FTransform& InTransform);
+
     UFUNCTION(BlueprintPure, Category="Roadside Idiots|Bike")
     UStaticMeshComponent* GetChassis() const { return Chassis; }
 
@@ -46,8 +49,10 @@ private:
     void InputThrottle(float Value);
     void InputSteering(float Value);
     void InputBrake(float Value);
+    void UpdatePlayerDriveInputs();
     void InteractLeft();
     void InteractRight();
+    void RecoverUprightHere();
 
     UFUNCTION()
     void HandleChassisHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
@@ -85,6 +90,10 @@ private:
     UPROPERTY(VisibleAnywhere, Category="Components")
     TObjectPtr<URIInteractionComponent> Interaction;
 
+    FTransform RecoveryTransform = FTransform::Identity;
+    bool bHasRecoveryTransform = false;
+    float PlayerThrottleInput = 0.0f;
+    float PlayerBrakeInput = 0.0f;
     float TippedStillTime = 0.0f;
     bool bCrashLatched = false;
     double LastImpactTime = -100.0;
