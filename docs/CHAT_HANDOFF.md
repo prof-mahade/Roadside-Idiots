@@ -7,87 +7,68 @@ Roadside Idiots is a Windows PC motorcycle racing game with believable road moti
 
 Working tagline: **The road is dangerous. The riders are worse.**
 
-## Canonical priority
-Get a small playable SOLO MVP running before adding content or polish.
-
-Core loop:
-`start race -> ride -> race bots -> side interaction -> wobble/crash -> recover -> checkpoints -> finish`
-
 ## Current branch
 `dev/mvp-foundation`
 
-## Local development environment
-- Unreal Engine 5.8.1 installed
-- Visual Studio Community 2026 installed with Game Development with C++ tools
-- Local clone: `C:\GameDev\Roadside-Idiots`
-- First Unreal editor target compile succeeded on the development PC
-- First Play-In-Editor runtime also succeeded
+## Local environment
+- Unreal Engine 5.8.1
+- Visual Studio Community 2026 with Game Development with C++
+- local clone: `C:\GameDev\Roadside-Idiots`
+- editor target has compiled and Play-In-Editor has run successfully
 
-## Current implementation
-- `ARIGameMode` starts the prototype
-- `ARIDemoWorldBuilder` creates a graybox oval road at runtime from engine primitive meshes
-- `ARIBikePawn` is a placeholder physics bike with a placeholder rider shape and chase camera
-- `URIBikeMovementComponent` provides throttle, braking, reverse, steering, assisted balance, lean, and lateral grip
-- `ARIAIController` drives the same bike class around route points
-- one player and three bot racers are spawned automatically
-- `URIParticipantComponent` gives each racer a stable match identity
-- `URIHealthComponent` stores a simple condition value
-- `URIInteractionComponent` provides left/right side interactions
-- `ARICheckpoint` and `ARIRaceManager` provide ordered checkpoints, finish state and basic placement
-- checkpoints also update a safe recovery location for each racer
-- `ARIDebugHUD` displays speed, condition, progress, place and controls
-- automatic upright recovery after a low-speed tip
-- manual R recovery returns the bike to its latest safe location
-- source control ignores generated Unreal folders and prepares Git LFS patterns for future binary assets
+## Proven gameplay foundation
+- runtime graybox race route
+- one player and three bots
+- throttle, brake/reverse, steering, assisted balance/lean and lateral grip
+- ordered checkpoints, place/progress HUD and condition value
+- manual/automatic recovery
+- side interaction on Q/E
+- basic bot rivalry/retaliation state after a successful interaction
+- taller overlapping barriers and basic bot stuck recovery
 
-No external art assets are required for the current prototype.
+## Known limitations
+- bot corner recovery is still imperfect and may be redesigned with the later motorcycle/AI mechanics pass
+- primitive visuals made interaction feedback too difficult to judge reliably
 
-## Current controls
+## Visual readability milestone
+The developer locally imported:
+- UE Third Person content with `SKM_Manny_Simple`
+- Fab pack `MotoInteractionAnims`
+- motorcycle skeletal mesh `SM_Bike`
+- animation folders including Riding, Mounted, Combat/Punch, Get_Hits, Dizzy and Interactions
+
+The current source now adds a prototype presentation layer that:
+- keeps the existing invisible physics chassis authoritative
+- discovers `SM_Bike` and `SKM_Manny_Simple` through Unreal Asset Registry
+- attaches them as presentation-only skeletal meshes
+- hides the old cube/cylinder bike presentation when both assets are available
+- selects a riding loop from the imported animation pack
+- plays a visible side-action animation when Q/E is used
+- plays a visible reaction animation on the other rider when contact succeeds
+- returns the rider to the riding loop after the one-shot animation
+
+The imported binary `.uasset` files currently exist only in the local project and have not yet been committed through GitHub.
+
+## Recovery correction
+Checkpoint recovery now stores a predefined road-center location based on the checkpoint transform rather than the rider's exact wall-hugging crossing location. R should therefore return the bike to a cleaner position after the next successful checkpoint.
+
+## Controls
 - W: accelerate
-- S: brake while moving forward; reverse once nearly stopped
+- S: brake, then reverse at low speed
 - A/D: steer
-- Q/E: left/right side interaction
-- R: recover to latest safe location
-
-## First playtest findings
-The first playable build successfully ran, but the tester found several foundation issues:
-- the player could leave the track by getting past the low segmented barriers
-- corner steering felt too stiff
-- S did not provide reverse movement
-- player could become trapped at a corner
-- multiple AI riders could pile up and remain trapped at a corner
-
-## Current fix pass awaiting local verification
-The current branch contains a follow-up tuning pass that:
-- adds reverse behavior to S after braking to low speed
-- increases steering response and adds lateral grip
-- makes barriers taller, thicker, and overlapping at segment joins
-- stores safe recovery transforms at spawn/checkpoints
-- makes R return a racer to its latest safe point
-- makes AI steer using the nearest route point plus look-ahead
-- reduces AI speed for sharper turns
-- resets AI to a safe point after remaining nearly stationary for about 1.6 seconds
-
-## Important architecture rules
-1. Gameplay logic and presentation stay separate.
-2. Single-player first, but stable state must remain multiplayer-aware.
-3. AI driving is separate from future AI personality/strategy.
-4. Participant identity must not depend on a specific bike instance.
-5. Prefer small reusable components over giant Blueprints.
-6. Repository state is the project memory; update this file after milestones.
-
-## Deferred ideas
-Do not add these until the bike/race loop is stable: multiplayer, final motorcycle/rider art, advanced rider animation, traffic, item system, bandage visuals, personality/grudge simulation, map-specific hazards, police, weather, progression, final audio/VFX and polished UI.
+- Q/E: left/right side action
+- R: recover to latest safe checkpoint position
 
 ## Immediate next gate
-Pull the latest `dev/mvp-foundation`, compile `RoadsideIdiotsEditor`, then run a second Play-In-Editor test focused on:
-1. reverse behavior,
-2. steering responsiveness,
-3. staying inside barriers,
-4. manual recovery from a bad position,
-5. AI completing corners without permanent pile-ups.
+1. Close Unreal Editor.
+2. Pull the latest `dev/mvp-foundation`.
+3. Compile `RoadsideIdiotsEditor`.
+4. Launch Play-In-Editor with the locally imported assets present.
+5. Verify the real motorcycle and Manny appear.
+6. Send screenshots showing alignment/scale before tuning offsets.
+7. Test Q/E and R only after the presentation is visually aligned.
 
-Fix build/runtime or control problems before adding art or new features.
+Do not move to final art or deeper AI tuning until this visual-readability build is aligned and understandable.
 
 ## New-chat protocol
 1. Read this file.
