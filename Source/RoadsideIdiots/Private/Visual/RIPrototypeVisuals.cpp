@@ -16,13 +16,6 @@ namespace
     const FName MotorcycleComponentName(TEXT("PrototypeMotorcycleVisual"));
     const FName RiderComponentName(TEXT("PrototypeRiderVisual"));
 
-    struct FRIAnimationPair
-    {
-        TObjectPtr<UAnimSequence> Rider = nullptr;
-        TObjectPtr<UAnimSequence> Bike = nullptr;
-        bool bFreezeAtEnd = true;
-    };
-
     IAssetRegistry& GetRegistry()
     {
         FAssetRegistryModule& Module = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
@@ -78,31 +71,6 @@ namespace
         return nullptr;
     }
 
-    FRIAnimationPair FindNeutralRidingPair()
-    {
-        TArray<FAssetData> Assets;
-        GetAnimationAssets(Assets);
-
-        // This exact transition pair is present in the imported pack. Its final
-        // frame is the clean riding pose, so freezing there is much safer than
-        // looping a turn or transition animation and guessing from names.
-        FRIAnimationPair Pair;
-        Pair.Rider = FindAnimationByAssetName(Assets, TEXT("AS_Mounted_to_Ride"));
-        Pair.Bike = FindAnimationByAssetName(Assets, TEXT("AS_Mounted_to_Ride_Bike"));
-        Pair.bFreezeAtEnd = true;
-        if (Pair.Rider && Pair.Bike)
-        {
-            return Pair;
-        }
-
-        // Fallback: the first frame of the inverse transition should represent
-        // the same riding pose if the pack uses slightly different naming.
-        Pair.Rider = FindAnimationByAssetName(Assets, TEXT("AS_Ride_to_Mounted"));
-        Pair.Bike = FindAnimationByAssetName(Assets, TEXT("AS_Ride_to_Mounted_Bike"));
-        Pair.bFreezeAtEnd = false;
-        return Pair;
-    }
-
     UAnimSequence* FindBestActionAnimation(const FString& FolderMarker, const float Side)
     {
         TArray<FAssetData> Assets;
@@ -150,17 +118,7 @@ namespace
         return BestAnimation;
     }
 
-    void FreezeSequenceAtPose(USkeletalMeshComponent* Component, UAnimSequence* Sequence, bool bAtEnd)
-    {
-        if (!Component || !Sequence) return;
-
-        Component->PlayAnimation(Sequence, false);
-        const float PoseTime = bAtEnd ? FMath::Max(0.0f, Sequence->GetPlayLength() - 0.01f) : 0.0f;
-        Component->SetPosition(PoseTime, false);
-        Component->SetPlayRate(0.0f);
-    }
-
-    void ResumeRidingPair(ARIBikePawn* Bike)
+    void ApplyNeutralPose(ARIBikePawn* Bike)
     {
         if (!Bike) return;
 
@@ -168,17 +126,39 @@ namespace
         USkeletalMeshComponent* Motorcycle = FindVisualComponent(Bike, MotorcycleComponentName);
         if (!Rider || !Motorcycle) return;
 
-        const FRIAnimationPair Pair = FindNeutralRidingPair();
+        // Straight riding does not need a motorcycle turn/transition animation.
+        // Keeping SM_Bike in its skeletal reference pose removes the artificial
+        // lean introduced by using the end frame of Mounted_to_Ride_Bike.
+        Motorcycle->SetAnimation(nullptr);
+        Motorcycle->SetPosition(0.0f, false);
+        Motorcycle->SetPlayRate(0.0f);
+
+        TArray<FAssetData> Assets;
+        GetAnimationAssets(Assets);
+
+        // AS_Bike_Start is present in the imported free pack and is a rider-only
+        // sequence. Its final frame gives us a deterministic seated pose without
+        // also rotating the motorcycle underneath the physics chassis.
+        UAnimSequence* RiderPose = FindAnimationByAssetName(Assets, TEXT("AS_Bike_Start"));
+        if (!RiderPose)
+        {
+            RiderPose = FindAnimationByAssetName(Assets, TEXT("AS_Mounted_to_Ride"));
+        }
+
+        if (RiderPose)
+        {
+            Rider->PlayAnimation(RiderPose, false);
+            Rider->SetPosition(FMath::Max(0.0f, RiderPose->GetPlayLength() - 0.01f), false);
+            Rider->SetPlayRate(0.0f);
+        }
+
         UE_LOG(
             LogTemp,
             Display,
-            TEXT("RoadsideIdiots visuals: neutral rider=%s bike=%s pose=%s"),
-            Pair.Rider ? *Pair.Rider->GetName() : TEXT("NONE"),
-            Pair.Bike ? *Pair.Bike->GetName() : TEXT("NONE"),
-            Pair.bFreezeAtEnd ? TEXT("END") : TEXT("START"));
-
-        FreezeSequenceAtPose(Motorcycle, Pair.Bike, Pair.bFreezeAtEnd);
-        FreezeSequenceAtPose(Rider, Pair.Rider, Pair.bFreezeAtEnd);
+            TEXT("RoadsideIdiots visuals: neutral rider=%s bike=REFERENCE_POSE actorRoll=%.2f actorPitch=%.2f"),
+            RiderPose ? *RiderPose->GetName() : TEXT("NONE"),
+            Bike->GetActorRotation().Roll,
+            Bike->GetActorRotation().Pitch);
     }
 
     void ResumeLater(ARIBikePawn* Bike, UAnimSequence* Sequence)
@@ -194,7 +174,7 @@ namespace
             {
                 if (ARIBikePawn* ValidBike = WeakBike.Get())
                 {
-                    ResumeRidingPair(ValidBike);
+                    ApplyNeutralPose(ValidBike);
                 }
             }),
             Delay,
@@ -250,7 +230,7 @@ void RIPrototypeVisuals::Setup(ARIBikePawn* Bike)
         }
     }
 
-    ResumeRidingPair(Bike);
+    ApplyNeutralPose(Bike);
 }
 
 void RIPrototypeVisuals::PlaySideAction(ARIBikePawn* Bike, float Side)
