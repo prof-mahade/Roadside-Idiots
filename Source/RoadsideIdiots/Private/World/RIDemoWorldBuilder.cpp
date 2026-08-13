@@ -37,8 +37,11 @@ void ARIDemoWorldBuilder::BuildWorld(ARIRaceManager* InRaceManager, APlayerContr
 
     if (ADirectionalLight* Sun = GetWorld()->SpawnActor<ADirectionalLight>(FVector::ZeroVector, FRotator(-48.0f, -28.0f, 0.0f)))
     {
-        Sun->GetLightComponent()->SetIntensity(8.0f);
-        Sun->GetLightComponent()->SetAtmosphereSunLight(true);
+        if (UDirectionalLightComponent* SunComponent = Sun->GetComponent())
+        {
+            SunComponent->SetIntensity(8.0f);
+            SunComponent->SetAtmosphereSunLight(true);
+        }
     }
     if (ASkyLight* Sky = GetWorld()->SpawnActor<ASkyLight>())
     {
