@@ -157,7 +157,10 @@ void RIPrototypeVisuals::Setup(ARIBikePawn* Bike)
     Bike->GetComponents<UStaticMeshComponent>(GrayboxParts);
     for (UStaticMeshComponent* Part : GrayboxParts)
     {
-        if (Part) Part->SetVisibility(false, true);
+        // Hide only the primitive placeholder itself. Do not propagate visibility
+        // to children because the real motorcycle/rider are attached to the
+        // invisible physics chassis.
+        if (Part) Part->SetVisibility(false, false);
     }
 
     if (UAnimSequence* BikeRide = FindBestAnimation(TEXT("Riding"), 0.0f, true))
