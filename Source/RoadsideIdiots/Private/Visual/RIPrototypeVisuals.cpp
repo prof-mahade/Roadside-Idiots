@@ -9,6 +9,7 @@
 #include "Engine/SkeletalMesh.h"
 #include "Engine/World.h"
 #include "Modules/ModuleManager.h"
+#include "TimerManager.h"
 
 namespace
 {
@@ -96,6 +97,26 @@ namespace
             Rider->PlayAnimation(Ride, true);
         }
     }
+
+    void ResumeLater(ARIBikePawn* Bike, UAnimSequence* Sequence)
+    {
+        if (!Bike || !Bike->GetWorld()) return;
+
+        const float Delay = Sequence ? FMath::Clamp(Sequence->GetPlayLength(), 0.35f, 1.25f) : 0.65f;
+        const TWeakObjectPtr<ARIBikePawn> WeakBike(Bike);
+        FTimerHandle TimerHandle;
+        Bike->GetWorld()->GetTimerManager().SetTimer(
+            TimerHandle,
+            FTimerDelegate::CreateLambda([WeakBike]()
+            {
+                if (ARIBikePawn* ValidBike = WeakBike.Get())
+                {
+                    ResumeRiderLoop(ValidBike);
+                }
+            }),
+            Delay,
+            false);
+    }
 }
 
 void RIPrototypeVisuals::Setup(ARIBikePawn* Bike)
@@ -153,6 +174,7 @@ void RIPrototypeVisuals::PlaySideAction(ARIBikePawn* Bike, float Side)
     if (UAnimSequence* Sequence = FindBestAnimation(TEXT("Punch"), Side, false))
     {
         Rider->PlayAnimation(Sequence, false);
+        ResumeLater(Bike, Sequence);
     }
 }
 
@@ -163,5 +185,6 @@ void RIPrototypeVisuals::PlayReaction(ARIBikePawn* Bike, float Side)
     if (UAnimSequence* Sequence = FindBestAnimation(TEXT("Get_Hits"), Side, false))
     {
         Rider->PlayAnimation(Sequence, false);
+        ResumeLater(Bike, Sequence);
     }
 }
