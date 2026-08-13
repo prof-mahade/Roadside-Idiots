@@ -15,6 +15,7 @@ namespace
 {
     const FName MotorcycleComponentName(TEXT("PrototypeMotorcycleVisual"));
     const FName RiderComponentName(TEXT("PrototypeRiderVisual"));
+    constexpr float VisualYawOffsetDegrees = -90.0f;
 
     IAssetRegistry& GetRegistry()
     {
@@ -126,9 +127,6 @@ namespace
         USkeletalMeshComponent* Motorcycle = FindVisualComponent(Bike, MotorcycleComponentName);
         if (!Rider || !Motorcycle) return;
 
-        // Straight riding does not need a motorcycle turn/transition animation.
-        // Keeping SM_Bike in its skeletal reference pose removes the artificial
-        // lean introduced by using the end frame of Mounted_to_Ride_Bike.
         Motorcycle->SetAnimation(nullptr);
         Motorcycle->SetPosition(0.0f, false);
         Motorcycle->SetPlayRate(0.0f);
@@ -136,9 +134,6 @@ namespace
         TArray<FAssetData> Assets;
         GetAnimationAssets(Assets);
 
-        // AS_Bike_Start is present in the imported free pack and is a rider-only
-        // sequence. Its final frame gives us a deterministic seated pose without
-        // also rotating the motorcycle underneath the physics chassis.
         UAnimSequence* RiderPose = FindAnimationByAssetName(Assets, TEXT("AS_Bike_Start"));
         if (!RiderPose)
         {
@@ -151,14 +146,6 @@ namespace
             Rider->SetPosition(FMath::Max(0.0f, RiderPose->GetPlayLength() - 0.01f), false);
             Rider->SetPlayRate(0.0f);
         }
-
-        UE_LOG(
-            LogTemp,
-            Display,
-            TEXT("RoadsideIdiots visuals: neutral rider=%s bike=REFERENCE_POSE actorRoll=%.2f actorPitch=%.2f"),
-            RiderPose ? *RiderPose->GetName() : TEXT("NONE"),
-            Bike->GetActorRotation().Roll,
-            Bike->GetActorRotation().Pitch);
     }
 
     void ResumeLater(ARIBikePawn* Bike, UAnimSequence* Sequence)
@@ -199,7 +186,6 @@ void RIPrototypeVisuals::Setup(ARIBikePawn* Bike)
         Motorcycle->SetCollisionEnabled(ECollisionEnabled::NoCollision);
         Motorcycle->SetGenerateOverlapEvents(false);
         Motorcycle->SetRelativeLocation(FVector(0.0f, 0.0f, -28.0f));
-        Motorcycle->SetRelativeRotation(FRotator::ZeroRotator);
         Motorcycle->SetRelativeScale3D(FVector::OneVector);
         Motorcycle->RegisterComponent();
     }
@@ -214,7 +200,6 @@ void RIPrototypeVisuals::Setup(ARIBikePawn* Bike)
         Rider->SetCollisionEnabled(ECollisionEnabled::NoCollision);
         Rider->SetGenerateOverlapEvents(false);
         Rider->SetRelativeLocation(FVector(0.0f, 0.0f, -28.0f));
-        Rider->SetRelativeRotation(FRotator::ZeroRotator);
         Rider->SetRelativeScale3D(FVector::OneVector);
         Rider->RegisterComponent();
     }
@@ -231,6 +216,25 @@ void RIPrototypeVisuals::Setup(ARIBikePawn* Bike)
     }
 
     ApplyNeutralPose(Bike);
+    Update(Bike);
+}
+
+void RIPrototypeVisuals::Update(ARIBikePawn* Bike)
+{
+    if (!Bike) return;
+
+    USkeletalMeshComponent* Motorcycle = FindVisualComponent(Bike, MotorcycleComponentName);
+    USkeletalMeshComponent* Rider = FindVisualComponent(Bike, RiderComponentName);
+    if (!Motorcycle || !Rider) return;
+
+    const FRotator ActorRotation = Bike->GetActorRotation();
+    const bool bClearlyCrashed = Bike->GetActorUpVector().Z < 0.55f;
+    const FRotator VisualRotation = bClearlyCrashed
+        ? FRotator(ActorRotation.Pitch, ActorRotation.Yaw + VisualYawOffsetDegrees, ActorRotation.Roll)
+        : FRotator(0.0f, ActorRotation.Yaw + VisualYawOffsetDegrees, 0.0f);
+
+    Motorcycle->SetWorldRotation(VisualRotation);
+    Rider->SetWorldRotation(VisualRotation);
 }
 
 void RIPrototypeVisuals::PlaySideAction(ARIBikePawn* Bike, float Side)

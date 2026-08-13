@@ -79,11 +79,12 @@ ARIBikePawn::ARIBikePawn()
 
     CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
     CameraBoom->SetupAttachment(Chassis);
-    CameraBoom->TargetArmLength = 540.0f;
-    CameraBoom->SetRelativeLocation(FVector(0.0f, 0.0f, 145.0f));
-    CameraBoom->SetRelativeRotation(FRotator(-9.0f, 0.0f, 0.0f));
+    CameraBoom->TargetArmLength = 420.0f;
+    CameraBoom->SetRelativeLocation(FVector(0.0f, 0.0f, 130.0f));
+    CameraBoom->SetRelativeRotation(FRotator(-7.0f, 0.0f, 0.0f));
     CameraBoom->bEnableCameraLag = true;
     CameraBoom->CameraLagSpeed = 9.0f;
+    CameraBoom->bInheritPitch = false;
     CameraBoom->bInheritRoll = false;
 
     FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
@@ -205,6 +206,8 @@ void ARIBikePawn::HandleChassisHit(UPrimitiveComponent* HitComponent, AActor* Ot
 void ARIBikePawn::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
+
+    RIPrototypeVisuals::Update(this);
 
     const bool bTipped = GetActorUpVector().Z < 0.38f;
     const float HorizontalSpeed = Chassis->GetPhysicsLinearVelocity().Size2D();
