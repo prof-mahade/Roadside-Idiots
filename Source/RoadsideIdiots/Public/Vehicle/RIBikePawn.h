@@ -45,6 +45,9 @@ public:
     UFUNCTION(BlueprintPure, Category="Roadside Idiots|Bike")
     URIParticipantComponent* GetParticipantComponent() const { return Participant; }
 
+    UFUNCTION(BlueprintPure, Category="Roadside Idiots|Bike")
+    URIInteractionComponent* GetInteractionComponent() const { return Interaction; }
+
 private:
     void InputThrottle(float Value);
     void InputSteering(float Value);
