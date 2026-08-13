@@ -112,9 +112,6 @@ namespace
             if (Name.Contains(TEXT("Straight"), ESearchCase::IgnoreCase)) Score += 30;
             if (Name.Contains(TEXT("Forward"), ESearchCase::IgnoreCase)) Score += 15;
 
-            // A turn/transition animation is useful later, but it makes a terrible
-            // neutral pose and was the reason the first real-model test looked
-            // like every rider had already fallen over.
             if (Name.Contains(TEXT("Turn"), ESearchCase::IgnoreCase)) Score -= 100;
             if (Name.Contains(TEXT("Left"), ESearchCase::IgnoreCase)) Score -= 35;
             if (Name.Contains(TEXT("Right"), ESearchCase::IgnoreCase)) Score -= 35;
@@ -196,6 +193,13 @@ namespace
         if (!Rider || !Motorcycle) return;
 
         const FRIAnimationPair Pair = FindStraightRidingPair();
+        UE_LOG(
+            LogTemp,
+            Display,
+            TEXT("RoadsideIdiots visuals: rider=%s bike=%s"),
+            Pair.Rider ? *Pair.Rider->GetName() : TEXT("NONE"),
+            Pair.Bike ? *Pair.Bike->GetName() : TEXT("NONE"));
+
         if (Pair.Bike)
         {
             Motorcycle->PlayAnimation(Pair.Bike, true);
