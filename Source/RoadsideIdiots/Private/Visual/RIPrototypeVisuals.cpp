@@ -20,6 +20,7 @@ namespace
     {
         TObjectPtr<UAnimSequence> Rider = nullptr;
         TObjectPtr<UAnimSequence> Bike = nullptr;
+        bool bFreezeAtEnd = true;
     };
 
     IAssetRegistry& GetRegistry()
@@ -77,64 +78,29 @@ namespace
         return nullptr;
     }
 
-    FRIAnimationPair FindStraightRidingPair()
+    FRIAnimationPair FindNeutralRidingPair()
     {
         TArray<FAssetData> Assets;
         GetAnimationAssets(Assets);
 
-        FRIAnimationPair BestPair;
-        int32 BestScore = TNumericLimits<int32>::Lowest();
-
-        for (const FAssetData& Asset : Assets)
+        // This exact transition pair is present in the imported pack. Its final
+        // frame is the clean riding pose, so freezing there is much safer than
+        // looping a turn or transition animation and guessing from names.
+        FRIAnimationPair Pair;
+        Pair.Rider = FindAnimationByAssetName(Assets, TEXT("AS_Mounted_to_Ride"));
+        Pair.Bike = FindAnimationByAssetName(Assets, TEXT("AS_Mounted_to_Ride_Bike"));
+        Pair.bFreezeAtEnd = true;
+        if (Pair.Rider && Pair.Bike)
         {
-            const FString PackagePath = Asset.PackagePath.ToString();
-            if (!PackagePath.Contains(TEXT("Riding"), ESearchCase::IgnoreCase))
-            {
-                continue;
-            }
-
-            const FString Name = Asset.AssetName.ToString();
-            if (Name.Contains(TEXT("_Bike"), ESearchCase::IgnoreCase))
-            {
-                continue;
-            }
-
-            UAnimSequence* RiderSequence = Cast<UAnimSequence>(Asset.GetAsset());
-            if (!RiderSequence)
-            {
-                continue;
-            }
-
-            int32 Score = 0;
-            if (Name.Contains(TEXT("Ride"), ESearchCase::IgnoreCase)) Score += 40;
-            if (Name.Contains(TEXT("Loop"), ESearchCase::IgnoreCase)) Score += 35;
-            if (Name.Contains(TEXT("Idle"), ESearchCase::IgnoreCase)) Score += 20;
-            if (Name.Contains(TEXT("Straight"), ESearchCase::IgnoreCase)) Score += 30;
-            if (Name.Contains(TEXT("Forward"), ESearchCase::IgnoreCase)) Score += 15;
-
-            if (Name.Contains(TEXT("Turn"), ESearchCase::IgnoreCase)) Score -= 100;
-            if (Name.Contains(TEXT("Left"), ESearchCase::IgnoreCase)) Score -= 35;
-            if (Name.Contains(TEXT("Right"), ESearchCase::IgnoreCase)) Score -= 35;
-            if (Name.Contains(TEXT("Start"), ESearchCase::IgnoreCase)) Score -= 70;
-            if (Name.Contains(TEXT("Stop"), ESearchCase::IgnoreCase)) Score -= 70;
-            if (Name.Contains(TEXT("Mount"), ESearchCase::IgnoreCase)) Score -= 90;
-            if (Name.Contains(TEXT("Dismount"), ESearchCase::IgnoreCase)) Score -= 90;
-
-            UAnimSequence* BikeSequence = FindAnimationByAssetName(Assets, Name + TEXT("_Bike"));
-            if (BikeSequence)
-            {
-                Score += 80;
-            }
-
-            if (Score > BestScore)
-            {
-                BestScore = Score;
-                BestPair.Rider = RiderSequence;
-                BestPair.Bike = BikeSequence;
-            }
+            return Pair;
         }
 
-        return BestPair;
+        // Fallback: the first frame of the inverse transition should represent
+        // the same riding pose if the pack uses slightly different naming.
+        Pair.Rider = FindAnimationByAssetName(Assets, TEXT("AS_Ride_to_Mounted"));
+        Pair.Bike = FindAnimationByAssetName(Assets, TEXT("AS_Ride_to_Mounted_Bike"));
+        Pair.bFreezeAtEnd = false;
+        return Pair;
     }
 
     UAnimSequence* FindBestActionAnimation(const FString& FolderMarker, const float Side)
@@ -184,6 +150,16 @@ namespace
         return BestAnimation;
     }
 
+    void FreezeSequenceAtPose(USkeletalMeshComponent* Component, UAnimSequence* Sequence, bool bAtEnd)
+    {
+        if (!Component || !Sequence) return;
+
+        Component->PlayAnimation(Sequence, false);
+        const float PoseTime = bAtEnd ? FMath::Max(0.0f, Sequence->GetPlayLength() - 0.01f) : 0.0f;
+        Component->SetPosition(PoseTime, false);
+        Component->SetPlayRate(0.0f);
+    }
+
     void ResumeRidingPair(ARIBikePawn* Bike)
     {
         if (!Bike) return;
@@ -192,22 +168,17 @@ namespace
         USkeletalMeshComponent* Motorcycle = FindVisualComponent(Bike, MotorcycleComponentName);
         if (!Rider || !Motorcycle) return;
 
-        const FRIAnimationPair Pair = FindStraightRidingPair();
+        const FRIAnimationPair Pair = FindNeutralRidingPair();
         UE_LOG(
             LogTemp,
             Display,
-            TEXT("RoadsideIdiots visuals: rider=%s bike=%s"),
+            TEXT("RoadsideIdiots visuals: neutral rider=%s bike=%s pose=%s"),
             Pair.Rider ? *Pair.Rider->GetName() : TEXT("NONE"),
-            Pair.Bike ? *Pair.Bike->GetName() : TEXT("NONE"));
+            Pair.Bike ? *Pair.Bike->GetName() : TEXT("NONE"),
+            Pair.bFreezeAtEnd ? TEXT("END") : TEXT("START"));
 
-        if (Pair.Bike)
-        {
-            Motorcycle->PlayAnimation(Pair.Bike, true);
-        }
-        if (Pair.Rider)
-        {
-            Rider->PlayAnimation(Pair.Rider, true);
-        }
+        FreezeSequenceAtPose(Motorcycle, Pair.Bike, Pair.bFreezeAtEnd);
+        FreezeSequenceAtPose(Rider, Pair.Rider, Pair.bFreezeAtEnd);
     }
 
     void ResumeLater(ARIBikePawn* Bike, UAnimSequence* Sequence)
@@ -289,6 +260,7 @@ void RIPrototypeVisuals::PlaySideAction(ARIBikePawn* Bike, float Side)
 
     if (UAnimSequence* Sequence = FindBestActionAnimation(TEXT("Punch"), Side))
     {
+        Rider->SetPlayRate(1.0f);
         Rider->PlayAnimation(Sequence, false);
         ResumeLater(Bike, Sequence);
     }
@@ -301,6 +273,7 @@ void RIPrototypeVisuals::PlayReaction(ARIBikePawn* Bike, float Side)
 
     if (UAnimSequence* Sequence = FindBestActionAnimation(TEXT("Get_Hits"), Side))
     {
+        Rider->SetPlayRate(1.0f);
         Rider->PlayAnimation(Sequence, false);
         ResumeLater(Bike, Sequence);
     }
