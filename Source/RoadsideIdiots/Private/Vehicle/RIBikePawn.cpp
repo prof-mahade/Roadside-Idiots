@@ -3,6 +3,7 @@
 #include "Core/RIHealthComponent.h"
 #include "Core/RIParticipantComponent.h"
 #include "Interaction/RIInteractionComponent.h"
+#include "Visual/RIPrototypeVisuals.h"
 #include "Camera/CameraComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "GameFramework/SpringArmComponent.h"
@@ -102,6 +103,7 @@ void ARIBikePawn::BeginPlay()
     {
         SetRecoveryTransform(GetActorTransform());
     }
+    RIPrototypeVisuals::Setup(this);
 }
 
 void ARIBikePawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
