@@ -1,6 +1,7 @@
 #include "AI/RIAIController.h"
 #include "Vehicle/RIBikePawn.h"
 #include "Vehicle/RIBikeMovementComponent.h"
+#include "Interaction/RIInteractionComponent.h"
 
 ARIAIController::ARIAIController()
 {
@@ -71,10 +72,24 @@ void ARIAIController::Tick(float DeltaSeconds)
     const bool bFollowingRival = GrudgeTimeRemaining > 0.0f && GrudgeTarget.IsValid();
     if (bFollowingRival)
     {
-        const FVector RivalLocation = GrudgeTarget->GetActorLocation();
-        if (FVector::DistSquared2D(BikeLocation, RivalLocation) < FMath::Square(2200.0f))
+        ARIBikePawn* RivalBike = GrudgeTarget.Get();
+        const FVector RivalLocation = RivalBike->GetActorLocation();
+        const float RivalDistanceSq = FVector::DistSquared2D(BikeLocation, RivalLocation);
+
+        if (RivalDistanceSq < FMath::Square(2200.0f))
         {
-            TargetPoint = RivalLocation + GrudgeTarget->GetActorForwardVector() * 70.0f;
+            TargetPoint = RivalLocation + RivalBike->GetActorForwardVector() * 70.0f;
+        }
+
+        if (RivalDistanceSq < FMath::Square(AttackRange))
+        {
+            FVector ToRival = RivalLocation - BikeLocation;
+            ToRival.Z = 0.0f;
+            const float RivalSide = FVector::DotProduct(ToRival.GetSafeNormal(), Bike->GetActorRightVector());
+            if (URIInteractionComponent* Interaction = Bike->GetInteractionComponent())
+            {
+                Interaction->TrySideInteraction(RivalSide < 0.0f ? -1.0f : 1.0f);
+            }
         }
     }
 
