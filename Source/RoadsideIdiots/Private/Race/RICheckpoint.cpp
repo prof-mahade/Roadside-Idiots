@@ -28,15 +28,26 @@ void ARICheckpoint::HandleOverlap(UPrimitiveComponent* OverlappedComponent, AAct
 {
     if (!RaceManager || !OtherActor) return;
 
+    bool bAcceptedCheckpoint = false;
     if (URIParticipantComponent* Participant = OtherActor->FindComponentByClass<URIParticipantComponent>())
     {
-        RaceManager->ReportCheckpoint(Participant->GetParticipantId(), CheckpointIndex);
+        bAcceptedCheckpoint = RaceManager->ReportCheckpoint(Participant->GetParticipantId(), CheckpointIndex);
     }
 
-    if (ARIBikePawn* Bike = Cast<ARIBikePawn>(OtherActor))
+    if (bAcceptedCheckpoint)
     {
-        FVector SafeLocation = Bike->GetActorLocation();
-        SafeLocation.Z = 28.0f;
-        Bike->SetRecoveryTransform(FTransform(GetActorRotation(), SafeLocation));
+        if (ARIBikePawn* Bike = Cast<ARIBikePawn>(OtherActor))
+        {
+            FVector Forward = GetActorForwardVector().GetSafeNormal2D();
+            if (Forward.IsNearlyZero())
+            {
+                Forward = FVector::ForwardVector;
+            }
+
+            FVector SafeLocation = GetActorLocation() + Forward * 360.0f;
+            SafeLocation.Z = 28.0f;
+            const FRotator SafeRotation(0.0f, Forward.Rotation().Yaw, 0.0f);
+            Bike->SetRecoveryTransform(FTransform(SafeRotation, SafeLocation));
+        }
     }
 }
