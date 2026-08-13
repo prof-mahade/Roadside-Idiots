@@ -1,60 +1,64 @@
 # Roadside Idiots — Chat Handoff
 
-This file is the fastest way for a new ChatGPT session to understand the project.
+Read this first in a new development chat, then inspect the current branch and code before making changes.
 
 ## Project
-Roadside Idiots is a Windows PC motorcycle racing/combat game. The visual world should look believable and close to realistic, while riders behave in petty, emotional, funny, irrational ways.
-
-Core identity: **realistic-looking roads, ridiculous people.**
+Roadside Idiots is a Windows PC motorcycle racing game with believable road motion and deliberately funny, petty rider behavior. Long term it is primarily multiplayer; development begins with a solo prototype.
 
 Working tagline: **The road is dangerous. The riders are worse.**
 
-## Current priority
-Build a small SOLO playable MVP first. Do not expand the feature set until the core loop works and feels fun.
+## Canonical priority
+Get a small playable SOLO MVP running before adding content or polish.
 
-Core MVP loop:
-`Start race -> ride -> race AI -> attack/get attacked -> crash/recover -> finish -> restart`
+Core loop:
+`start race -> ride -> race bots -> side interaction -> wobble/crash -> recover -> checkpoints -> finish`
 
-## MVP scope
-- 1 compact race route
-- 1 motorcycle type
-- player rider
-- 3-4 AI riders
-- basic civilian traffic
-- throttle, brake, steering, assisted lean/balance
-- basic slap/punch and left/right kick
-- health/damage
-- crash detection and rider ragdoll
-- recovery/reset
-- checkpoints, race progress, finish
-- basic HUD
-- simple AI retaliation/aggression
-- basic hit/crash audio and funny reactions
+## Current branch
+`dev/mvp-foundation`
 
-## Not in MVP
-Do not implement yet: online multiplayer, open world, progression, shops, many bikes, many weapons, police, advanced injury/bandage visuals, banana/rotten egg/poop hazards, weather, advanced personality/grudge network, replay tools, story campaign.
+## Current implementation
+The repository now contains an Unreal Engine 5.8 C++ project foundation.
 
-These are future backlog items only.
+Implemented in source:
+- `ARIGameMode` starts the prototype
+- `ARIDemoWorldBuilder` creates a graybox oval road at runtime from engine primitive meshes
+- `ARIBikePawn` is a placeholder physics bike with a placeholder rider shape and chase camera
+- `URIBikeMovementComponent` provides throttle, braking, steering, assisted balance and lean
+- `ARIAIController` drives the same bike class around route points
+- one player and three bot racers are spawned automatically
+- `URIParticipantComponent` gives each racer a stable match identity
+- `URIHealthComponent` stores a simple condition value
+- `URIInteractionComponent` provides left/right side interactions
+- `ARICheckpoint` and `ARIRaceManager` provide ordered checkpoints, finish state and basic placement
+- `ARIDebugHUD` displays speed, condition, progress, place and controls
+- automatic recovery after a low-speed tip plus manual recovery on R
+- source control ignores generated Unreal folders and prepares Git LFS patterns for future binary assets
 
-## Architecture rules
-1. Gameplay logic and presentation are separate.
-2. Single-player first, but core state should remain multiplayer-aware.
-3. Bike and rider are separate concepts.
-4. AI intent is separate from AI driving/control.
-5. Prefer event-driven systems and stable Participant IDs.
-6. Prefer data-driven tuning over hard-coded values.
-7. Avoid giant Blueprint classes and Blueprint spaghetti.
-8. Build debug visibility early.
-9. Repository documentation is canonical project memory.
+No external art assets are required for this first run.
 
-## Future design ideas already discussed
-Later versions may include NPC grudges, ego/fear/revenge, visible bandages, banana healing + peel hazards, rotten egg visual/disgust effects, rural cow-dung hazards, urban dog-poop hazards, map-dependent comedy, NPC-to-NPC conflicts, and a comedy pacing director. These are intentionally deferred.
+## Current controls
+- W: throttle
+- S: brake
+- A/D: steer
+- Q/E: left/right side interaction
+- R: recover upright
 
-## Hardware planning
-Development machine: RTX 3060 with 12 GB dedicated VRAM, 16 GB system RAM, NVMe SSD plus HDD. Keep the active Unreal project on NVMe. Keep first map and traffic/AI counts modest. No hardware purchase is required to start.
+## Important architecture rules
+1. Gameplay logic and presentation stay separate.
+2. Single-player first, but stable state must remain multiplayer-aware.
+3. AI driving is separate from future AI personality/strategy.
+4. Participant identity must not depend on a specific bike instance.
+5. Prefer small reusable components over giant Blueprints.
+6. Repository state is the project memory; update this file after milestones.
 
-## Next engineering task
-Create the Unreal Engine project foundation, source-control rules, folder/class structure, then get one controllable motorcycle working before adding other systems.
+## Deferred ideas
+Do not add these until the first local build runs and the bike/race loop is tested: multiplayer, final motorcycle/rider art, advanced rider animation, traffic, item system, bandage visuals, personality/grudge simulation, map-specific hazards, police, weather, progression, final audio/VFX and polished UI.
+
+## Immediate next gate
+The code has not yet been compiled on the development PC because Unreal Engine is not available inside ChatGPT's environment. The next required step is a local Unreal 5.8 compile/open test. Fix compiler/runtime issues first; do not add features before that passes.
 
 ## New-chat protocol
-A new chat should inspect this repository first, read this file, then inspect current code/commits before giving implementation advice. Repository state overrides old chat history.
+1. Read this file.
+2. Inspect `dev/mvp-foundation` and recent commits.
+3. Treat GitHub as more current than old chat text.
+4. Continue from the immediate next gate above.
