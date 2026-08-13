@@ -98,6 +98,10 @@ void ARIBikePawn::BeginPlay()
 {
     Super::BeginPlay();
     Chassis->OnComponentHit.AddDynamic(this, &ARIBikePawn::HandleChassisHit);
+    if (!bHasRecoveryTransform)
+    {
+        SetRecoveryTransform(GetActorTransform());
+    }
 }
 
 void ARIBikePawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -114,7 +118,8 @@ void ARIBikePawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponen
 
 void ARIBikePawn::InputThrottle(float Value)
 {
-    BikeMovement->SetThrottleInput(Value);
+    PlayerThrottleInput = FMath::Clamp(Value, 0.0f, 1.0f);
+    UpdatePlayerDriveInputs();
 }
 
 void ARIBikePawn::InputSteering(float Value)
@@ -124,7 +129,32 @@ void ARIBikePawn::InputSteering(float Value)
 
 void ARIBikePawn::InputBrake(float Value)
 {
-    BikeMovement->SetBrakeInput(Value);
+    PlayerBrakeInput = FMath::Clamp(Value, 0.0f, 1.0f);
+    UpdatePlayerDriveInputs();
+}
+
+void ARIBikePawn::UpdatePlayerDriveInputs()
+{
+    if (!BikeMovement) return;
+
+    if (PlayerBrakeInput > KINDA_SMALL_NUMBER)
+    {
+        if (BikeMovement->GetForwardSpeedKph() > 4.0f)
+        {
+            BikeMovement->SetThrottleInput(0.0f);
+            BikeMovement->SetBrakeInput(PlayerBrakeInput);
+        }
+        else
+        {
+            BikeMovement->SetBrakeInput(0.0f);
+            BikeMovement->SetThrottleInput(-PlayerBrakeInput);
+        }
+    }
+    else
+    {
+        BikeMovement->SetBrakeInput(0.0f);
+        BikeMovement->SetThrottleInput(PlayerThrottleInput);
+    }
 }
 
 void ARIBikePawn::SetControlInputs(float Throttle, float Steering, float Brake)
@@ -144,18 +174,22 @@ void ARIBikePawn::InteractRight()
     Interaction->TrySideInteraction(1.0f);
 }
 
+void ARIBikePawn::SetRecoveryTransform(const FTransform& InTransform)
+{
+    RecoveryTransform = InTransform;
+    FRotator SafeRotation = RecoveryTransform.Rotator();
+    SafeRotation.Pitch = 0.0f;
+    SafeRotation.Roll = 0.0f;
+    RecoveryTransform.SetRotation(SafeRotation.Quaternion());
+    bHasRecoveryTransform = true;
+}
+
 void ARIBikePawn::HandleChassisHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
-    if (!HasAuthority() || !GetWorld())
-    {
-        return;
-    }
+    if (!HasAuthority() || !GetWorld()) return;
 
     const double Now = GetWorld()->GetTimeSeconds();
-    if (Now - LastImpactTime < 0.45)
-    {
-        return;
-    }
+    if (Now - LastImpactTime < 0.45) return;
 
     const float ImpulseSize = NormalImpulse.Size();
     if (ImpulseSize > 18000.0f)
@@ -191,7 +225,7 @@ void ARIBikePawn::Tick(float DeltaSeconds)
         TippedStillTime += DeltaSeconds;
         if (TippedStillTime > 2.4f)
         {
-            RecoverBike();
+            RecoverUprightHere();
         }
     }
     else
@@ -200,18 +234,37 @@ void ARIBikePawn::Tick(float DeltaSeconds)
     }
 }
 
-void ARIBikePawn::RecoverBike()
+void ARIBikePawn::RecoverUprightHere()
 {
-    if (!Chassis)
-    {
-        return;
-    }
+    if (!Chassis) return;
 
-    const FVector Location = GetActorLocation() + FVector::UpVector * 105.0f;
+    const FVector Location = GetActorLocation() + FVector::UpVector * 70.0f;
     const float Yaw = GetActorRotation().Yaw;
     Chassis->SetPhysicsLinearVelocity(FVector::ZeroVector);
     Chassis->SetPhysicsAngularVelocityInRadians(FVector::ZeroVector);
     SetActorLocationAndRotation(Location, FRotator(0.0f, Yaw, 0.0f), false, nullptr, ETeleportType::TeleportPhysics);
+    TippedStillTime = 0.0f;
+    bCrashLatched = false;
+}
+
+void ARIBikePawn::RecoverBike()
+{
+    if (!Chassis) return;
+
+    FTransform TargetTransform = bHasRecoveryTransform ? RecoveryTransform : GetActorTransform();
+    FVector Location = TargetTransform.GetLocation();
+    Location.Z = FMath::Max(Location.Z, 28.0f);
+    const float Yaw = TargetTransform.Rotator().Yaw;
+
+    Chassis->SetPhysicsLinearVelocity(FVector::ZeroVector);
+    Chassis->SetPhysicsAngularVelocityInRadians(FVector::ZeroVector);
+    SetActorLocationAndRotation(Location, FRotator(0.0f, Yaw, 0.0f), false, nullptr, ETeleportType::TeleportPhysics);
+
+    PlayerThrottleInput = 0.0f;
+    PlayerBrakeInput = 0.0f;
+    BikeMovement->SetThrottleInput(0.0f);
+    BikeMovement->SetBrakeInput(0.0f);
+    BikeMovement->SetSteeringInput(0.0f);
     TippedStillTime = 0.0f;
     bCrashLatched = false;
 }

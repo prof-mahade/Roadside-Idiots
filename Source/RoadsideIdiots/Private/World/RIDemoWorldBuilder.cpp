@@ -5,10 +5,10 @@
 #include "Core/RIParticipantComponent.h"
 #include "AI/RIAIController.h"
 #include "Components/StaticMeshComponent.h"
-#include "Components/SkyAtmosphereComponent.h"
 #include "Engine/StaticMeshActor.h"
 #include "Engine/DirectionalLight.h"
 #include "Engine/SkyLight.h"
+#include "Components/SkyAtmosphereComponent.h"
 #include "Components/DirectionalLightComponent.h"
 #include "Components/SkyLightComponent.h"
 #include "GameFramework/PlayerController.h"
@@ -37,8 +37,8 @@ void ARIDemoWorldBuilder::BuildWorld(ARIRaceManager* InRaceManager, APlayerContr
 
     if (ADirectionalLight* Sun = GetWorld()->SpawnActor<ADirectionalLight>(FVector::ZeroVector, FRotator(-48.0f, -28.0f, 0.0f)))
     {
-        Sun->GetComponent()->SetIntensity(8.0f);
-        Sun->GetComponent()->SetAtmosphereSunLight(true);
+        Sun->GetLightComponent()->SetIntensity(8.0f);
+        Sun->GetLightComponent()->SetAtmosphereSunLight(true);
     }
     if (ASkyLight* Sky = GetWorld()->SpawnActor<ASkyLight>())
     {
@@ -88,6 +88,9 @@ void ARIDemoWorldBuilder::BuildTrackGeometry()
     const int32 Count = RoutePoints.Num();
     if (Count < 3) return;
 
+    constexpr float RoadSegmentPadding = 120.0f;
+    constexpr float BarrierSegmentPadding = 240.0f;
+
     for (int32 Index = 0; Index < Count; ++Index)
     {
         const FVector A = RoutePoints[Index];
@@ -102,13 +105,24 @@ void ARIDemoWorldBuilder::BuildTrackGeometry()
         const FVector Center = (A + B) * 0.5f;
         const FRotator Rotation = Forward.Rotation();
 
-        SpawnBox(FVector(Center.X, Center.Y, -10.0f), Rotation, FVector(Length / 100.0f, RoadWidth / 100.0f, 0.20f));
+        SpawnBox(
+            FVector(Center.X, Center.Y, -10.0f),
+            Rotation,
+            FVector((Length + RoadSegmentPadding) / 100.0f, RoadWidth / 100.0f, 0.20f));
 
-        const float BarrierOffset = RoadWidth * 0.5f + 45.0f;
+        const float BarrierOffset = RoadWidth * 0.5f + 28.0f;
         const FVector LeftBarrier = Center - Right * BarrierOffset;
         const FVector RightBarrier = Center + Right * BarrierOffset;
-        SpawnBox(FVector(LeftBarrier.X, LeftBarrier.Y, 30.0f), Rotation, FVector(Length / 100.0f, 0.28f, 0.65f));
-        SpawnBox(FVector(RightBarrier.X, RightBarrier.Y, 30.0f), Rotation, FVector(Length / 100.0f, 0.28f, 0.65f));
+
+        SpawnBox(
+            FVector(LeftBarrier.X, LeftBarrier.Y, 75.0f),
+            Rotation,
+            FVector((Length + BarrierSegmentPadding) / 100.0f, 0.65f, 1.50f));
+
+        SpawnBox(
+            FVector(RightBarrier.X, RightBarrier.Y, 75.0f),
+            Rotation,
+            FVector((Length + BarrierSegmentPadding) / 100.0f, 0.65f, 1.50f));
     }
 }
 
@@ -147,9 +161,12 @@ void ARIDemoWorldBuilder::SpawnRacers(ARIRaceManager* RaceManager, APlayerContro
     for (int32 RacerIndex = 0; RacerIndex < 4; ++RacerIndex)
     {
         FVector Location = StartBase - Forward * (RacerIndex * 260.0f) + Right * LaneOffsets[RacerIndex];
-        Location.Z = 22.0f;
+        Location.Z = 28.0f;
+
         ARIBikePawn* Bike = GetWorld()->SpawnActor<ARIBikePawn>(Location, StartRotation);
         if (!Bike) continue;
+
+        Bike->SetRecoveryTransform(FTransform(StartRotation, Location));
 
         const bool bHuman = RacerIndex == 0;
         const FName ParticipantId = bHuman ? FName(TEXT("PLAYER")) : FName(*FString::Printf(TEXT("BOT_%02d"), RacerIndex));
