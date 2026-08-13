@@ -1,6 +1,7 @@
 #include "Interaction/RIInteractionComponent.h"
 #include "Vehicle/RIBikePawn.h"
 #include "Core/RIHealthComponent.h"
+#include "AI/RIAIController.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
 
@@ -65,6 +66,12 @@ bool URIInteractionComponent::TrySideInteraction(float Side)
         {
             OtherHealth->ApplyImpact(ImpactCost);
         }
+
+        if (ARIAIController* RivalController = Cast<ARIAIController>(OtherBike->GetController()))
+        {
+            RivalController->NotifyProvokedBy(OwnerBike);
+        }
+
         return true;
     }
 
