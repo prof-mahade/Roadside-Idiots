@@ -8,6 +8,7 @@
 #include "Engine/StaticMeshActor.h"
 #include "Engine/DirectionalLight.h"
 #include "Engine/SkyLight.h"
+#include "Engine/SkyAtmosphere.h"
 #include "Components/DirectionalLightComponent.h"
 #include "Components/SkyLightComponent.h"
 #include "GameFramework/PlayerController.h"
@@ -32,14 +33,17 @@ void ARIDemoWorldBuilder::BuildWorld(ARIRaceManager* InRaceManager, APlayerContr
     BuildCheckpoints(InRaceManager);
     SpawnRacers(InRaceManager, PlayerController);
 
+    GetWorld()->SpawnActor<ASkyAtmosphere>();
+
     if (ADirectionalLight* Sun = GetWorld()->SpawnActor<ADirectionalLight>(FVector::ZeroVector, FRotator(-48.0f, -28.0f, 0.0f)))
     {
         Sun->GetLightComponent()->SetIntensity(8.0f);
+        Sun->GetLightComponent()->SetAtmosphereSunLight(true);
     }
     if (ASkyLight* Sky = GetWorld()->SpawnActor<ASkyLight>())
     {
         Sky->GetLightComponent()->SetIntensity(1.2f);
-        Sky->GetLightComponent()->SetRealTimeCapture(true);
+        Sky->GetLightComponent()->SetRealTimeCapture(false);
     }
 }
 
@@ -142,7 +146,8 @@ void ARIDemoWorldBuilder::SpawnRacers(ARIRaceManager* RaceManager, APlayerContro
 
     for (int32 RacerIndex = 0; RacerIndex < 4; ++RacerIndex)
     {
-        const FVector Location = StartBase - Forward * (RacerIndex * 260.0f) + Right * LaneOffsets[RacerIndex] + FVector::UpVector * 105.0f;
+        FVector Location = StartBase - Forward * (RacerIndex * 260.0f) + Right * LaneOffsets[RacerIndex];
+        Location.Z = 22.0f;
         ARIBikePawn* Bike = GetWorld()->SpawnActor<ARIBikePawn>(Location, StartRotation);
         if (!Bike) continue;
 
