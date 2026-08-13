@@ -66,7 +66,17 @@ void ARIAIController::Tick(float DeltaSeconds)
     const int32 NextIndex = (TargetIndex + 1) % Count;
     const FVector Tangent = (RoutePoints[NextIndex] - RoutePoints[PrevIndex]).GetSafeNormal2D();
     const FVector Right = FVector::CrossProduct(FVector::UpVector, Tangent).GetSafeNormal();
-    const FVector TargetPoint = RoutePoints[TargetIndex] + Right * LaneOffset;
+    FVector TargetPoint = RoutePoints[TargetIndex] + Right * LaneOffset;
+
+    const bool bFollowingRival = GrudgeTimeRemaining > 0.0f && GrudgeTarget.IsValid();
+    if (bFollowingRival)
+    {
+        const FVector RivalLocation = GrudgeTarget->GetActorLocation();
+        if (FVector::DistSquared2D(BikeLocation, RivalLocation) < FMath::Square(2200.0f))
+        {
+            TargetPoint = RivalLocation + GrudgeTarget->GetActorForwardVector() * 70.0f;
+        }
+    }
 
     FVector ToTarget = TargetPoint - BikeLocation;
     ToTarget.Z = 0.0f;
@@ -99,14 +109,14 @@ void ARIAIController::Tick(float DeltaSeconds)
     const float AbsAngle = FMath::Abs(Angle);
     const float Steering = FMath::Clamp(Angle / 0.55f, -1.0f, 1.0f);
 
-    float DesiredSpeed = FMath::Min(TargetSpeedKph, 108.0f);
+    float DesiredSpeed = bFollowingRival ? GrudgeCatchupSpeedKph : FMath::Min(TargetSpeedKph, 108.0f);
     if (AbsAngle > 0.70f)
     {
-        DesiredSpeed = 58.0f;
+        DesiredSpeed = FMath::Min(DesiredSpeed, 62.0f);
     }
     else if (AbsAngle > 0.35f)
     {
-        DesiredSpeed = 82.0f;
+        DesiredSpeed = FMath::Min(DesiredSpeed, 86.0f);
     }
 
     const float Brake = SpeedKph > DesiredSpeed + 6.0f ? 0.65f : 0.0f;
