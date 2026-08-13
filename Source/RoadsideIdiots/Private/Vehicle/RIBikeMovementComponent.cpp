@@ -21,11 +21,7 @@ UPrimitiveComponent* URIBikeMovementComponent::GetPhysicsBody() const
 float URIBikeMovementComponent::GetForwardSpeedKph() const
 {
     const UPrimitiveComponent* Body = GetPhysicsBody();
-    if (!Body || !GetOwner())
-    {
-        return 0.0f;
-    }
-
+    if (!Body || !GetOwner()) return 0.0f;
     const float ForwardSpeedCms = FVector::DotProduct(Body->GetPhysicsLinearVelocity(), GetOwner()->GetActorForwardVector());
     return ForwardSpeedCms * 0.036f;
 }
@@ -33,11 +29,7 @@ float URIBikeMovementComponent::GetForwardSpeedKph() const
 void URIBikeMovementComponent::UpdateGroundedState()
 {
     bGrounded = false;
-    if (!GetWorld() || !GetOwner())
-    {
-        return;
-    }
-
+    if (!GetWorld() || !GetOwner()) return;
     const FVector Start = GetOwner()->GetActorLocation();
     const FVector End = Start - FVector::UpVector * GroundTraceLength;
     FHitResult Hit;
@@ -47,25 +39,22 @@ void URIBikeMovementComponent::UpdateGroundedState()
 
 void URIBikeMovementComponent::ApplyDrive(float DeltaTime, UPrimitiveComponent* Body)
 {
-    if (!Body || !GetOwner())
-    {
-        return;
-    }
+    if (!Body || !GetOwner()) return;
 
     const FVector Forward = GetOwner()->GetActorForwardVector().GetSafeNormal2D();
     const FVector Velocity = Body->GetPhysicsLinearVelocity();
     const FVector HorizontalVelocity(Velocity.X, Velocity.Y, 0.0f);
     const float MaxSpeedCms = MaxSpeedKph / 0.036f;
+    const float MaxReverseCms = MaxReverseSpeedKph / 0.036f;
     const float ForwardSpeed = FVector::DotProduct(HorizontalVelocity, Forward);
 
-    if (bGrounded && FMath::Abs(ThrottleInput) > KINDA_SMALL_NUMBER)
+    if (bGrounded && ThrottleInput > KINDA_SMALL_NUMBER && ForwardSpeed < MaxSpeedCms)
     {
-        const bool bBelowLimit = FMath::Abs(ForwardSpeed) < MaxSpeedCms;
-        const bool bTryingToSlow = ForwardSpeed * ThrottleInput < 0.0f;
-        if (bBelowLimit || bTryingToSlow)
-        {
-            Body->AddForce(Forward * (ThrottleInput * DriveAcceleration), NAME_None, true);
-        }
+        Body->AddForce(Forward * (ThrottleInput * DriveAcceleration), NAME_None, true);
+    }
+    else if (bGrounded && ThrottleInput < -KINDA_SMALL_NUMBER && ForwardSpeed > -MaxReverseCms)
+    {
+        Body->AddForce(Forward * (ThrottleInput * ReverseAcceleration), NAME_None, true);
     }
 
     if (bGrounded && BrakeInput > KINDA_SMALL_NUMBER && !HorizontalVelocity.IsNearlyZero())
@@ -79,7 +68,7 @@ void URIBikeMovementComponent::ApplyDrive(float DeltaTime, UPrimitiveComponent* 
     }
 
     const float HorizontalSpeed = HorizontalVelocity.Size();
-    if (HorizontalSpeed > MaxSpeedCms)
+    if (HorizontalSpeed > MaxSpeedCms && ForwardSpeed > 0.0f)
     {
         const FVector LimitedHorizontal = HorizontalVelocity.GetSafeNormal() * MaxSpeedCms;
         Body->SetPhysicsLinearVelocity(FVector(LimitedHorizontal.X, LimitedHorizontal.Y, Velocity.Z));
@@ -88,41 +77,41 @@ void URIBikeMovementComponent::ApplyDrive(float DeltaTime, UPrimitiveComponent* 
 
 void URIBikeMovementComponent::ApplySteeringAndBalance(float DeltaTime, UPrimitiveComponent* Body)
 {
-    if (!Body || !GetOwner())
-    {
-        return;
-    }
+    if (!Body || !GetOwner()) return;
 
     const FVector Forward = GetOwner()->GetActorForwardVector().GetSafeNormal();
+    const FVector Right = GetOwner()->GetActorRightVector().GetSafeNormal2D();
     const FVector CurrentUp = GetOwner()->GetActorUpVector().GetSafeNormal();
     const float SpeedAlpha = FMath::Clamp(FMath::Abs(GetForwardSpeedKph()) / 70.0f, 0.0f, 1.0f);
     const float TargetLean = -SteeringInput * MaxLeanDegrees * SpeedAlpha;
     const FQuat LeanRotation(Forward, FMath::DegreesToRadians(TargetLean));
     const FVector DesiredUp = LeanRotation.RotateVector(FVector::UpVector).GetSafeNormal();
 
-    FVector AngularVelocity = Body->GetPhysicsAngularVelocityInRadians();
+    const FVector AngularVelocity = Body->GetPhysicsAngularVelocityInRadians();
     const FVector TiltAngularVelocity = AngularVelocity - CurrentUp * FVector::DotProduct(AngularVelocity, CurrentUp);
     const FVector BalanceError = FVector::CrossProduct(CurrentUp, DesiredUp);
-    const FVector BalanceAcceleration = BalanceError * BalanceStrength - TiltAngularVelocity * BalanceDamping;
-    Body->AddTorqueInRadians(BalanceAcceleration, NAME_None, true);
+    Body->AddTorqueInRadians(BalanceError * BalanceStrength - TiltAngularVelocity * BalanceDamping, NAME_None, true);
+
+    if (bGrounded)
+    {
+        const FVector Velocity = Body->GetPhysicsLinearVelocity();
+        const float LateralSpeed = FVector::DotProduct(Velocity, Right);
+        Body->AddForce(-Right * (LateralSpeed * LateralGrip), NAME_None, true);
+    }
 
     if (bGrounded && FMath::Abs(SteeringInput) > KINDA_SMALL_NUMBER)
     {
-        const float SteeringAuthority = FMath::Lerp(0.22f, 1.0f, SpeedAlpha);
-        Body->AddTorqueInRadians(DesiredUp * (SteeringInput * SteeringAcceleration * SteeringAuthority), NAME_None, true);
+        const float SteeringAuthority = FMath::Lerp(0.55f, 1.0f, SpeedAlpha);
+        const float DirectionSign = GetForwardSpeedKph() < -2.0f ? -1.0f : 1.0f;
+        Body->AddTorqueInRadians(DesiredUp * (SteeringInput * SteeringAcceleration * SteeringAuthority * DirectionSign), NAME_None, true);
     }
 }
 
 void URIBikeMovementComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
     Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
     UPrimitiveComponent* Body = GetPhysicsBody();
-    if (!Body || !Body->IsSimulatingPhysics())
-    {
-        return;
-    }
-
+    if (!Body || !Body->IsSimulatingPhysics()) return;
     UpdateGroundedState();
     ApplyDrive(DeltaTime, Body);
     ApplySteeringAndBalance(DeltaTime, Body);
