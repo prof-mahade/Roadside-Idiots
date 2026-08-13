@@ -2,6 +2,7 @@
 #include "Vehicle/RIBikePawn.h"
 #include "Core/RIHealthComponent.h"
 #include "AI/RIAIController.h"
+#include "Visual/RIPrototypeVisuals.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
 
@@ -26,6 +27,8 @@ bool URIInteractionComponent::TrySideInteraction(float Side)
     LastUseTime = Now;
 
     Side = Side < 0.0f ? -1.0f : 1.0f;
+    RIPrototypeVisuals::PlaySideAction(OwnerBike, Side);
+
     const FVector SideDirection = OwnerBike->GetActorRightVector() * Side;
     const FVector Start = OwnerBike->GetActorLocation() + OwnerBike->GetActorForwardVector() * 35.0f;
     const FVector End = Start + SideDirection * Reach;
@@ -66,6 +69,8 @@ bool URIInteractionComponent::TrySideInteraction(float Side)
         {
             OtherHealth->ApplyImpact(ImpactCost);
         }
+
+        RIPrototypeVisuals::PlayReaction(OtherBike, -Side);
 
         if (ARIAIController* RivalController = Cast<ARIAIController>(OtherBike->GetController()))
         {
