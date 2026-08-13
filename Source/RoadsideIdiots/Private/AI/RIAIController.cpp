@@ -21,10 +21,28 @@ void ARIAIController::SetRoute(const TArray<FVector>& InRoutePoints, int32 Start
     LaneOffset = InLaneOffset;
 }
 
+void ARIAIController::NotifyProvokedBy(ARIBikePawn* InstigatorBike)
+{
+    if (InstigatorBike && InstigatorBike != Bike)
+    {
+        GrudgeTarget = InstigatorBike;
+        GrudgeTimeRemaining = GrudgeDurationSeconds;
+    }
+}
+
 void ARIAIController::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
     if (!Bike || RoutePoints.Num() < 3) return;
+
+    if (GrudgeTimeRemaining > 0.0f)
+    {
+        GrudgeTimeRemaining = FMath::Max(0.0f, GrudgeTimeRemaining - DeltaSeconds);
+    }
+    else
+    {
+        GrudgeTarget.Reset();
+    }
 
     const int32 Count = RoutePoints.Num();
     const FVector BikeLocation = Bike->GetActorLocation();
