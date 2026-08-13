@@ -16,6 +16,7 @@ namespace
     const FName MotorcycleComponentName(TEXT("PrototypeMotorcycleVisual"));
     const FName RiderComponentName(TEXT("PrototypeRiderVisual"));
     constexpr float VisualYawOffsetDegrees = -90.0f;
+    constexpr float VisualHeightOffset = -10.0f;
 
     IAssetRegistry& GetRegistry()
     {
@@ -167,6 +168,17 @@ namespace
             Delay,
             false);
     }
+
+    void ConfigureIndependentVisual(USkeletalMeshComponent* Component)
+    {
+        if (!Component) return;
+
+        // The physics chassis uses a deliberately non-uniform cube scale.
+        // Prototype art must not inherit that transform or the real bike/rider
+        // are stretched in X and crushed in Y/Z.
+        Component->SetAbsolute(true, true, true);
+        Component->SetWorldScale3D(FVector::OneVector);
+    }
 }
 
 void RIPrototypeVisuals::Setup(ARIBikePawn* Bike)
@@ -185,11 +197,10 @@ void RIPrototypeVisuals::Setup(ARIBikePawn* Bike)
         Motorcycle->SetupAttachment(Bike->GetRootComponent());
         Motorcycle->SetCollisionEnabled(ECollisionEnabled::NoCollision);
         Motorcycle->SetGenerateOverlapEvents(false);
-        Motorcycle->SetRelativeLocation(FVector(0.0f, 0.0f, -28.0f));
-        Motorcycle->SetRelativeScale3D(FVector::OneVector);
         Motorcycle->RegisterComponent();
     }
     Motorcycle->SetSkeletalMesh(MotorcycleMesh, true);
+    ConfigureIndependentVisual(Motorcycle);
 
     USkeletalMeshComponent* Rider = FindVisualComponent(Bike, RiderComponentName);
     if (!Rider)
@@ -199,11 +210,10 @@ void RIPrototypeVisuals::Setup(ARIBikePawn* Bike)
         Rider->SetupAttachment(Bike->GetRootComponent());
         Rider->SetCollisionEnabled(ECollisionEnabled::NoCollision);
         Rider->SetGenerateOverlapEvents(false);
-        Rider->SetRelativeLocation(FVector(0.0f, 0.0f, -28.0f));
-        Rider->SetRelativeScale3D(FVector::OneVector);
         Rider->RegisterComponent();
     }
     Rider->SetSkeletalMesh(MannyMesh, true);
+    ConfigureIndependentVisual(Rider);
 
     TArray<UStaticMeshComponent*> GrayboxParts;
     Bike->GetComponents<UStaticMeshComponent>(GrayboxParts);
@@ -233,8 +243,12 @@ void RIPrototypeVisuals::Update(ARIBikePawn* Bike)
         ? FRotator(ActorRotation.Pitch, ActorRotation.Yaw + VisualYawOffsetDegrees, ActorRotation.Roll)
         : FRotator(0.0f, ActorRotation.Yaw + VisualYawOffsetDegrees, 0.0f);
 
-    Motorcycle->SetWorldRotation(VisualRotation);
-    Rider->SetWorldRotation(VisualRotation);
+    const FVector VisualLocation = Bike->GetActorLocation() + FVector(0.0f, 0.0f, VisualHeightOffset);
+
+    Motorcycle->SetWorldLocationAndRotation(VisualLocation, VisualRotation);
+    Rider->SetWorldLocationAndRotation(VisualLocation, VisualRotation);
+    Motorcycle->SetWorldScale3D(FVector::OneVector);
+    Rider->SetWorldScale3D(FVector::OneVector);
 }
 
 void RIPrototypeVisuals::PlaySideAction(ARIBikePawn* Bike, float Side)
