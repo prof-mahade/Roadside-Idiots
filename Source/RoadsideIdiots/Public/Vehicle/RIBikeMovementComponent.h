@@ -42,25 +42,34 @@ private:
     float MaxSpeedKph = 155.0f;
 
     UPROPERTY(EditAnywhere, Category="Tuning|Speed")
-    float DriveAcceleration = 1250.0f;
+    float MaxReverseSpeedKph = 32.0f;
 
     UPROPERTY(EditAnywhere, Category="Tuning|Speed")
-    float BrakeStrength = 2.2f;
+    float DriveAcceleration = 1550.0f;
 
     UPROPERTY(EditAnywhere, Category="Tuning|Speed")
-    float RollingDrag = 0.08f;
+    float ReverseAcceleration = 900.0f;
+
+    UPROPERTY(EditAnywhere, Category="Tuning|Speed")
+    float BrakeStrength = 2.6f;
+
+    UPROPERTY(EditAnywhere, Category="Tuning|Speed")
+    float RollingDrag = 0.07f;
 
     UPROPERTY(EditAnywhere, Category="Tuning|Handling")
-    float SteeringAcceleration = 2.8f;
+    float SteeringAcceleration = 5.4f;
 
     UPROPERTY(EditAnywhere, Category="Tuning|Handling")
-    float MaxLeanDegrees = 31.0f;
+    float MaxLeanDegrees = 34.0f;
 
     UPROPERTY(EditAnywhere, Category="Tuning|Handling")
-    float BalanceStrength = 18.0f;
+    float BalanceStrength = 20.0f;
 
     UPROPERTY(EditAnywhere, Category="Tuning|Handling")
-    float BalanceDamping = 6.0f;
+    float BalanceDamping = 7.0f;
+
+    UPROPERTY(EditAnywhere, Category="Tuning|Handling")
+    float LateralGrip = 4.2f;
 
     UPROPERTY(EditAnywhere, Category="Tuning|Handling")
     float GroundTraceLength = 145.0f;
