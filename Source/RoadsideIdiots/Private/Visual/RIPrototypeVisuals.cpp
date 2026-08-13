@@ -16,6 +16,12 @@ namespace
     const FName MotorcycleComponentName(TEXT("PrototypeMotorcycleVisual"));
     const FName RiderComponentName(TEXT("PrototypeRiderVisual"));
 
+    struct FRIAnimationPair
+    {
+        TObjectPtr<UAnimSequence> Rider = nullptr;
+        TObjectPtr<UAnimSequence> Bike = nullptr;
+    };
+
     IAssetRegistry& GetRegistry()
     {
         FAssetRegistryModule& Module = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
@@ -40,6 +46,7 @@ namespace
     USkeletalMeshComponent* FindVisualComponent(ARIBikePawn* Bike, const FName ComponentName)
     {
         if (!Bike) return nullptr;
+
         TArray<USkeletalMeshComponent*> Components;
         Bike->GetComponents<USkeletalMeshComponent>(Components);
         for (USkeletalMeshComponent* Component : Components)
@@ -52,32 +59,123 @@ namespace
         return nullptr;
     }
 
-    UAnimSequence* FindBestAnimation(const FString& FolderMarker, const float Side, const bool bWantBikeAnimation)
+    void GetAnimationAssets(TArray<FAssetData>& OutAssets)
+    {
+        OutAssets.Reset();
+        GetRegistry().GetAssetsByPath(FName(TEXT("/Game/MotoInteractionAnims/Animations")), OutAssets, true, false);
+    }
+
+    UAnimSequence* FindAnimationByAssetName(const TArray<FAssetData>& Assets, const FString& AssetName)
+    {
+        for (const FAssetData& Asset : Assets)
+        {
+            if (Asset.AssetName.ToString().Equals(AssetName, ESearchCase::IgnoreCase))
+            {
+                return Cast<UAnimSequence>(Asset.GetAsset());
+            }
+        }
+        return nullptr;
+    }
+
+    FRIAnimationPair FindStraightRidingPair()
     {
         TArray<FAssetData> Assets;
-        GetRegistry().GetAssetsByPath(FName(TEXT("/Game/MotoInteractionAnims/Animations")), Assets, true, false);
+        GetAnimationAssets(Assets);
 
-        UAnimSequence* BestAnimation = nullptr;
+        FRIAnimationPair BestPair;
         int32 BestScore = TNumericLimits<int32>::Lowest();
+
         for (const FAssetData& Asset : Assets)
         {
             const FString PackagePath = Asset.PackagePath.ToString();
-            if (!PackagePath.Contains(FolderMarker, ESearchCase::IgnoreCase)) continue;
+            if (!PackagePath.Contains(TEXT("Riding"), ESearchCase::IgnoreCase))
+            {
+                continue;
+            }
 
             const FString Name = Asset.AssetName.ToString();
-            const bool bIsBikeAnimation = Name.Contains(TEXT("_Bike"), ESearchCase::IgnoreCase);
-            if (bIsBikeAnimation != bWantBikeAnimation) continue;
+            if (Name.Contains(TEXT("_Bike"), ESearchCase::IgnoreCase))
+            {
+                continue;
+            }
 
-            UAnimSequence* Sequence = Cast<UAnimSequence>(Asset.GetAsset());
-            if (!Sequence) continue;
+            UAnimSequence* RiderSequence = Cast<UAnimSequence>(Asset.GetAsset());
+            if (!RiderSequence)
+            {
+                continue;
+            }
 
             int32 Score = 0;
-            if (Name.Contains(TEXT("Loop"), ESearchCase::IgnoreCase)) Score += 12;
-            if (Name.Contains(TEXT("Ride"), ESearchCase::IgnoreCase)) Score += 10;
-            if (Name.Contains(TEXT("Punch"), ESearchCase::IgnoreCase)) Score += 10;
-            if (Name.Contains(TEXT("Hit"), ESearchCase::IgnoreCase)) Score += 10;
-            if (Side < -0.1f && Name.Contains(TEXT("Left"), ESearchCase::IgnoreCase)) Score += 25;
-            if (Side > 0.1f && Name.Contains(TEXT("Right"), ESearchCase::IgnoreCase)) Score += 25;
+            if (Name.Contains(TEXT("Ride"), ESearchCase::IgnoreCase)) Score += 40;
+            if (Name.Contains(TEXT("Loop"), ESearchCase::IgnoreCase)) Score += 35;
+            if (Name.Contains(TEXT("Idle"), ESearchCase::IgnoreCase)) Score += 20;
+            if (Name.Contains(TEXT("Straight"), ESearchCase::IgnoreCase)) Score += 30;
+            if (Name.Contains(TEXT("Forward"), ESearchCase::IgnoreCase)) Score += 15;
+
+            // A turn/transition animation is useful later, but it makes a terrible
+            // neutral pose and was the reason the first real-model test looked
+            // like every rider had already fallen over.
+            if (Name.Contains(TEXT("Turn"), ESearchCase::IgnoreCase)) Score -= 100;
+            if (Name.Contains(TEXT("Left"), ESearchCase::IgnoreCase)) Score -= 35;
+            if (Name.Contains(TEXT("Right"), ESearchCase::IgnoreCase)) Score -= 35;
+            if (Name.Contains(TEXT("Start"), ESearchCase::IgnoreCase)) Score -= 70;
+            if (Name.Contains(TEXT("Stop"), ESearchCase::IgnoreCase)) Score -= 70;
+            if (Name.Contains(TEXT("Mount"), ESearchCase::IgnoreCase)) Score -= 90;
+            if (Name.Contains(TEXT("Dismount"), ESearchCase::IgnoreCase)) Score -= 90;
+
+            UAnimSequence* BikeSequence = FindAnimationByAssetName(Assets, Name + TEXT("_Bike"));
+            if (BikeSequence)
+            {
+                Score += 80;
+            }
+
+            if (Score > BestScore)
+            {
+                BestScore = Score;
+                BestPair.Rider = RiderSequence;
+                BestPair.Bike = BikeSequence;
+            }
+        }
+
+        return BestPair;
+    }
+
+    UAnimSequence* FindBestActionAnimation(const FString& FolderMarker, const float Side)
+    {
+        TArray<FAssetData> Assets;
+        GetAnimationAssets(Assets);
+
+        UAnimSequence* BestAnimation = nullptr;
+        int32 BestScore = TNumericLimits<int32>::Lowest();
+
+        for (const FAssetData& Asset : Assets)
+        {
+            const FString PackagePath = Asset.PackagePath.ToString();
+            if (!PackagePath.Contains(FolderMarker, ESearchCase::IgnoreCase))
+            {
+                continue;
+            }
+
+            const FString Name = Asset.AssetName.ToString();
+            if (Name.Contains(TEXT("_Bike"), ESearchCase::IgnoreCase))
+            {
+                continue;
+            }
+
+            UAnimSequence* Sequence = Cast<UAnimSequence>(Asset.GetAsset());
+            if (!Sequence)
+            {
+                continue;
+            }
+
+            int32 Score = 0;
+            if (Name.Contains(TEXT("Punch"), ESearchCase::IgnoreCase)) Score += 25;
+            if (Name.Contains(TEXT("Hit"), ESearchCase::IgnoreCase)) Score += 25;
+            if (Side < -0.1f && Name.Contains(TEXT("Left"), ESearchCase::IgnoreCase)) Score += 50;
+            if (Side > 0.1f && Name.Contains(TEXT("Right"), ESearchCase::IgnoreCase)) Score += 50;
+            if (Side < -0.1f && Name.Contains(TEXT("Right"), ESearchCase::IgnoreCase)) Score -= 30;
+            if (Side > 0.1f && Name.Contains(TEXT("Left"), ESearchCase::IgnoreCase)) Score -= 30;
+            if (Name.Contains(TEXT("Loop"), ESearchCase::IgnoreCase)) Score -= 20;
 
             if (Score > BestScore)
             {
@@ -85,16 +183,26 @@ namespace
                 BestAnimation = Sequence;
             }
         }
+
         return BestAnimation;
     }
 
-    void ResumeRiderLoop(ARIBikePawn* Bike)
+    void ResumeRidingPair(ARIBikePawn* Bike)
     {
+        if (!Bike) return;
+
         USkeletalMeshComponent* Rider = FindVisualComponent(Bike, RiderComponentName);
-        if (!Rider) return;
-        if (UAnimSequence* Ride = FindBestAnimation(TEXT("Riding"), 0.0f, false))
+        USkeletalMeshComponent* Motorcycle = FindVisualComponent(Bike, MotorcycleComponentName);
+        if (!Rider || !Motorcycle) return;
+
+        const FRIAnimationPair Pair = FindStraightRidingPair();
+        if (Pair.Bike)
         {
-            Rider->PlayAnimation(Ride, true);
+            Motorcycle->PlayAnimation(Pair.Bike, true);
+        }
+        if (Pair.Rider)
+        {
+            Rider->PlayAnimation(Pair.Rider, true);
         }
     }
 
@@ -111,7 +219,7 @@ namespace
             {
                 if (ARIBikePawn* ValidBike = WeakBike.Get())
                 {
-                    ResumeRiderLoop(ValidBike);
+                    ResumeRidingPair(ValidBike);
                 }
             }),
             Delay,
@@ -136,6 +244,8 @@ void RIPrototypeVisuals::Setup(ARIBikePawn* Bike)
         Motorcycle->SetCollisionEnabled(ECollisionEnabled::NoCollision);
         Motorcycle->SetGenerateOverlapEvents(false);
         Motorcycle->SetRelativeLocation(FVector(0.0f, 0.0f, -28.0f));
+        Motorcycle->SetRelativeRotation(FRotator::ZeroRotator);
+        Motorcycle->SetRelativeScale3D(FVector::OneVector);
         Motorcycle->RegisterComponent();
     }
     Motorcycle->SetSkeletalMesh(MotorcycleMesh, true);
@@ -149,6 +259,8 @@ void RIPrototypeVisuals::Setup(ARIBikePawn* Bike)
         Rider->SetCollisionEnabled(ECollisionEnabled::NoCollision);
         Rider->SetGenerateOverlapEvents(false);
         Rider->SetRelativeLocation(FVector(0.0f, 0.0f, -28.0f));
+        Rider->SetRelativeRotation(FRotator::ZeroRotator);
+        Rider->SetRelativeScale3D(FVector::OneVector);
         Rider->RegisterComponent();
     }
     Rider->SetSkeletalMesh(MannyMesh, true);
@@ -157,24 +269,21 @@ void RIPrototypeVisuals::Setup(ARIBikePawn* Bike)
     Bike->GetComponents<UStaticMeshComponent>(GrayboxParts);
     for (UStaticMeshComponent* Part : GrayboxParts)
     {
-        // Hide only the primitive placeholder itself. Do not propagate visibility
-        // to children because the real motorcycle/rider are attached to the
-        // invisible physics chassis.
-        if (Part) Part->SetVisibility(false, false);
+        if (Part)
+        {
+            Part->SetVisibility(false, false);
+        }
     }
 
-    if (UAnimSequence* BikeRide = FindBestAnimation(TEXT("Riding"), 0.0f, true))
-    {
-        Motorcycle->PlayAnimation(BikeRide, true);
-    }
-    ResumeRiderLoop(Bike);
+    ResumeRidingPair(Bike);
 }
 
 void RIPrototypeVisuals::PlaySideAction(ARIBikePawn* Bike, float Side)
 {
     USkeletalMeshComponent* Rider = FindVisualComponent(Bike, RiderComponentName);
     if (!Rider) return;
-    if (UAnimSequence* Sequence = FindBestAnimation(TEXT("Punch"), Side, false))
+
+    if (UAnimSequence* Sequence = FindBestActionAnimation(TEXT("Punch"), Side))
     {
         Rider->PlayAnimation(Sequence, false);
         ResumeLater(Bike, Sequence);
@@ -185,7 +294,8 @@ void RIPrototypeVisuals::PlayReaction(ARIBikePawn* Bike, float Side)
 {
     USkeletalMeshComponent* Rider = FindVisualComponent(Bike, RiderComponentName);
     if (!Rider) return;
-    if (UAnimSequence* Sequence = FindBestAnimation(TEXT("Get_Hits"), Side, false))
+
+    if (UAnimSequence* Sequence = FindBestActionAnimation(TEXT("Get_Hits"), Side))
     {
         Rider->PlayAnimation(Sequence, false);
         ResumeLater(Bike, Sequence);
