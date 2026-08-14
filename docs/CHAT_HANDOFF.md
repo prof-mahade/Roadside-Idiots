@@ -17,58 +17,79 @@ Working tagline: **The road is dangerous. The riders are worse.**
 - editor target has compiled and Play-In-Editor has run successfully
 
 ## Proven gameplay foundation
-- runtime graybox race route
+- runtime oval graybox race route
 - one player and three bots
 - throttle, brake/reverse, steering, assisted balance/lean and lateral grip
 - ordered checkpoints, place/progress HUD and condition value
 - manual/automatic recovery
 - side interaction on Q/E
 - basic bot rivalry/retaliation state after a successful interaction
-- taller overlapping barriers and basic bot stuck recovery
+- overlapping barriers and basic bot stuck recovery
+- finish state and instant Enter restart
 
 ## Known limitations
-- bot corner recovery is still imperfect and may be redesigned with the later motorcycle/AI mechanics pass
-- primitive visuals made interaction feedback too difficult to judge reliably
+- bot corner/off-track recovery is still imperfect and is deferred to a later motorcycle/AI mechanics pass
+- current motorcycle physics are prototype physics, not final two-wheel simulation
+- final slap/kick timing, sound, comedy VFX and character damage visuals are not implemented
 
-## Visual readability milestone
+## Imported local visual assets
 The developer locally imported:
 - UE Third Person content with `SKM_Manny_Simple`
 - Fab pack `MotoInteractionAnims`
 - motorcycle skeletal mesh `SM_Bike`
-- animation folders including Riding, Mounted, Combat/Punch, Get_Hits, Dizzy and Interactions
+- animation folders including Riding/Turn_V1, Mounted, Combat/Punch, Get_Hits, Dizzy and Interactions
 
-The current source now adds a prototype presentation layer that:
-- keeps the existing invisible physics chassis authoritative
-- discovers `SM_Bike` and `SKM_Manny_Simple` through Unreal Asset Registry
-- attaches them as presentation-only skeletal meshes
-- hides the old cube/cylinder bike presentation when both assets are available
-- selects a riding loop from the imported animation pack
-- plays a visible side-action animation when Q/E is used
-- plays a visible reaction animation on the other rider when contact succeeds
-- returns the rider to the riding loop after the one-shot animation
+The binary `.uasset` files are local to the developer machine and are not stored in this Git repository.
 
-The imported binary `.uasset` files currently exist only in the local project and have not yet been committed through GitHub.
+## Prototype presentation architecture
+- existing hidden cube chassis remains authoritative for physics
+- `SM_Bike` and `SKM_Manny_Simple` are presentation-only skeletal meshes discovered through Asset Registry
+- presentation meshes use absolute location/rotation/scale so the non-uniform physics chassis cannot crush or stretch them
+- bike presentation stays in its clean skeletal reference pose for normal riding
+- rider neutral pose is now deterministic: final seated frame of `AS_Mounted_to_Ride`; do not auto-pick from Riding/Turn_V1 for neutral driving
+- Q/E plays a visible Punch animation
+- a successful hit plays a Get_Hits reaction and triggers temporary AI retaliation
+- after one-shot interactions, rider returns to the deterministic seated pose
 
-## Recovery correction
-Checkpoint recovery now stores a predefined road-center location based on the checkpoint transform rather than the rider's exact wall-hugging crossing location. R should therefore return the bike to a cleaner position after the next successful checkpoint.
+## Latest readability/layout correction
+Pending compile/playtest after latest pull:
+- road width increased from 900 cm to 1200 cm
+- barrier height reduced from 150 cm to 120 cm while retaining thick collision
+- racer lane offsets widened to use the added road space
+- chase camera moved farther/higher with wider FOV: arm 550, height 185, pitch -12.5, FOV 95
+- spawn settling has a 1.25 second damage grace period so racers should begin at 100 condition
+- side interaction reach/radius increased slightly for prototype readability
+- successful player hit displays temporary `SMACK! BOT_XX is MAD at you!` feedback
+- AI hit on player displays temporary `WHACK! BOT_XX hit YOU!` feedback
+- Enter reloads the current level for an instant clean race restart
+
+## Recovery
+Checkpoint recovery stores a predefined road-center location based on the checkpoint transform rather than the rider's exact wall-hugging crossing location. R should return the bike to a cleaner position after the latest successfully crossed checkpoint.
 
 ## Controls
 - W: accelerate
 - S: brake, then reverse at low speed
 - A/D: steer
-- Q/E: left/right side action
+- Q/E: slap/interact left/right
 - R: recover to latest safe checkpoint position
+- Enter: restart the race
 
 ## Immediate next gate
 1. Close Unreal Editor.
-2. Pull the latest `dev/mvp-foundation`.
+2. Pull latest `dev/mvp-foundation`.
 3. Compile `RoadsideIdiotsEditor`.
-4. Launch Play-In-Editor with the locally imported assets present.
-5. Verify the real motorcycle and Manny appear.
-6. Send screenshots showing alignment/scale before tuning offsets.
-7. Test Q/E and R only after the presentation is visually aligned.
+4. Launch Play-In-Editor.
+5. Verify:
+   - road is visibly wider and walls less tunnel-like
+   - camera has better forward road visibility
+   - rider uses a believable seated neutral pose instead of Turn_V1
+   - condition starts at 100/100
+   - Q/E successful hits show clear hit confirmation and visible reaction
+   - R recovery still returns to a safe center-road checkpoint location
+   - Enter immediately restarts the race
+6. Send one screenshot while riding and report any obvious failure only.
 
-Do not move to final art or deeper AI tuning until this visual-readability build is aligned and understandable.
+If this gate passes, move to the next gameplay slice: stronger slap/hit comedy feedback, identifiable rival personalities, crash/rider reaction, then simple traffic/pickups. Do not spend time on final art yet.
 
 ## New-chat protocol
 1. Read this file.
