@@ -33,6 +33,12 @@ public:
     UFUNCTION(BlueprintCallable, Category="Roadside Idiots|Bike")
     void SetRecoveryTransform(const FTransform& InTransform);
 
+    UFUNCTION(BlueprintCallable, Category="Roadside Idiots|Items")
+    void AddBananaPeel(int32 Amount = 1);
+
+    UFUNCTION(BlueprintPure, Category="Roadside Idiots|Items")
+    int32 GetBananaPeelCount() const { return BananaPeelCount; }
+
     UFUNCTION(BlueprintPure, Category="Roadside Idiots|Bike")
     UStaticMeshComponent* GetChassis() const { return Chassis; }
 
@@ -55,6 +61,7 @@ private:
     void UpdatePlayerDriveInputs();
     void InteractLeft();
     void InteractRight();
+    void UseItem();
     void RestartRace();
     void RecoverUprightHere();
 
@@ -93,6 +100,12 @@ private:
 
     UPROPERTY(VisibleAnywhere, Category="Components")
     TObjectPtr<URIInteractionComponent> Interaction;
+
+    UPROPERTY(VisibleAnywhere, Category="Items")
+    int32 BananaPeelCount = 0;
+
+    UPROPERTY(EditDefaultsOnly, Category="Items")
+    int32 MaxBananaPeels = 3;
 
     FTransform RecoveryTransform = FTransform::Identity;
     bool bHasRecoveryTransform = false;
