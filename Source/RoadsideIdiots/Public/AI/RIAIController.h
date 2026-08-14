@@ -16,7 +16,13 @@ public:
     void SetRoute(const TArray<FVector>& InRoutePoints, int32 StartTargetIndex, float InLaneOffset);
     void NotifyProvokedBy(ARIBikePawn* InstigatorBike);
 
+    FString GetPersonalityLabel() const { return PersonalityLabel; }
+    float GetGrudgeTimeRemaining() const { return GrudgeTimeRemaining; }
+    bool IsHoldingGrudgeAgainst(const ARIBikePawn* Target) const;
+
 private:
+    void ConfigurePersonality();
+
     UPROPERTY() TObjectPtr<ARIBikePawn> Bike;
     TArray<FVector> RoutePoints;
     int32 TargetIndex = 0;
@@ -25,6 +31,7 @@ private:
     TWeakObjectPtr<ARIBikePawn> GrudgeTarget;
     float GrudgeTimeRemaining = 0.0f;
     float AttackCooldownRemaining = 0.0f;
+    FString PersonalityLabel = TEXT("IDIOT");
 
     UPROPERTY(EditAnywhere, Category="AI Tuning") float TargetSpeedKph = 132.0f;
     UPROPERTY(EditAnywhere, Category="AI Tuning") float WaypointReachDistance = 520.0f;
