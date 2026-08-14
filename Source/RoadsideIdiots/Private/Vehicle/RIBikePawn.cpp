@@ -211,23 +211,31 @@ void ARIBikePawn::UseItem()
         return;
     }
 
-    FVector SpawnLocation = GetActorLocation() - GetActorForwardVector().GetSafeNormal2D() * 175.0f;
-    SpawnLocation.Z = 8.0f;
+    // Start the peel near the rider and above the ground so gravity visibly
+    // drops it behind the bike. Deferred spawning is critical: ConfigureSource
+    // runs before BeginPlay/overlap events, preventing the player from slipping
+    // on their own peel during the spawn frame.
+    const FVector Forward = GetActorForwardVector().GetSafeNormal2D();
+    const FVector SpawnLocation = GetActorLocation() - Forward * 135.0f + FVector::UpVector * 95.0f;
     const FRotator SpawnRotation(0.0f, GetActorRotation().Yaw, 0.0f);
+    const FTransform SpawnTransform(SpawnRotation, SpawnLocation);
 
-    FActorSpawnParameters SpawnParams;
-    SpawnParams.Owner = this;
-    SpawnParams.Instigator = this;
-    SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+    AActor* DeferredActor = UGameplayStatics::BeginDeferredActorSpawnFromClass(
+        this,
+        ARIBananaPeelHazard::StaticClass(),
+        SpawnTransform,
+        ESpawnActorCollisionHandlingMethod::AlwaysSpawn,
+        this);
 
-    if (ARIBananaPeelHazard* Peel = GetWorld()->SpawnActor<ARIBananaPeelHazard>(ARIBananaPeelHazard::StaticClass(), SpawnLocation, SpawnRotation, SpawnParams))
+    if (ARIBananaPeelHazard* Peel = Cast<ARIBananaPeelHazard>(DeferredActor))
     {
         Peel->ConfigureSource(this);
+        UGameplayStatics::FinishSpawningActor(Peel, SpawnTransform);
         BananaPeelCount = FMath::Max(0, BananaPeelCount - 1);
 
         if (GEngine && Participant && Participant->IsHumanControlled())
         {
-            GEngine->AddOnScreenDebugMessage(-1, 1.2f, FColor::Yellow, TEXT("Peel deployed. This seems responsible."));
+            GEngine->AddOnScreenDebugMessage(-1, 1.2f, FColor::Yellow, TEXT("Peel dropped behind you. Bad citizenship achieved."));
         }
     }
 }
