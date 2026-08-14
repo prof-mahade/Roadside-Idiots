@@ -118,14 +118,14 @@ void ARIDemoWorldBuilder::BuildTrackGeometry()
         const FVector RightBarrier = Center + Right * BarrierOffset;
 
         SpawnBox(
-            FVector(LeftBarrier.X, LeftBarrier.Y, 75.0f),
+            FVector(LeftBarrier.X, LeftBarrier.Y, 60.0f),
             Rotation,
-            FVector((Length + BarrierSegmentPadding) / 100.0f, 0.65f, 1.50f));
+            FVector((Length + BarrierSegmentPadding) / 100.0f, 0.65f, 1.20f));
 
         SpawnBox(
-            FVector(RightBarrier.X, RightBarrier.Y, 75.0f),
+            FVector(RightBarrier.X, RightBarrier.Y, 60.0f),
             Rotation,
-            FVector((Length + BarrierSegmentPadding) / 100.0f, 0.65f, 1.50f));
+            FVector((Length + BarrierSegmentPadding) / 100.0f, 0.65f, 1.20f));
     }
 }
 
@@ -159,7 +159,7 @@ void ARIDemoWorldBuilder::SpawnRacers(ARIRaceManager* RaceManager, APlayerContro
     const FVector Forward = (RoutePoints[2] - RoutePoints[1]).GetSafeNormal2D();
     const FVector Right = FVector::CrossProduct(FVector::UpVector, Forward).GetSafeNormal();
     const FRotator StartRotation = Forward.Rotation();
-    const float LaneOffsets[4] = {-210.0f, -70.0f, 70.0f, 210.0f};
+    const float LaneOffsets[4] = {-315.0f, -105.0f, 105.0f, 315.0f};
 
     for (int32 RacerIndex = 0; RacerIndex < 4; ++RacerIndex)
     {
