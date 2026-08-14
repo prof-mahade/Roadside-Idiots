@@ -74,7 +74,8 @@ bool URIInteractionComponent::TrySideInteraction(float Side)
 
         RIPrototypeVisuals::PlayReaction(OtherBike, -Side);
 
-        if (ARIAIController* RivalController = Cast<ARIAIController>(OtherBike->GetController()))
+        ARIAIController* RivalController = Cast<ARIAIController>(OtherBike->GetController());
+        if (RivalController)
         {
             RivalController->NotifyProvokedBy(OwnerBike);
         }
@@ -90,19 +91,22 @@ bool URIInteractionComponent::TrySideInteraction(float Side)
 
             if (bOwnerHuman)
             {
+                const FString Personality = RivalController ? RivalController->GetPersonalityLabel() : TEXT("IDIOT");
                 GEngine->AddOnScreenDebugMessage(
                     -1,
-                    1.35f,
+                    1.55f,
                     FColor::Yellow,
-                    FString::Printf(TEXT("SMACK! %s is MAD at you!"), *OtherName));
+                    FString::Printf(TEXT("SMACK! %s [%s] IS MAD!"), *OtherName, *Personality));
             }
             else if (bOtherHuman)
             {
+                ARIAIController* AttackerAI = Cast<ARIAIController>(OwnerBike->GetController());
+                const FString Personality = AttackerAI ? AttackerAI->GetPersonalityLabel() : TEXT("IDIOT");
                 GEngine->AddOnScreenDebugMessage(
                     -1,
-                    1.35f,
+                    1.55f,
                     FColor::Red,
-                    FString::Printf(TEXT("WHACK! %s hit YOU!"), *OwnerName));
+                    FString::Printf(TEXT("WHACK! %s [%s] hit YOU!"), *OwnerName, *Personality));
             }
         }
 
