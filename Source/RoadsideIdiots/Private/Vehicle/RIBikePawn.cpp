@@ -79,12 +79,12 @@ ARIBikePawn::ARIBikePawn()
 
     CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
     CameraBoom->SetupAttachment(Chassis);
-    CameraBoom->TargetArmLength = 500.0f;
-    CameraBoom->SetRelativeLocation(FVector(0.0f, 0.0f, 165.0f));
-    CameraBoom->SetRelativeRotation(FRotator(-11.0f, 0.0f, 0.0f));
-    CameraBoom->SocketOffset = FVector(0.0f, 0.0f, 15.0f);
+    CameraBoom->TargetArmLength = 550.0f;
+    CameraBoom->SetRelativeLocation(FVector(0.0f, 0.0f, 185.0f));
+    CameraBoom->SetRelativeRotation(FRotator(-12.5f, 0.0f, 0.0f));
+    CameraBoom->SocketOffset = FVector(0.0f, 0.0f, 20.0f);
     CameraBoom->bEnableCameraLag = true;
-    CameraBoom->CameraLagSpeed = 8.0f;
+    CameraBoom->CameraLagSpeed = 8.5f;
     CameraBoom->bEnableCameraRotationLag = true;
     CameraBoom->CameraRotationLagSpeed = 10.0f;
     CameraBoom->bInheritPitch = false;
@@ -92,7 +92,7 @@ ARIBikePawn::ARIBikePawn()
 
     FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
     FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
-    FollowCamera->FieldOfView = 92.0f;
+    FollowCamera->FieldOfView = 95.0f;
 
     BikeMovement = CreateDefaultSubobject<URIBikeMovementComponent>(TEXT("BikeMovement"));
     Health = CreateDefaultSubobject<URIHealthComponent>(TEXT("Health"));
