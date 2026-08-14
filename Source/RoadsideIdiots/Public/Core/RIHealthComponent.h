@@ -18,6 +18,9 @@ public:
     float ApplyImpact(float Amount);
 
     UFUNCTION(BlueprintCallable, Category="Roadside Idiots|Health")
+    float Heal(float Amount);
+
+    UFUNCTION(BlueprintCallable, Category="Roadside Idiots|Health")
     void ResetHealth();
 
     UFUNCTION(BlueprintPure, Category="Roadside Idiots|Health")
