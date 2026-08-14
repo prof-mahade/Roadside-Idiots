@@ -3,9 +3,11 @@
 #include "Core/RIHealthComponent.h"
 #include "Core/RIParticipantComponent.h"
 #include "Interaction/RIInteractionComponent.h"
+#include "Items/RIBananaPeelHazard.h"
 #include "Visual/RIPrototypeVisuals.h"
 #include "Camera/CameraComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Engine/Engine.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "UObject/ConstructorHelpers.h"
@@ -127,6 +129,7 @@ void ARIBikePawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponen
     PlayerInputComponent->BindAxis(TEXT("Brake"), this, &ARIBikePawn::InputBrake);
     PlayerInputComponent->BindAction(TEXT("InteractLeft"), IE_Pressed, this, &ARIBikePawn::InteractLeft);
     PlayerInputComponent->BindAction(TEXT("InteractRight"), IE_Pressed, this, &ARIBikePawn::InteractRight);
+    PlayerInputComponent->BindAction(TEXT("UseItem"), IE_Pressed, this, &ARIBikePawn::UseItem);
     PlayerInputComponent->BindAction(TEXT("Recover"), IE_Pressed, this, &ARIBikePawn::RecoverBike);
     PlayerInputComponent->BindAction(TEXT("RestartRace"), IE_Pressed, this, &ARIBikePawn::RestartRace);
 }
@@ -187,6 +190,46 @@ void ARIBikePawn::InteractLeft()
 void ARIBikePawn::InteractRight()
 {
     Interaction->TrySideInteraction(1.0f);
+}
+
+void ARIBikePawn::AddBananaPeel(int32 Amount)
+{
+    if (!HasAuthority() || Amount <= 0) return;
+    BananaPeelCount = FMath::Clamp(BananaPeelCount + Amount, 0, MaxBananaPeels);
+}
+
+void ARIBikePawn::UseItem()
+{
+    if (!HasAuthority() || !GetWorld()) return;
+
+    if (BananaPeelCount <= 0)
+    {
+        if (GEngine && Participant && Participant->IsHumanControlled())
+        {
+            GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Silver, TEXT("No banana peel. Find a glowing banana first."));
+        }
+        return;
+    }
+
+    FVector SpawnLocation = GetActorLocation() - GetActorForwardVector().GetSafeNormal2D() * 175.0f;
+    SpawnLocation.Z = 8.0f;
+    const FRotator SpawnRotation(0.0f, GetActorRotation().Yaw, 0.0f);
+
+    FActorSpawnParameters SpawnParams;
+    SpawnParams.Owner = this;
+    SpawnParams.Instigator = this;
+    SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+    if (ARIBananaPeelHazard* Peel = GetWorld()->SpawnActor<ARIBananaPeelHazard>(ARIBananaPeelHazard::StaticClass(), SpawnLocation, SpawnRotation, SpawnParams))
+    {
+        Peel->ConfigureSource(this);
+        BananaPeelCount = FMath::Max(0, BananaPeelCount - 1);
+
+        if (GEngine && Participant && Participant->IsHumanControlled())
+        {
+            GEngine->AddOnScreenDebugMessage(-1, 1.2f, FColor::Yellow, TEXT("Peel deployed. This seems responsible."));
+        }
+    }
 }
 
 void ARIBikePawn::RestartRace()
