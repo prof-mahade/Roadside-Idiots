@@ -73,43 +73,6 @@ namespace
         return nullptr;
     }
 
-    UAnimSequence* FindBestRidingAnimation(const TArray<FAssetData>& Assets)
-    {
-        UAnimSequence* BestAnimation = nullptr;
-        int32 BestScore = TNumericLimits<int32>::Lowest();
-
-        for (const FAssetData& Asset : Assets)
-        {
-            const FString PackagePath = Asset.PackagePath.ToString();
-            if (!PackagePath.Contains(TEXT("/Riding"), ESearchCase::IgnoreCase)) continue;
-
-            const FString Name = Asset.AssetName.ToString();
-            if (Name.Contains(TEXT("_Bike"), ESearchCase::IgnoreCase)) continue;
-
-            UAnimSequence* Sequence = Cast<UAnimSequence>(Asset.GetAsset());
-            if (!Sequence) continue;
-
-            int32 Score = 100;
-            if (Name.Contains(TEXT("Loop"), ESearchCase::IgnoreCase)) Score += 100;
-            if (Name.Contains(TEXT("Ride"), ESearchCase::IgnoreCase)) Score += 30;
-            if (Name.Contains(TEXT("Idle"), ESearchCase::IgnoreCase)) Score += 20;
-            if (Name.Contains(TEXT("Turn"), ESearchCase::IgnoreCase)) Score -= 180;
-            if (Name.Contains(TEXT("Left"), ESearchCase::IgnoreCase)) Score -= 90;
-            if (Name.Contains(TEXT("Right"), ESearchCase::IgnoreCase)) Score -= 90;
-            if (Name.Contains(TEXT("Start"), ESearchCase::IgnoreCase)) Score -= 150;
-            if (Name.Contains(TEXT("Stop"), ESearchCase::IgnoreCase)) Score -= 150;
-            if (Name.Contains(TEXT("Brake"), ESearchCase::IgnoreCase)) Score -= 100;
-            if (Name.Contains(TEXT("Mount"), ESearchCase::IgnoreCase)) Score -= 150;
-
-            if (Score > BestScore)
-            {
-                BestScore = Score;
-                BestAnimation = Sequence;
-            }
-        }
-        return BestAnimation;
-    }
-
     UAnimSequence* FindBestActionAnimation(const FString& FolderMarker, const float Side)
     {
         TArray<FAssetData> Assets;
@@ -121,8 +84,10 @@ namespace
         {
             const FString PackagePath = Asset.PackagePath.ToString();
             if (!PackagePath.Contains(FolderMarker, ESearchCase::IgnoreCase)) continue;
+
             const FString Name = Asset.AssetName.ToString();
             if (Name.Contains(TEXT("_Bike"), ESearchCase::IgnoreCase)) continue;
+
             UAnimSequence* Sequence = Cast<UAnimSequence>(Asset.GetAsset());
             if (!Sequence) continue;
 
@@ -147,41 +112,44 @@ namespace
     void ApplyNeutralPose(ARIBikePawn* Bike)
     {
         if (!Bike) return;
+
         USkeletalMeshComponent* Rider = FindVisualComponent(Bike, RiderComponentName);
         USkeletalMeshComponent* Motorcycle = FindVisualComponent(Bike, MotorcycleComponentName);
         if (!Rider || !Motorcycle) return;
 
+        // Keep the motorcycle in its clean reference pose. The Riding folder in
+        // this free pack contains Turn_V1 left/right sequences, so it is not a
+        // safe source for a straight neutral bike pose.
         Motorcycle->SetAnimation(nullptr);
         Motorcycle->SetPosition(0.0f, false);
         Motorcycle->SetPlayRate(0.0f);
 
         TArray<FAssetData> Assets;
         GetAnimationAssets(Assets);
-        UAnimSequence* RiderPose = FindBestRidingAnimation(Assets);
+
+        // This transition is known to exist in the imported pack. Using only
+        // the rider's final mounted frame gives us a deterministic seated pose
+        // without applying the transition's bike motion or a permanent turn.
+        UAnimSequence* RiderPose = FindAnimationByAssetName(Assets, TEXT("AS_Mounted_to_Ride"));
+        if (!RiderPose)
+        {
+            RiderPose = FindAnimationByAssetName(Assets, TEXT("AS_Bike_Start"));
+        }
 
         if (RiderPose)
         {
-            Rider->SetPlayRate(1.0f);
-            Rider->PlayAnimation(RiderPose, true);
-        }
-        else
-        {
-            RiderPose = FindAnimationByAssetName(Assets, TEXT("AS_Bike_Start"));
-            if (!RiderPose) RiderPose = FindAnimationByAssetName(Assets, TEXT("AS_Mounted_to_Ride"));
-            if (RiderPose)
-            {
-                Rider->PlayAnimation(RiderPose, false);
-                Rider->SetPosition(FMath::Max(0.0f, RiderPose->GetPlayLength() - 0.01f), false);
-                Rider->SetPlayRate(0.0f);
-            }
+            Rider->PlayAnimation(RiderPose, false);
+            Rider->SetPosition(FMath::Max(0.0f, RiderPose->GetPlayLength() - 0.03f), false);
+            Rider->SetPlayRate(0.0f);
         }
 
-        UE_LOG(LogTemp, Display, TEXT("RoadsideIdiots visuals: neutral animation=%s"), RiderPose ? *RiderPose->GetName() : TEXT("NONE"));
+        UE_LOG(LogTemp, Display, TEXT("RoadsideIdiots visuals: neutral pose=%s"), RiderPose ? *RiderPose->GetName() : TEXT("NONE"));
     }
 
     void ResumeLater(ARIBikePawn* Bike, UAnimSequence* Sequence)
     {
         if (!Bike || !Bike->GetWorld()) return;
+
         const float Delay = Sequence ? FMath::Clamp(Sequence->GetPlayLength(), 0.35f, 1.25f) : 0.65f;
         const TWeakObjectPtr<ARIBikePawn> WeakBike(Bike);
         FTimerHandle TimerHandle;
@@ -189,7 +157,10 @@ namespace
             TimerHandle,
             FTimerDelegate::CreateLambda([WeakBike]()
             {
-                if (ARIBikePawn* ValidBike = WeakBike.Get()) ApplyNeutralPose(ValidBike);
+                if (ARIBikePawn* ValidBike = WeakBike.Get())
+                {
+                    ApplyNeutralPose(ValidBike);
+                }
             }),
             Delay,
             false);
@@ -239,7 +210,10 @@ void RIPrototypeVisuals::Setup(ARIBikePawn* Bike)
 
     TArray<UStaticMeshComponent*> GrayboxParts;
     Bike->GetComponents<UStaticMeshComponent>(GrayboxParts);
-    for (UStaticMeshComponent* Part : GrayboxParts) if (Part) Part->SetVisibility(false, false);
+    for (UStaticMeshComponent* Part : GrayboxParts)
+    {
+        if (Part) Part->SetVisibility(false, false);
+    }
 
     ApplyNeutralPose(Bike);
     Update(Bike);
@@ -248,6 +222,7 @@ void RIPrototypeVisuals::Setup(ARIBikePawn* Bike)
 void RIPrototypeVisuals::Update(ARIBikePawn* Bike)
 {
     if (!Bike) return;
+
     USkeletalMeshComponent* Motorcycle = FindVisualComponent(Bike, MotorcycleComponentName);
     USkeletalMeshComponent* Rider = FindVisualComponent(Bike, RiderComponentName);
     if (!Motorcycle || !Rider) return;
@@ -257,6 +232,7 @@ void RIPrototypeVisuals::Update(ARIBikePawn* Bike)
     const FRotator VisualRotation = bClearlyCrashed
         ? FRotator(ActorRotation.Pitch, ActorRotation.Yaw + VisualYawOffsetDegrees, ActorRotation.Roll)
         : FRotator(0.0f, ActorRotation.Yaw + VisualYawOffsetDegrees, 0.0f);
+
     const FVector VisualLocation = Bike->GetActorLocation() + FVector(0.0f, 0.0f, VisualHeightOffset);
 
     Motorcycle->SetWorldLocationAndRotation(VisualLocation, VisualRotation);
@@ -269,6 +245,7 @@ void RIPrototypeVisuals::PlaySideAction(ARIBikePawn* Bike, float Side)
 {
     USkeletalMeshComponent* Rider = FindVisualComponent(Bike, RiderComponentName);
     if (!Rider) return;
+
     if (UAnimSequence* Sequence = FindBestActionAnimation(TEXT("Punch"), Side))
     {
         Rider->SetPlayRate(1.0f);
@@ -281,6 +258,7 @@ void RIPrototypeVisuals::PlayReaction(ARIBikePawn* Bike, float Side)
 {
     USkeletalMeshComponent* Rider = FindVisualComponent(Bike, RiderComponentName);
     if (!Rider) return;
+
     if (UAnimSequence* Sequence = FindBestActionAnimation(TEXT("Get_Hits"), Side))
     {
         Rider->SetPlayRate(1.0f);
