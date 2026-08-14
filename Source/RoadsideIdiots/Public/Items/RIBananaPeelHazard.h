@@ -18,6 +18,8 @@ public:
     ARIBananaPeelHazard();
     virtual void BeginPlay() override;
 
+    // Must be called before FinishSpawning so the dropper can never trigger
+    // their own peel during the actor's initial overlap pass.
     void ConfigureSource(ARIBikePawn* InSourceBike);
 
 private:
@@ -29,6 +31,11 @@ private:
         int32 OtherBodyIndex,
         bool bFromSweep,
         const FHitResult& SweepResult);
+
+    // Small physical body: gravity makes the peel visibly fall to the road,
+    // while the larger child trigger remains responsible for rider detection.
+    UPROPERTY(VisibleAnywhere, Category="Components")
+    TObjectPtr<USphereComponent> PhysicsBody;
 
     UPROPERTY(VisibleAnywhere, Category="Components")
     TObjectPtr<USphereComponent> Trigger;
