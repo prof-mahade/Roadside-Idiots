@@ -6,6 +6,7 @@
 #include "Race/RIRaceManager.h"
 #include "AI/RIAIController.h"
 #include "Engine/Engine.h"
+#include "Engine/Canvas.h"
 #include "EngineUtils.h"
 #include "GameFramework/PlayerController.h"
 
@@ -82,10 +83,15 @@ void ARIDebugHUD::DrawHUD()
         const URIParticipantComponent* RivalParticipant = RivalBike->GetParticipantComponent();
         const FString RivalName = RivalParticipant ? RivalParticipant->GetParticipantId().ToString() : TEXT("RIVAL");
         const bool bMad = AI->IsHoldingGrudgeAgainst(Bike);
-        const FString Label = FString::Printf(
-            bMad ? TEXT("%s [%s] !! MAD !!") : TEXT("%s [%s]"),
+
+        FString Label = FString::Printf(
+            TEXT("%s [%s]"),
             *RivalName,
             *AI->GetPersonalityLabel());
+        if (bMad)
+        {
+            Label += TEXT(" !! MAD !!");
+        }
 
         FLinearColor LabelColor(0.75f, 0.90f, 1.0f);
         if (bMad)
