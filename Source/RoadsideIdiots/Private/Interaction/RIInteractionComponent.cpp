@@ -1,9 +1,11 @@
 #include "Interaction/RIInteractionComponent.h"
 #include "Vehicle/RIBikePawn.h"
 #include "Core/RIHealthComponent.h"
+#include "Core/RIParticipantComponent.h"
 #include "AI/RIAIController.h"
 #include "Visual/RIPrototypeVisuals.h"
 #include "Components/StaticMeshComponent.h"
+#include "Engine/Engine.h"
 #include "Engine/World.h"
 
 URIInteractionComponent::URIInteractionComponent()
@@ -75,6 +77,33 @@ bool URIInteractionComponent::TrySideInteraction(float Side)
         if (ARIAIController* RivalController = Cast<ARIAIController>(OtherBike->GetController()))
         {
             RivalController->NotifyProvokedBy(OwnerBike);
+        }
+
+        if (GEngine)
+        {
+            const URIParticipantComponent* OwnerParticipant = OwnerBike->GetParticipantComponent();
+            const URIParticipantComponent* OtherParticipant = OtherBike->GetParticipantComponent();
+            const bool bOwnerHuman = OwnerParticipant && OwnerParticipant->IsHumanControlled();
+            const bool bOtherHuman = OtherParticipant && OtherParticipant->IsHumanControlled();
+            const FString OtherName = OtherParticipant ? OtherParticipant->GetParticipantId().ToString() : TEXT("RIVAL");
+            const FString OwnerName = OwnerParticipant ? OwnerParticipant->GetParticipantId().ToString() : TEXT("RIVAL");
+
+            if (bOwnerHuman)
+            {
+                GEngine->AddOnScreenDebugMessage(
+                    -1,
+                    1.35f,
+                    FColor::Yellow,
+                    FString::Printf(TEXT("SMACK! %s is MAD at you!"), *OtherName));
+            }
+            else if (bOtherHuman)
+            {
+                GEngine->AddOnScreenDebugMessage(
+                    -1,
+                    1.35f,
+                    FColor::Red,
+                    FString::Printf(TEXT("WHACK! %s hit YOU!"), *OwnerName));
+            }
         }
 
         return true;
