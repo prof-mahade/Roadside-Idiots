@@ -216,12 +216,14 @@ void ARIBikePawn::HandleChassisHit(UPrimitiveComponent* HitComponent, AActor* Ot
 
     const double Now = GetWorld()->GetTimeSeconds();
     if (Now < DamageEnabledAfterTime) return;
-    if (Now - LastImpactTime < 0.45) return;
+    if (Now - LastImpactTime < 0.85) return;
 
+    // Ignore ordinary scraping and rider-to-rider rubbing. Only meaningful crashes
+    // should move the condition bar through the physics collision path.
     const float ImpulseSize = NormalImpulse.Size();
-    if (ImpulseSize > 18000.0f)
+    if (ImpulseSize > 30000.0f)
     {
-        const float Cost = FMath::Clamp((ImpulseSize - 18000.0f) / 7000.0f, 1.0f, 16.0f);
+        const float Cost = FMath::Clamp((ImpulseSize - 30000.0f) / 12000.0f, 1.0f, 7.0f);
         Health->ApplyImpact(Cost);
         LastImpactTime = Now;
     }
@@ -241,7 +243,7 @@ void ARIBikePawn::Tick(float DeltaSeconds)
         bCrashLatched = true;
         if (HasAuthority() && GetWorld() && GetWorld()->GetTimeSeconds() >= DamageEnabledAfterTime)
         {
-            Health->ApplyImpact(4.0f);
+            Health->ApplyImpact(3.0f);
         }
     }
     else if (!bTipped)
