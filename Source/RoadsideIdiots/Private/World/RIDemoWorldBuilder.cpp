@@ -4,6 +4,7 @@
 #include "Vehicle/RIBikePawn.h"
 #include "Core/RIParticipantComponent.h"
 #include "AI/RIAIController.h"
+#include "Items/RIBananaPickup.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMeshActor.h"
 #include "Engine/DirectionalLight.h"
@@ -34,6 +35,7 @@ void ARIDemoWorldBuilder::BuildWorld(ARIRaceManager* InRaceManager, APlayerContr
     SpawnBox(FVector(0.0f, 0.0f, -40.0f), FRotator::ZeroRotator, FVector(300.0f, 300.0f, 0.8f));
     BuildTrackGeometry();
     BuildCheckpoints(InRaceManager);
+    SpawnPrototypePickups();
     SpawnRacers(InRaceManager, PlayerController);
 
     GetWorld()->SpawnActor<ASkyAtmosphere>();
@@ -161,6 +163,28 @@ void ARIDemoWorldBuilder::BuildCheckpoints(ARIRaceManager* RaceManager)
         {
             Checkpoint->Configure(RaceManager, CheckpointIndex, FVector(135.0f, RoadWidth * 0.48f, 200.0f));
         }
+    }
+}
+
+void ARIDemoWorldBuilder::SpawnPrototypePickups()
+{
+    if (!GetWorld() || RoutePoints.Num() < 8) return;
+
+    const int32 PickupIndices[] = {4, 9, 14, 19, 24, 29, 34, 39};
+    const float LaneOffsets[] = {-250.0f, 180.0f, 0.0f, -190.0f, 255.0f, 0.0f, -245.0f, 210.0f};
+
+    for (int32 PickupIndex = 0; PickupIndex < UE_ARRAY_COUNT(PickupIndices); ++PickupIndex)
+    {
+        const int32 RouteIndex = PickupIndices[PickupIndex] % RoutePoints.Num();
+        const int32 PrevIndex = (RouteIndex - 1 + RoutePoints.Num()) % RoutePoints.Num();
+        const int32 NextIndex = (RouteIndex + 1) % RoutePoints.Num();
+        const FVector Tangent = (RoutePoints[NextIndex] - RoutePoints[PrevIndex]).GetSafeNormal2D();
+        const FVector Right = FVector::CrossProduct(FVector::UpVector, Tangent).GetSafeNormal();
+
+        FVector Location = RoutePoints[RouteIndex] + Right * LaneOffsets[PickupIndex];
+        Location.Z = 42.0f;
+
+        GetWorld()->SpawnActor<ARIBananaPickup>(Location, Tangent.Rotation());
     }
 }
 
