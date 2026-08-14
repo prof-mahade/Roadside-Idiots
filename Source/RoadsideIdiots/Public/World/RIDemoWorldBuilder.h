@@ -19,6 +19,7 @@ private:
     void BuildRoute();
     void BuildTrackGeometry();
     void BuildCheckpoints(ARIRaceManager* RaceManager);
+    void SpawnPrototypePickups();
     void SpawnRacers(ARIRaceManager* RaceManager, APlayerController* PlayerController);
     AStaticMeshActor* SpawnBox(const FVector& Location, const FRotator& Rotation, const FVector& Scale);
 
