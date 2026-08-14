@@ -28,6 +28,7 @@ void ARIAIController::NotifyProvokedBy(ARIBikePawn* InstigatorBike)
     {
         GrudgeTarget = InstigatorBike;
         GrudgeTimeRemaining = GrudgeDurationSeconds;
+        AttackCooldownRemaining = 0.25f;
     }
 }
 
@@ -35,6 +36,8 @@ void ARIAIController::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
     if (!Bike || RoutePoints.Num() < 3) return;
+
+    AttackCooldownRemaining = FMath::Max(0.0f, AttackCooldownRemaining - DeltaSeconds);
 
     if (GrudgeTimeRemaining > 0.0f)
     {
@@ -81,14 +84,15 @@ void ARIAIController::Tick(float DeltaSeconds)
             TargetPoint = RivalLocation + RivalBike->GetActorForwardVector() * 70.0f;
         }
 
-        if (RivalDistanceSq < FMath::Square(AttackRange))
+        if (RivalDistanceSq < FMath::Square(AttackRange) && AttackCooldownRemaining <= 0.0f)
         {
             FVector ToRival = RivalLocation - BikeLocation;
             ToRival.Z = 0.0f;
             const float RivalSide = FVector::DotProduct(ToRival.GetSafeNormal(), Bike->GetActorRightVector());
             if (URIInteractionComponent* Interaction = Bike->GetInteractionComponent())
             {
-                Interaction->TrySideInteraction(RivalSide < 0.0f ? -1.0f : 1.0f);
+                const bool bConnected = Interaction->TrySideInteraction(RivalSide < 0.0f ? -1.0f : 1.0f);
+                AttackCooldownRemaining = bConnected ? AttackCooldownSeconds : 0.35f;
             }
         }
     }
