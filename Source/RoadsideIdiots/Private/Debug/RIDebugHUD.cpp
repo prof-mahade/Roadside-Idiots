@@ -4,6 +4,7 @@
 #include "Core/RIHealthComponent.h"
 #include "Core/RIParticipantComponent.h"
 #include "Race/RIRaceManager.h"
+#include "AI/RIAIController.h"
 #include "Engine/Engine.h"
 #include "EngineUtils.h"
 #include "GameFramework/PlayerController.h"
@@ -34,7 +35,7 @@ void ARIDebugHUD::DrawHUD()
     };
 
     Line(TEXT("ROADSIDE IDIOTS - MVP"), FLinearColor(1.0f, 0.75f, 0.2f));
-    Line(TEXT("BUILD: VPR-05 | ROAD: SEAMLESS | DAMAGE: TUNED"), FLinearColor(0.55f, 1.0f, 0.70f));
+    Line(TEXT("BUILD: VPR-06 | RIVALS: PERSONALITY | ROAD: SEAMLESS"), FLinearColor(0.55f, 1.0f, 0.70f));
     Line(FString::Printf(TEXT("Speed: %.0f km/h"), FMath::Abs(Bike->GetBikeMovement()->GetForwardSpeedKph())));
     Line(FString::Printf(TEXT("Condition: %.0f / %.0f"), Bike->GetHealthComponent()->GetCurrentHealth(), Bike->GetHealthComponent()->GetMaxHealth()));
 
@@ -55,6 +56,30 @@ void ARIDebugHUD::DrawHUD()
                 Line(FString::Printf(TEXT("Place: %d/%d"), CachedRaceManager->GetPlace(Id), CachedRaceManager->GetParticipantCount()));
             }
         }
+    }
+
+    int32 AngryRivalCount = 0;
+    for (TActorIterator<ARIAIController> It(GetWorld()); It; ++It)
+    {
+        ARIAIController* AI = *It;
+        if (!AI || !AI->IsHoldingGrudgeAgainst(Bike)) continue;
+
+        ARIBikePawn* RivalBike = Cast<ARIBikePawn>(AI->GetPawn());
+        const URIParticipantComponent* RivalParticipant = RivalBike ? RivalBike->GetParticipantComponent() : nullptr;
+        const FString RivalName = RivalParticipant ? RivalParticipant->GetParticipantId().ToString() : TEXT("RIVAL");
+
+        if (AngryRivalCount == 0)
+        {
+            Y += 4.0f;
+        }
+
+        Line(
+            FString::Printf(TEXT("MAD AT YOU: %s [%s] - %.0fs"),
+                *RivalName,
+                *AI->GetPersonalityLabel(),
+                AI->GetGrudgeTimeRemaining()),
+            FLinearColor(1.0f, 0.28f, 0.12f));
+        ++AngryRivalCount;
     }
 
     Y += 12.0f;
