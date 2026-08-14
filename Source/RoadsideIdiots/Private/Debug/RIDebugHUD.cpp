@@ -34,7 +34,7 @@ void ARIDebugHUD::DrawHUD()
     };
 
     Line(TEXT("ROADSIDE IDIOTS - MVP"), FLinearColor(1.0f, 0.75f, 0.2f));
-    Line(TEXT("BUILD: VPR-03 | ROAD: 12m | POSE: MOUNTED-END"), FLinearColor(0.55f, 1.0f, 0.70f));
+    Line(TEXT("BUILD: VPR-04 | ROAD: 12m | DAMAGE: TUNED"), FLinearColor(0.55f, 1.0f, 0.70f));
     Line(FString::Printf(TEXT("Speed: %.0f km/h"), FMath::Abs(Bike->GetBikeMovement()->GetForwardSpeedKph())));
     Line(FString::Printf(TEXT("Condition: %.0f / %.0f"), Bike->GetHealthComponent()->GetCurrentHealth(), Bike->GetHealthComponent()->GetMaxHealth()));
 
