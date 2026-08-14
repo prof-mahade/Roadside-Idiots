@@ -28,7 +28,10 @@ void ARIDemoWorldBuilder::BuildWorld(ARIRaceManager* InRaceManager, APlayerContr
 
     BuildRoute();
 
-    SpawnBox(FVector(0.0f, 0.0f, -65.0f), FRotator::ZeroRotator, FVector(300.0f, 300.0f, 0.8f));
+    // One continuous flat collider under the entire prototype course. The
+    // individual visible road boxes are intentionally non-colliding so Chaos
+    // cannot catch the bike chassis on internal segment seams/overlaps.
+    SpawnBox(FVector(0.0f, 0.0f, -40.0f), FRotator::ZeroRotator, FVector(300.0f, 300.0f, 0.8f));
     BuildTrackGeometry();
     BuildCheckpoints(InRaceManager);
     SpawnRacers(InRaceManager, PlayerController);
@@ -108,10 +111,20 @@ void ARIDemoWorldBuilder::BuildTrackGeometry()
         const FVector Center = (A + B) * 0.5f;
         const FRotator Rotation = Forward.Rotation();
 
-        SpawnBox(
-            FVector(Center.X, Center.Y, -10.0f),
+        // Visual road only. Keep it 1 cm above the seamless collision floor to
+        // avoid z-fighting, but do not let its overlapping boxes participate in
+        // physics.
+        if (AStaticMeshActor* Road = SpawnBox(
+            FVector(Center.X, Center.Y, -9.0f),
             Rotation,
-            FVector((Length + RoadSegmentPadding) / 100.0f, RoadWidth / 100.0f, 0.20f));
+            FVector((Length + RoadSegmentPadding) / 100.0f, RoadWidth / 100.0f, 0.20f)))
+        {
+            if (UStaticMeshComponent* RoadMesh = Road->GetStaticMeshComponent())
+            {
+                RoadMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+                RoadMesh->SetCollisionProfileName(TEXT("NoCollision"));
+            }
+        }
 
         const float BarrierOffset = RoadWidth * 0.5f + 28.0f;
         const FVector LeftBarrier = Center - Right * BarrierOffset;
