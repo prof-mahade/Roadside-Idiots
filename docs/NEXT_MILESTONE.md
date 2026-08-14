@@ -1,24 +1,36 @@
-# Next milestone — Combat Slice 1
+# Next milestone — Readable Combat & Rivalry Gate
 
-The second playtest confirmed the driving prototype is usable enough to move forward, although AI can still occasionally get confused after leaving the intended road. Perfect recovery/pathing is deferred to a later vehicle/AI mechanics pass.
+The driving prototype and imported motorcycle/Manny presentation are now readable enough to stop judging gameplay through graybox cubes. AI corner/off-track recovery is still imperfect and remains deferred to a later vehicle/AI mechanics pass.
 
-## Goal
-Make the existing Q/E side interaction produce the first recognizable Roadside Idiots gameplay moment.
+## Immediate goal
+Validate that the current visual/readability cleanup makes the core Roadside Idiots interaction understandable while riding.
 
-## This pass
-- keep Q/E as left/right prototype interactions
-- preserve physical wobble and condition loss
-- when a bot is provoked, temporarily prioritize the provoking rider instead of simply following the racing line
-- allow the bot to attempt the same side interaction when it catches the provoking rider
-- after a short rivalry window, return the bot to normal racing behavior
-- keep the safe reset fallback for badly stuck bots
+## Current gate
+After pulling and compiling the latest `dev/mvp-foundation`, verify:
+- rider sits in a deterministic mounted pose rather than a Turn_V1 animation
+- bike/rider proportions remain correct
+- widened 1200 cm road gives enough room for overtaking and side interaction
+- lower barriers feel less like a tunnel while still containing racers
+- chase camera gives better forward road visibility
+- race starts at 100 condition instead of losing spawn-settling health
+- Q/E produces a visible action
+- a successful player hit produces visible reaction plus `SMACK! BOT_XX is MAD at you!`
+- an AI counter-hit produces `WHACK! BOT_XX hit YOU!`
+- R recovers to the latest safe checkpoint centerline position
+- Enter restarts the race immediately
 
-## Not part of this pass
-- final slap/kick animation
-- final sounds
-- character ragdoll
-- sophisticated personality/grudge memory
+## If the gate passes
+Move directly into the first comedy-feedback slice:
+1. stronger slap/punch timing and hit weight
+2. obvious angry-rival state feedback
+3. simple rival identity/personality differences
+4. crash/rider reaction pass
+5. simple traffic and prototype pickups/road hazards
+
+## Still deferred
+- final character/bike art
+- final sounds and VFX
+- ragdoll-quality crash system
+- sophisticated grudge/personality memory
 - perfect off-track pathfinding
-
-## Test gate
-The pass is successful if provoking a nearby bot can cause a short, readable chase/response without preventing the race from continuing afterward.
+- multiplayer networking
