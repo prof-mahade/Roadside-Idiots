@@ -100,4 +100,5 @@ private:
     float TippedStillTime = 0.0f;
     bool bCrashLatched = false;
     double LastImpactTime = -100.0;
+    double DamageEnabledAfterTime = 0.0;
 };
