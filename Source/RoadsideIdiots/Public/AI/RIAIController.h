@@ -24,10 +24,12 @@ private:
 
     TWeakObjectPtr<ARIBikePawn> GrudgeTarget;
     float GrudgeTimeRemaining = 0.0f;
+    float AttackCooldownRemaining = 0.0f;
 
     UPROPERTY(EditAnywhere, Category="AI Tuning") float TargetSpeedKph = 132.0f;
     UPROPERTY(EditAnywhere, Category="AI Tuning") float WaypointReachDistance = 520.0f;
     UPROPERTY(EditAnywhere, Category="AI Tuning|Retaliation") float GrudgeDurationSeconds = 8.0f;
     UPROPERTY(EditAnywhere, Category="AI Tuning|Retaliation") float GrudgeCatchupSpeedKph = 145.0f;
     UPROPERTY(EditAnywhere, Category="AI Tuning|Retaliation") float AttackRange = 235.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Retaliation") float AttackCooldownSeconds = 1.60f;
 };
