@@ -1,4 +1,5 @@
 #include "Core/RIHealthComponent.h"
+#include "Engine/World.h"
 #include "Net/UnrealNetwork.h"
 
 URIHealthComponent::URIHealthComponent()
@@ -13,6 +14,7 @@ void URIHealthComponent::BeginPlay()
     if (GetOwner() && GetOwner()->HasAuthority())
     {
         CurrentHealth = MaxHealth;
+        LastAppliedImpactTime = -100.0;
     }
 }
 
@@ -21,6 +23,16 @@ float URIHealthComponent::ApplyImpact(float Amount)
     if (!GetOwner() || !GetOwner()->HasAuthority() || Amount <= 0.0f)
     {
         return CurrentHealth;
+    }
+
+    if (const UWorld* World = GetWorld())
+    {
+        const double Now = World->GetTimeSeconds();
+        if (Now - LastAppliedImpactTime < ImpactImmunitySeconds)
+        {
+            return CurrentHealth;
+        }
+        LastAppliedImpactTime = Now;
     }
 
     CurrentHealth = FMath::Clamp(CurrentHealth - Amount, 0.0f, MaxHealth);
@@ -36,6 +48,7 @@ void URIHealthComponent::ResetHealth()
     }
 
     CurrentHealth = MaxHealth;
+    LastAppliedImpactTime = -100.0;
     OnHealthChanged.Broadcast(CurrentHealth, MaxHealth);
 }
 
