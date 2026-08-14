@@ -18,8 +18,9 @@ public:
     ARIBananaPeelHazard();
     virtual void BeginPlay() override;
 
-    // Must be called before FinishSpawning so the dropper can never trigger
-    // their own peel during the actor's initial overlap pass.
+    // Called before FinishSpawning. The dropper is immune only briefly so the
+    // freshly dropped peel cannot hit them instantly, but they can still circle
+    // back later and suffer the deserved self-own.
     void ConfigureSource(ARIBikePawn* InSourceBike);
 
 private:
@@ -48,4 +49,8 @@ private:
 
     TWeakObjectPtr<ARIBikePawn> SourceBike;
     bool bTriggered = false;
+    double SourceImmunityEndsAt = 0.0;
+
+    UPROPERTY(EditDefaultsOnly, Category="Banana")
+    float SourceImmunitySeconds = 1.0f;
 };
