@@ -17,6 +17,8 @@ namespace
     const FName RiderComponentName(TEXT("PrototypeRiderVisual"));
     constexpr float VisualYawOffsetDegrees = -90.0f;
     constexpr float VisualHeightOffset = -10.0f;
+    constexpr float RiderRearwardOffset = 14.0f;
+    constexpr float RiderDownOffset = 8.0f;
 
     IAssetRegistry& GetRegistry()
     {
@@ -117,9 +119,6 @@ namespace
         USkeletalMeshComponent* Motorcycle = FindVisualComponent(Bike, MotorcycleComponentName);
         if (!Rider || !Motorcycle) return;
 
-        // Keep the motorcycle in its clean reference pose. The Riding folder in
-        // this free pack contains Turn_V1 left/right sequences, so it is not a
-        // safe source for a straight neutral bike pose.
         Motorcycle->SetAnimation(nullptr);
         Motorcycle->SetPosition(0.0f, false);
         Motorcycle->SetPlayRate(0.0f);
@@ -127,9 +126,6 @@ namespace
         TArray<FAssetData> Assets;
         GetAnimationAssets(Assets);
 
-        // This transition is known to exist in the imported pack. Using only
-        // the rider's final mounted frame gives us a deterministic seated pose
-        // without applying the transition's bike motion or a permanent turn.
         UAnimSequence* RiderPose = FindAnimationByAssetName(Assets, TEXT("AS_Mounted_to_Ride"));
         if (!RiderPose)
         {
@@ -234,9 +230,11 @@ void RIPrototypeVisuals::Update(ARIBikePawn* Bike)
         : FRotator(0.0f, ActorRotation.Yaw + VisualYawOffsetDegrees, 0.0f);
 
     const FVector VisualLocation = Bike->GetActorLocation() + FVector(0.0f, 0.0f, VisualHeightOffset);
+    const FVector BikeForward = Bike->GetActorForwardVector().GetSafeNormal2D();
+    const FVector RiderLocation = VisualLocation - BikeForward * RiderRearwardOffset - FVector::UpVector * RiderDownOffset;
 
     Motorcycle->SetWorldLocationAndRotation(VisualLocation, VisualRotation);
-    Rider->SetWorldLocationAndRotation(VisualLocation, VisualRotation);
+    Rider->SetWorldLocationAndRotation(RiderLocation, VisualRotation);
     Motorcycle->SetWorldScale3D(FVector::OneVector);
     Rider->SetWorldScale3D(FVector::OneVector);
 }
