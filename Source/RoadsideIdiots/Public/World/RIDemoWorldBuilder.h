@@ -24,5 +24,5 @@ private:
 
     UPROPERTY() TObjectPtr<UStaticMesh> CubeMesh;
     TArray<FVector> RoutePoints;
-    float RoadWidth = 900.0f;
+    float RoadWidth = 1200.0f;
 };
