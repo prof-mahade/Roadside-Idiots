@@ -23,14 +23,15 @@ Working tagline: **The road is dangerous. The riders are worse.**
 - ordered checkpoints, place/progress HUD and condition value
 - manual/automatic recovery
 - side interaction on Q/E
-- basic bot rivalry/retaliation state after a successful interaction
-- overlapping barriers and basic bot stuck recovery
+- bot retaliation/grudge state after a successful interaction
+- basic bot stuck recovery
 - finish state and instant Enter restart
+- continuous flat collision floor for the prototype road
 
 ## Known limitations
 - bot corner/off-track recovery is still imperfect and is deferred to a later motorcycle/AI mechanics pass
 - current motorcycle physics are prototype physics, not final two-wheel simulation
-- final slap/kick timing, sound, comedy VFX and character damage visuals are not implemented
+- final slap/kick timing, sound, comedy VFX, rider damage visuals and final character/bike art are not implemented
 
 ## Imported local visual assets
 The developer locally imported:
@@ -47,32 +48,60 @@ The binary `.uasset` files are local to the developer machine and are not stored
 - presentation meshes use absolute location/rotation/scale so the non-uniform physics chassis cannot crush or stretch them
 - bike presentation stays in its clean skeletal reference pose for normal riding
 - rider neutral pose is deterministic: final seated frame of `AS_Mounted_to_Ride`; do not auto-pick from Riding/Turn_V1 for neutral driving
-- Manny now has a small rider-only seat calibration: slightly rearward and lower relative to the motorcycle origin
+- Manny has a small rider-only seat calibration: slightly rearward and lower relative to the motorcycle origin
 - Q/E plays a visible Punch animation
-- a successful hit plays a Get_Hits reaction and triggers temporary AI retaliation
+- a successful hit plays a Get_Hits reaction and triggers AI retaliation
 - after one-shot interactions, rider returns to the deterministic seated pose
+
+## Road collision correction
+A verified playtest found that the apparently flat road caused random hops. Root cause: the visible road was 40 overlapping rotated collision boxes; Chaos could catch the chassis on internal seams.
+
+Current architecture:
+- one continuous flat collision floor under the entire prototype map is authoritative for ground collision
+- visible road segments remain for appearance but have collision disabled
+- barriers keep normal collision
+- verified locally: road now feels flat and the random invisible-bump hopping disappeared
 
 ## Readability/layout state
 - road width is 1200 cm (12 m)
 - barrier height is 120 cm while retaining thick collision
 - racer lane offsets use the added road width
 - chase camera: arm 550, height 185, pitch -12.5, FOV 95
-- HUD build marker for this damage-tuned pass: `BUILD: VPR-04 | ROAD: 12m | DAMAGE: TUNED`
 - Enter reloads the current level for an instant clean race restart
 
 ## Damage/condition tuning
-The first verified VPR-03 playtest showed Condition could collapse from repeated angry-bot attacks and overlapping physics damage. The current branch now uses a damage governor:
-- health component ignores additional impact events for 0.65 seconds after a valid hit, preventing one slap plus its physics bump from charging twice
-- side interaction damage reduced from 7 to 4
-- side impulse reduced from 270 to 220
-- Q/E interaction cooldown increased from 0.55 to 0.70 seconds
-- AI retaliation has a separate 1.60 second successful-attack cooldown; missed attacks retry after a short delay
-- ordinary scrapes no longer count as crash damage; physics collision threshold increased from 18000 to 30000 impulse
-- collision damage is capped lower and collision damage cooldown increased to 0.85 seconds
-- tip/crash penalty reduced from 4 to 3
-- spawn settling still has a 1.25 second damage grace period
+Condition uses a prototype damage governor:
+- health component ignores additional impact events for 0.65 seconds after a valid hit, preventing slap + physics bump double-charging
+- side interaction damage is 4
+- side impulse is 220
+- Q/E interaction cooldown is 0.70 seconds
+- AI successful retaliation has its own personality-dependent cooldown
+- ordinary scrapes should not count as crash damage; physics collision threshold is 30000 impulse
+- collision damage is capped and has a separate cooldown
+- tip/crash penalty is 3
+- spawn settling has a 1.25 second damage grace period
 
-The design intent is that Condition should move only for readable combat hits, meaningful crashes, or genuine hard impacts—not constantly while simply racing beside another rider.
+Design intent: Condition should move only for readable combat hits, meaningful crashes, or genuine hard impacts—not constantly while simply racing beside another rider.
+
+## VPR-06 rival personality slice
+The three prototype bots now have deterministic personalities so retaliation is readable and funny before final art:
+- `BOT_01 [LEECH]`: 28 s base grudge, strong catch-up, slower attacks; designed to feel like the idiot who refuses to leave you alone
+- `BOT_02 [HOTHEAD]`: 10 s grudge, fastest catch-up, most aggressive successful-attack cooldown
+- `BOT_03 [PETTY]`: 15 s grudge, moderate catch-up, slower attacks
+
+Repeatedly provoking the same bot extends its current grudge by 3 seconds up to a safe cap rather than silently resetting it.
+
+Combat feedback now includes personality labels:
+- player hit: `SMACK! BOT_XX [PERSONALITY] IS MAD!`
+- bot retaliation: `WHACK! BOT_XX [PERSONALITY] hit YOU!`
+
+HUD build marker for this slice:
+`BUILD: VPR-06 | RIVALS: PERSONALITY | ROAD: SEAMLESS`
+
+While a bot is angry at the player, the HUD shows:
+`MAD: BOT_XX [PERSONALITY] | <seconds> | AHEAD/BEHIND/LEFT/RIGHT <distance>m`
+
+This is temporary prototype readability so the player can understand which visually identical Manny rider is chasing them.
 
 ## Recovery
 Checkpoint recovery stores a predefined road-center location based on the checkpoint transform rather than the rider's exact wall-hugging crossing location. R should return the bike to a cleaner position after the latest successfully crossed checkpoint.
@@ -90,18 +119,17 @@ Checkpoint recovery stores a predefined road-center location based on the checkp
 2. Pull latest `dev/mvp-foundation`.
 3. Compile `RoadsideIdiotsEditor`.
 4. Launch Play-In-Editor.
-5. Verify HUD shows `BUILD: VPR-04 | ROAD: 12m | DAMAGE: TUNED`.
-6. Test 30–60 seconds:
-   - Condition starts at 100/100
-   - normal clean riding should leave Condition unchanged
-   - light wall/rider rubbing should usually leave Condition unchanged
-   - a successful slap should reduce Condition once, not repeatedly from the same contact
-   - an angry bot should still retaliate, but should not machine-gun the condition bar
-   - rider should sit slightly lower/rearward than VPR-03
-   - R recovery and Enter restart still work
-7. Send one riding/combat screenshot and report any obvious failure only.
+5. Verify HUD shows `BUILD: VPR-06 | RIVALS: PERSONALITY | ROAD: SEAMLESS`.
+6. Test each bot if practical:
+   - slap BOT_01 and verify LEECH remains angry much longer than the others
+   - slap BOT_02 and verify HOTHEAD retaliates more aggressively while angry
+   - slap BOT_03 and verify PETTY sits between those extremes
+   - verify the MAD HUD line correctly reports relative direction/distance
+   - verify Condition remains stable during clean driving and does not collapse from retaliation
+   - verify flat-road hopping remains gone
+7. Report only obvious gameplay failures or whether the personality differences are understandable.
 
-If this gate passes, move to stronger comedy feedback, identifiable rival personalities, crash/rider reaction, then simple traffic/pickups. Do not spend time on final art yet.
+If this gate passes, proceed to the next comedy slice: stronger physical/visual slap feedback, clearer rival identification in-world, crash/rider reactions, then the first simple road hazard/pickup system (banana is the preferred first hazard because it simultaneously tests pickup, heal, drop/throw, and opponent slip logic).
 
 ## New-chat protocol
 1. Read this file.
