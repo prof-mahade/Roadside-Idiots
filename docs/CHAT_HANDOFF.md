@@ -7,8 +7,10 @@ Roadside Idiots is a Windows PC motorcycle racing game with believable road moti
 
 Working tagline: **The road is dangerous. The riders are worse.**
 
-## Current branch
-`dev/mvp-foundation`
+## Branch strategy
+- stable milestone branch: `main`
+- active development branch: `dev/mvp-foundation`
+- VPR-06 personality/seamless-road foundation was fast-forwarded into `main` after local verification
 
 ## Local environment
 - Unreal Engine 5.8.1
@@ -24,6 +26,7 @@ Working tagline: **The road is dangerous. The riders are worse.**
 - manual/automatic recovery
 - side interaction on Q/E
 - bot retaliation/grudge state after a successful interaction
+- deterministic prototype rival personalities
 - basic bot stuck recovery
 - finish state and instant Enter restart
 - continuous flat collision floor for the prototype road
@@ -32,6 +35,7 @@ Working tagline: **The road is dangerous. The riders are worse.**
 - bot corner/off-track recovery is still imperfect and is deferred to a later motorcycle/AI mechanics pass
 - current motorcycle physics are prototype physics, not final two-wheel simulation
 - final slap/kick timing, sound, comedy VFX, rider damage visuals and final character/bike art are not implemented
+- current banana visuals are engine-primitive placeholders, not final banana/peel art
 
 ## Imported local visual assets
 The developer locally imported:
@@ -80,28 +84,42 @@ Condition uses a prototype damage governor:
 - collision damage is capped and has a separate cooldown
 - tip/crash penalty is 3
 - spawn settling has a 1.25 second damage grace period
+- health component now also supports positive healing for item pickups
 
-Design intent: Condition should move only for readable combat hits, meaningful crashes, or genuine hard impacts—not constantly while simply racing beside another rider.
+Design intent: Condition should move only for readable combat hits, meaningful crashes, genuine hard impacts, or healing—not constantly while simply racing beside another rider.
 
-## VPR-06 rival personality slice
-The three prototype bots now have deterministic personalities so retaliation is readable and funny before final art:
+## VPR-06 rival personality slice — locally verified
+The three prototype bots have deterministic personalities so retaliation is readable and funny before final art:
 - `BOT_01 [LEECH]`: 28 s base grudge, strong catch-up, slower attacks; designed to feel like the idiot who refuses to leave you alone
 - `BOT_02 [HOTHEAD]`: 10 s grudge, fastest catch-up, most aggressive successful-attack cooldown
 - `BOT_03 [PETTY]`: 15 s grudge, moderate catch-up, slower attacks
 
 Repeatedly provoking the same bot extends its current grudge by 3 seconds up to a safe cap rather than silently resetting it.
 
-Combat feedback now includes personality labels:
+Combat feedback includes personality labels:
 - player hit: `SMACK! BOT_XX [PERSONALITY] IS MAD!`
 - bot retaliation: `WHACK! BOT_XX [PERSONALITY] hit YOU!`
-
-HUD build marker for this slice:
-`BUILD: VPR-06 | RIVALS: PERSONALITY | ROAD: SEAMLESS`
 
 While a bot is angry at the player, the HUD shows:
 `MAD: BOT_XX [PERSONALITY] | <seconds> | AHEAD/BEHIND/LEFT/RIGHT <distance>m`
 
-This is temporary prototype readability so the player can understand which visually identical Manny rider is chasing them.
+## VPR-07 banana + in-world readability slice — pending compile/playtest
+New code on `dev/mvp-foundation` adds:
+- screen-space identity labels projected above nearby bot riders: `BOT_XX [LEECH/HOTHEAD/PETTY]`
+- angry labels append `!! MAD !!` and use stronger warning color
+- eight prototype banana pickups are distributed around the oval on alternating lane offsets
+- pickups are player-only for this first slice so bots do not steal the test item
+- banana pickup heals up to 12 Condition and grants one banana peel
+- player can carry up to 3 peels
+- F drops a peel about 1.75 m behind the bike
+- dropped peel lasts 25 seconds or until triggered
+- a rival hitting the peel receives a strong lateral/roll wobble, a small Condition cost and a visible reaction
+- if a bot slips on the player's peel, that bot calls `NotifyProvokedBy(player)` and becomes angry at the player
+- temporary feedback includes `NOM!`, peel deployment and rival-slip messages
+- HUD inventory shows `Banana peels: N / 3`
+
+HUD build marker for this pending slice:
+`BUILD: VPR-07 | BANANA: PROTOTYPE | RIVALS: LABELED`
 
 ## Recovery
 Checkpoint recovery stores a predefined road-center location based on the checkpoint transform rather than the rider's exact wall-hugging crossing location. R should return the bike to a cleaner position after the latest successfully crossed checkpoint.
@@ -111,6 +129,7 @@ Checkpoint recovery stores a predefined road-center location based on the checkp
 - S: brake, then reverse at low speed
 - A/D: steer
 - Q/E: slap/interact left/right
+- F: drop one carried banana peel
 - R: recover to latest safe checkpoint position
 - Enter: restart the race
 
@@ -119,17 +138,21 @@ Checkpoint recovery stores a predefined road-center location based on the checkp
 2. Pull latest `dev/mvp-foundation`.
 3. Compile `RoadsideIdiotsEditor`.
 4. Launch Play-In-Editor.
-5. Verify HUD shows `BUILD: VPR-06 | RIVALS: PERSONALITY | ROAD: SEAMLESS`.
-6. Test each bot if practical:
-   - slap BOT_01 and verify LEECH remains angry much longer than the others
-   - slap BOT_02 and verify HOTHEAD retaliates more aggressively while angry
-   - slap BOT_03 and verify PETTY sits between those extremes
-   - verify the MAD HUD line correctly reports relative direction/distance
-   - verify Condition remains stable during clean driving and does not collapse from retaliation
-   - verify flat-road hopping remains gone
-7. Report only obvious gameplay failures or whether the personality differences are understandable.
+5. Verify HUD shows `BUILD: VPR-07 | BANANA: PROTOTYPE | RIVALS: LABELED`.
+6. Verify nearby bots have readable labels above them.
+7. Drive through a glowing banana pickup:
+   - Condition should recover by up to 12
+   - peel inventory should increase by 1
+8. Press F while moving:
+   - peel count should decrease
+   - a glowing peel placeholder should appear behind the player
+9. Let a bot hit the peel:
+   - bot should visibly wobble/slip
+   - bot should become angry at the player
+   - HUD/feedback should identify the angry personality
+10. Reconfirm normal road remains flat and Condition remains stable outside meaningful hits.
 
-If this gate passes, proceed to the next comedy slice: stronger physical/visual slap feedback, clearer rival identification in-world, crash/rider reactions, then the first simple road hazard/pickup system (banana is the preferred first hazard because it simultaneously tests pickup, heal, drop/throw, and opponent slip logic).
+If this gate passes, proceed to comedy combat/crash feedback: stronger slap impact presentation, a dedicated dizzy/crash rider reaction, then traffic and additional hazards such as rotten egg and map-dependent dog/cow poop.
 
 ## New-chat protocol
 1. Read this file.
