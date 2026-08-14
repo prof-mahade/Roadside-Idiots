@@ -9,6 +9,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "Components/PointLightComponent.h"
 #include "Engine/Engine.h"
+#include "Engine/World.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialInterface.h"
 #include "UObject/ConstructorHelpers.h"
@@ -72,6 +73,11 @@ void ARIBananaPeelHazard::BeginPlay()
     Super::BeginPlay();
     Trigger->OnComponentBeginOverlap.AddDynamic(this, &ARIBananaPeelHazard::HandleHazardOverlap);
 
+    if (const UWorld* World = GetWorld())
+    {
+        SourceImmunityEndsAt = World->GetTimeSeconds() + SourceImmunitySeconds;
+    }
+
     // Carry a little of the bike's momentum so the peel visibly falls away
     // behind the rider instead of materializing motionless in mid-air.
     if (ARIBikePawn* Dropper = SourceBike.Get())
@@ -110,7 +116,21 @@ void ARIBananaPeelHazard::HandleHazardOverlap(
     if (bTriggered || !HasAuthority()) return;
 
     ARIBikePawn* OtherBike = Cast<ARIBikePawn>(OtherActor);
-    if (!OtherBike || OtherBike == SourceBike.Get()) return;
+    if (!OtherBike) return;
+
+    // The dropper gets only a short grace period. After that, their own peel is
+    // fair game; turning around and slipping on your own banana should work.
+    ARIBikePawn* ValidSource = SourceBike.Get();
+    if (OtherBike == ValidSource)
+    {
+        if (const UWorld* World = GetWorld())
+        {
+            if (World->GetTimeSeconds() < SourceImmunityEndsAt)
+            {
+                return;
+            }
+        }
+    }
 
     bTriggered = true;
 
@@ -120,19 +140,20 @@ void ARIBananaPeelHazard::HandleHazardOverlap(
 
     if (UStaticMeshComponent* Chassis = OtherBike->GetChassis())
     {
-        const FVector SideImpulse = OtherBike->GetActorRightVector() * (SideSign * 360.0f);
-        Chassis->AddImpulse(SideImpulse + FVector::UpVector * 55.0f, NAME_None, true);
+        // Deliberately exaggerated prototype slip so the mechanic is impossible
+        // to miss during testing. We can tune this down after the loop is proven.
+        const FVector SideImpulse = OtherBike->GetActorRightVector() * (SideSign * 520.0f);
+        Chassis->AddImpulse(SideImpulse + FVector::UpVector * 85.0f, NAME_None, true);
 
         const FVector AngularImpulse =
-            OtherBike->GetActorForwardVector() * (SideSign * 4.2f) +
-            FVector::UpVector * (SideSign * 1.4f);
+            OtherBike->GetActorForwardVector() * (SideSign * 6.5f) +
+            FVector::UpVector * (SideSign * 2.2f);
         Chassis->AddAngularImpulseInRadians(AngularImpulse, NAME_None, true);
     }
 
-    OtherBike->GetHealthComponent()->ApplyImpact(1.0f);
+    OtherBike->GetHealthComponent()->ApplyImpact(2.0f);
     RIPrototypeVisuals::PlayReaction(OtherBike, SideSign);
 
-    ARIBikePawn* ValidSource = SourceBike.Get();
     if (ValidSource)
     {
         if (ARIAIController* OtherController = Cast<ARIAIController>(OtherBike->GetController()))
@@ -146,9 +167,14 @@ void ARIBananaPeelHazard::HandleHazardOverlap(
         const URIParticipantComponent* SourceParticipant = ValidSource ? ValidSource->GetParticipantComponent() : nullptr;
         const bool bOtherHuman = OtherParticipant && OtherParticipant->IsHumanControlled();
         const bool bSourceHuman = SourceParticipant && SourceParticipant->IsHumanControlled();
+        const bool bSelfOwnGoal = bOtherHuman && ValidSource == OtherBike;
         const FString OtherName = OtherParticipant ? OtherParticipant->GetParticipantId().ToString() : TEXT("RIVAL");
 
-        if (bOtherHuman)
+        if (bSelfOwnGoal)
+        {
+            GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Yellow, TEXT("OWN GOAL! You slipped on YOUR banana peel."));
+        }
+        else if (bOtherHuman)
         {
             GEngine->AddOnScreenDebugMessage(-1, 1.8f, FColor::Yellow, TEXT("BANANA BETRAYAL! You hit a peel!"));
         }
