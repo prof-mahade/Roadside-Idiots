@@ -2,6 +2,7 @@
 #include "Vehicle/RIBikePawn.h"
 #include "Vehicle/RIBikeMovementComponent.h"
 #include "Interaction/RIInteractionComponent.h"
+#include "Core/RIParticipantComponent.h"
 
 ARIAIController::ARIAIController()
 {
@@ -13,6 +14,52 @@ void ARIAIController::OnPossess(APawn* InPawn)
 {
     Super::OnPossess(InPawn);
     Bike = Cast<ARIBikePawn>(InPawn);
+    ConfigurePersonality();
+}
+
+void ARIAIController::ConfigurePersonality()
+{
+    if (!Bike || !Bike->GetParticipantComponent()) return;
+
+    const FString Id = Bike->GetParticipantComponent()->GetParticipantId().ToString();
+
+    if (Id.Equals(TEXT("BOT_01"), ESearchCase::IgnoreCase))
+    {
+        // The joke is that this one simply refuses to let things go.
+        PersonalityLabel = TEXT("LEECH");
+        GrudgeDurationSeconds = 28.0f;
+        GrudgeCatchupSpeedKph = 150.0f;
+        AttackCooldownSeconds = 1.85f;
+        AttackRange = 245.0f;
+    }
+    else if (Id.Equals(TEXT("BOT_02"), ESearchCase::IgnoreCase))
+    {
+        // Shorter grudge, but it tries to retaliate more aggressively while angry.
+        PersonalityLabel = TEXT("HOTHEAD");
+        GrudgeDurationSeconds = 10.0f;
+        GrudgeCatchupSpeedKph = 153.0f;
+        AttackCooldownSeconds = 1.30f;
+        AttackRange = 250.0f;
+    }
+    else if (Id.Equals(TEXT("BOT_03"), ESearchCase::IgnoreCase))
+    {
+        PersonalityLabel = TEXT("PETTY");
+        GrudgeDurationSeconds = 15.0f;
+        GrudgeCatchupSpeedKph = 145.0f;
+        AttackCooldownSeconds = 2.05f;
+        AttackRange = 235.0f;
+    }
+
+    UE_LOG(LogTemp, Display, TEXT("RoadsideIdiots AI: %s personality=%s grudge=%.0fs attackCooldown=%.2fs"),
+        *Id,
+        *PersonalityLabel,
+        GrudgeDurationSeconds,
+        AttackCooldownSeconds);
+}
+
+bool ARIAIController::IsHoldingGrudgeAgainst(const ARIBikePawn* Target) const
+{
+    return Target && GrudgeTimeRemaining > 0.0f && GrudgeTarget.IsValid() && GrudgeTarget.Get() == Target;
 }
 
 void ARIAIController::SetRoute(const TArray<FVector>& InRoutePoints, int32 StartTargetIndex, float InLaneOffset)
@@ -26,8 +73,22 @@ void ARIAIController::NotifyProvokedBy(ARIBikePawn* InstigatorBike)
 {
     if (InstigatorBike && InstigatorBike != Bike)
     {
+        const bool bSameTargetAlready = GrudgeTarget.IsValid() && GrudgeTarget.Get() == InstigatorBike && GrudgeTimeRemaining > 0.0f;
         GrudgeTarget = InstigatorBike;
-        GrudgeTimeRemaining = GrudgeDurationSeconds;
+
+        // Repeatedly annoying the same idiot extends the grudge instead of silently
+        // resetting it. The cap prevents a permanently unwinnable pursuit.
+        if (bSameTargetAlready)
+        {
+            GrudgeTimeRemaining = FMath::Min(
+                GrudgeTimeRemaining + 3.0f,
+                GrudgeDurationSeconds * 1.35f);
+        }
+        else
+        {
+            GrudgeTimeRemaining = GrudgeDurationSeconds;
+        }
+
         AttackCooldownRemaining = 0.25f;
     }
 }
@@ -81,7 +142,9 @@ void ARIAIController::Tick(float DeltaSeconds)
 
         if (RivalDistanceSq < FMath::Square(2200.0f))
         {
-            TargetPoint = RivalLocation + RivalBike->GetActorForwardVector() * 70.0f;
+            // Aim slightly ahead of the rival so the angry bot tries to get beside
+            // them rather than simply driving into their rear wheel.
+            TargetPoint = RivalLocation + RivalBike->GetActorForwardVector() * 110.0f;
         }
 
         if (RivalDistanceSq < FMath::Square(AttackRange) && AttackCooldownRemaining <= 0.0f)
