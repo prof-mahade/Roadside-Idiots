@@ -55,6 +55,7 @@ private:
     void UpdatePlayerDriveInputs();
     void InteractLeft();
     void InteractRight();
+    void RestartRace();
     void RecoverUprightHere();
 
     UFUNCTION()
