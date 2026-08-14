@@ -23,13 +23,13 @@ private:
     float Radius = 65.0f;
 
     UPROPERTY(EditAnywhere, Category="Tuning")
-    float SideVelocityChange = 270.0f;
+    float SideVelocityChange = 220.0f;
 
     UPROPERTY(EditAnywhere, Category="Tuning")
-    float ImpactCost = 7.0f;
+    float ImpactCost = 4.0f;
 
     UPROPERTY(EditAnywhere, Category="Tuning")
-    float CooldownSeconds = 0.55f;
+    float CooldownSeconds = 0.70f;
 
     double LastUseTime = -100.0;
 };
