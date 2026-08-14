@@ -17,10 +17,10 @@ public:
 
 private:
     UPROPERTY(EditAnywhere, Category="Tuning")
-    float Reach = 185.0f;
+    float Reach = 215.0f;
 
     UPROPERTY(EditAnywhere, Category="Tuning")
-    float Radius = 55.0f;
+    float Radius = 65.0f;
 
     UPROPERTY(EditAnywhere, Category="Tuning")
     float SideVelocityChange = 270.0f;
