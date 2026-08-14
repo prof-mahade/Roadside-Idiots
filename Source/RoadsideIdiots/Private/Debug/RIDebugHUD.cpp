@@ -46,7 +46,7 @@ void ARIDebugHUD::DrawHUD()
             if (Progress.bFinished)
             {
                 Line(FString::Printf(TEXT("FINISHED - Place %d/%d"), CachedRaceManager->GetPlace(Id), CachedRaceManager->GetParticipantCount()), FLinearColor::Green);
-                Line(TEXT("Press Esc to stop PIE, then Play again for another race."));
+                Line(TEXT("Press ENTER for another race."), FLinearColor(1.0f, 0.85f, 0.25f));
             }
             else
             {
@@ -57,6 +57,6 @@ void ARIDebugHUD::DrawHUD()
     }
 
     Y += 12.0f;
-    Line(TEXT("W accelerate | S brake | A/D steer"), FLinearColor(0.75f, 0.85f, 1.0f));
-    Line(TEXT("Q/E side interaction | R recover bike"), FLinearColor(0.75f, 0.85f, 1.0f));
+    Line(TEXT("W accelerate | S brake/reverse | A/D steer"), FLinearColor(0.75f, 0.85f, 1.0f));
+    Line(TEXT("Q/E slap left/right | R recover | ENTER restart"), FLinearColor(0.75f, 0.85f, 1.0f));
 }
