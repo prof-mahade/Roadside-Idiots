@@ -40,6 +40,18 @@ float URIHealthComponent::ApplyImpact(float Amount)
     return CurrentHealth;
 }
 
+float URIHealthComponent::Heal(float Amount)
+{
+    if (!GetOwner() || !GetOwner()->HasAuthority() || Amount <= 0.0f)
+    {
+        return CurrentHealth;
+    }
+
+    CurrentHealth = FMath::Clamp(CurrentHealth + Amount, 0.0f, MaxHealth);
+    OnHealthChanged.Broadcast(CurrentHealth, MaxHealth);
+    return CurrentHealth;
+}
+
 void URIHealthComponent::ResetHealth()
 {
     if (!GetOwner() || !GetOwner()->HasAuthority())
