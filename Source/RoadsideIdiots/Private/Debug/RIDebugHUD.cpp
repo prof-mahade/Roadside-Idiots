@@ -65,8 +65,27 @@ void ARIDebugHUD::DrawHUD()
         if (!AI || !AI->IsHoldingGrudgeAgainst(Bike)) continue;
 
         ARIBikePawn* RivalBike = Cast<ARIBikePawn>(AI->GetPawn());
-        const URIParticipantComponent* RivalParticipant = RivalBike ? RivalBike->GetParticipantComponent() : nullptr;
+        if (!RivalBike) continue;
+
+        const URIParticipantComponent* RivalParticipant = RivalBike->GetParticipantComponent();
         const FString RivalName = RivalParticipant ? RivalParticipant->GetParticipantId().ToString() : TEXT("RIVAL");
+
+        FVector ToRival = RivalBike->GetActorLocation() - Bike->GetActorLocation();
+        ToRival.Z = 0.0f;
+        const float DistanceMeters = ToRival.Size() / 100.0f;
+        const FVector RivalDirection = ToRival.GetSafeNormal();
+        const float ForwardDot = FVector::DotProduct(RivalDirection, Bike->GetActorForwardVector().GetSafeNormal2D());
+        const float RightDot = FVector::DotProduct(RivalDirection, Bike->GetActorRightVector().GetSafeNormal2D());
+
+        FString RelativeDirection;
+        if (FMath::Abs(ForwardDot) >= FMath::Abs(RightDot))
+        {
+            RelativeDirection = ForwardDot >= 0.0f ? TEXT("AHEAD") : TEXT("BEHIND");
+        }
+        else
+        {
+            RelativeDirection = RightDot >= 0.0f ? TEXT("RIGHT") : TEXT("LEFT");
+        }
 
         if (AngryRivalCount == 0)
         {
@@ -74,10 +93,12 @@ void ARIDebugHUD::DrawHUD()
         }
 
         Line(
-            FString::Printf(TEXT("MAD AT YOU: %s [%s] - %.0fs"),
+            FString::Printf(TEXT("MAD: %s [%s] | %.0fs | %s %.0fm"),
                 *RivalName,
                 *AI->GetPersonalityLabel(),
-                AI->GetGrudgeTimeRemaining()),
+                AI->GetGrudgeTimeRemaining(),
+                *RelativeDirection,
+                DistanceMeters),
             FLinearColor(1.0f, 0.28f, 0.12f));
         ++AngryRivalCount;
     }
