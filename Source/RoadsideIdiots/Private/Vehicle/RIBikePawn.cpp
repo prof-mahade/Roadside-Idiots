@@ -103,6 +103,12 @@ ARIBikePawn::ARIBikePawn()
 void ARIBikePawn::BeginPlay()
 {
     Super::BeginPlay();
+
+    if (GetWorld())
+    {
+        DamageEnabledAfterTime = GetWorld()->GetTimeSeconds() + 1.25;
+    }
+
     Chassis->OnComponentHit.AddDynamic(this, &ARIBikePawn::HandleChassisHit);
     if (!bHasRecoveryTransform)
     {
@@ -196,6 +202,7 @@ void ARIBikePawn::HandleChassisHit(UPrimitiveComponent* HitComponent, AActor* Ot
     if (!HasAuthority() || !GetWorld()) return;
 
     const double Now = GetWorld()->GetTimeSeconds();
+    if (Now < DamageEnabledAfterTime) return;
     if (Now - LastImpactTime < 0.45) return;
 
     const float ImpulseSize = NormalImpulse.Size();
@@ -219,7 +226,7 @@ void ARIBikePawn::Tick(float DeltaSeconds)
     if (bTipped && !bCrashLatched)
     {
         bCrashLatched = true;
-        if (HasAuthority())
+        if (HasAuthority() && GetWorld() && GetWorld()->GetTimeSeconds() >= DamageEnabledAfterTime)
         {
             Health->ApplyImpact(4.0f);
         }
