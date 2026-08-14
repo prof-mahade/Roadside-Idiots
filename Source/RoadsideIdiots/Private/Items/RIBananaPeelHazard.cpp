@@ -17,8 +17,26 @@ ARIBananaPeelHazard::ARIBananaPeelHazard()
 {
     PrimaryActorTick.bCanEverTick = false;
 
+    // A small physical root lets gravity visibly drop the peel onto the road.
+    // It blocks only WorldStatic so it cannot shove motorcycles around by itself.
+    PhysicsBody = CreateDefaultSubobject<USphereComponent>(TEXT("PhysicsBody"));
+    SetRootComponent(PhysicsBody);
+    PhysicsBody->SetSphereRadius(12.0f);
+    PhysicsBody->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+    PhysicsBody->SetCollisionObjectType(ECC_WorldDynamic);
+    PhysicsBody->SetCollisionResponseToAllChannels(ECR_Ignore);
+    PhysicsBody->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Block);
+    PhysicsBody->SetGenerateOverlapEvents(false);
+    PhysicsBody->SetSimulatePhysics(true);
+    PhysicsBody->SetEnableGravity(true);
+    PhysicsBody->SetLinearDamping(0.85f);
+    PhysicsBody->SetAngularDamping(1.25f);
+    PhysicsBody->BodyInstance.bUseCCD = true;
+    PhysicsBody->SetMassOverrideInKg(NAME_None, 0.20f, true);
+
+    // Large query-only trigger catches bikes without affecting their physics.
     Trigger = CreateDefaultSubobject<USphereComponent>(TEXT("Trigger"));
-    SetRootComponent(Trigger);
+    Trigger->SetupAttachment(PhysicsBody);
     Trigger->SetSphereRadius(78.0f);
     Trigger->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
     Trigger->SetCollisionObjectType(ECC_WorldDynamic);
@@ -27,10 +45,11 @@ ARIBananaPeelHazard::ARIBananaPeelHazard()
     Trigger->SetGenerateOverlapEvents(true);
 
     Visual = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Visual"));
-    Visual->SetupAttachment(Trigger);
+    Visual->SetupAttachment(PhysicsBody);
     Visual->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     Visual->SetGenerateOverlapEvents(false);
     Visual->SetRelativeScale3D(FVector(0.58f, 0.34f, 0.07f));
+    Visual->SetRelativeLocation(FVector(0.0f, 0.0f, -8.0f));
 
     static ConstructorHelpers::FObjectFinder<UStaticMesh> SphereMesh(TEXT("/Engine/BasicShapes/Sphere.Sphere"));
     if (SphereMesh.Succeeded())
@@ -39,11 +58,11 @@ ARIBananaPeelHazard::ARIBananaPeelHazard()
     }
 
     Glow = CreateDefaultSubobject<UPointLightComponent>(TEXT("Glow"));
-    Glow->SetupAttachment(Trigger);
+    Glow->SetupAttachment(PhysicsBody);
     Glow->SetLightColor(FLinearColor(1.0f, 0.62f, 0.02f));
     Glow->SetIntensity(700.0f);
     Glow->SetAttenuationRadius(155.0f);
-    Glow->SetRelativeLocation(FVector(0.0f, 0.0f, 22.0f));
+    Glow->SetRelativeLocation(FVector(0.0f, 0.0f, 18.0f));
 
     InitialLifeSpan = 25.0f;
 }
@@ -52,6 +71,18 @@ void ARIBananaPeelHazard::BeginPlay()
 {
     Super::BeginPlay();
     Trigger->OnComponentBeginOverlap.AddDynamic(this, &ARIBananaPeelHazard::HandleHazardOverlap);
+
+    // Carry a little of the bike's momentum so the peel visibly falls away
+    // behind the rider instead of materializing motionless in mid-air.
+    if (ARIBikePawn* Dropper = SourceBike.Get())
+    {
+        if (UStaticMeshComponent* DropperChassis = Dropper->GetChassis())
+        {
+            const FVector InheritedVelocity = DropperChassis->GetPhysicsLinearVelocity() * 0.30f;
+            PhysicsBody->SetPhysicsLinearVelocity(InheritedVelocity);
+        }
+        PhysicsBody->AddAngularImpulseInRadians(FVector(0.8f, 1.1f, 1.6f), NAME_None, true);
+    }
 
     if (UMaterialInterface* BaseMaterial = LoadObject<UMaterialInterface>(nullptr, TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial")))
     {
