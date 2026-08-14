@@ -7,6 +7,7 @@
 #include "Camera/CameraComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "Kismet/GameplayStatics.h"
 #include "UObject/ConstructorHelpers.h"
 
 ARIBikePawn::ARIBikePawn()
@@ -127,6 +128,7 @@ void ARIBikePawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponen
     PlayerInputComponent->BindAction(TEXT("InteractLeft"), IE_Pressed, this, &ARIBikePawn::InteractLeft);
     PlayerInputComponent->BindAction(TEXT("InteractRight"), IE_Pressed, this, &ARIBikePawn::InteractRight);
     PlayerInputComponent->BindAction(TEXT("Recover"), IE_Pressed, this, &ARIBikePawn::RecoverBike);
+    PlayerInputComponent->BindAction(TEXT("RestartRace"), IE_Pressed, this, &ARIBikePawn::RestartRace);
 }
 
 void ARIBikePawn::InputThrottle(float Value)
@@ -185,6 +187,17 @@ void ARIBikePawn::InteractLeft()
 void ARIBikePawn::InteractRight()
 {
     Interaction->TrySideInteraction(1.0f);
+}
+
+void ARIBikePawn::RestartRace()
+{
+    if (!GetWorld()) return;
+
+    const FString LevelName = UGameplayStatics::GetCurrentLevelName(this, true);
+    if (!LevelName.IsEmpty())
+    {
+        UGameplayStatics::OpenLevel(this, FName(*LevelName), false);
+    }
 }
 
 void ARIBikePawn::SetRecoveryTransform(const FTransform& InTransform)
