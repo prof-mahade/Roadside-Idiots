@@ -38,8 +38,14 @@ private:
     UPROPERTY(EditDefaultsOnly, Category="Health", meta=(ClampMin="1.0"))
     float MaxHealth = 100.0f;
 
+    // Prevent one comic hit from being counted again immediately as a physics collision.
+    UPROPERTY(EditDefaultsOnly, Category="Health", meta=(ClampMin="0.0"))
+    float ImpactImmunitySeconds = 0.65f;
+
     UPROPERTY(ReplicatedUsing=OnRep_CurrentHealth, VisibleAnywhere, Category="Health")
     float CurrentHealth = 100.0f;
+
+    double LastAppliedImpactTime = -100.0;
 
     UFUNCTION()
     void OnRep_CurrentHealth();
