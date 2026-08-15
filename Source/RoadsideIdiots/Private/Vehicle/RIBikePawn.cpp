@@ -9,7 +9,6 @@
 #include "Visual/RIPrototypeVisuals.h"
 #include "Camera/CameraComponent.h"
 #include "Components/StaticMeshComponent.h"
-#include "Engine/Engine.h"
 #include "EngineUtils.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Kismet/GameplayStatics.h"
@@ -303,11 +302,6 @@ bool ARIBikePawn::DropBananaPeel()
         Peel->ConfigureSource(this);
         UGameplayStatics::FinishSpawningActor(Peel, SpawnTransform);
         BananaPeelCount = FMath::Max(0, BananaPeelCount - 1);
-
-        if (GEngine && Participant && Participant->IsHumanControlled())
-        {
-            GEngine->AddOnScreenDebugMessage(-1, 1.2f, FColor::Yellow, TEXT("Peel dropped behind you. Bad citizenship achieved."));
-        }
         return true;
     }
 
@@ -350,11 +344,6 @@ bool ARIBikePawn::ThrowRottenEggAt(ARIBikePawn* TargetBike)
         Projectile->ConfigureSource(this);
         UGameplayStatics::FinishSpawningActor(Projectile, SpawnTransform);
         RottenEggCount = FMath::Max(0, RottenEggCount - 1);
-
-        if (GEngine && Participant && Participant->IsHumanControlled())
-        {
-            GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor(130, 180, 35), TEXT("ROTTEN EGG AWAY! Public hygiene -1."));
-        }
         return true;
     }
 
@@ -364,12 +353,7 @@ bool ARIBikePawn::ThrowRottenEggAt(ARIBikePawn* TargetBike)
 void ARIBikePawn::UseItem()
 {
     if (!IsRaceInputEnabled()) return;
-    if (DropBananaPeel()) return;
-
-    if (GEngine && Participant && Participant->IsHumanControlled())
-    {
-        GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Silver, TEXT("No banana peel. Find a glowing banana first."));
-    }
+    DropBananaPeel();
 }
 
 void ARIBikePawn::RestartRace()
@@ -416,11 +400,23 @@ void ARIBikePawn::Tick(float DeltaSeconds)
 
     RIPrototypeVisuals::Update(this);
 
+    DizzyTimeRemaining = FMath::Max(0.0f, DizzyTimeRemaining - DeltaSeconds);
     CameraKickYaw = FMath::FInterpTo(CameraKickYaw, 0.0f, DeltaSeconds, 10.0f);
     CameraKickRoll = FMath::FInterpTo(CameraKickRoll, 0.0f, DeltaSeconds, 11.0f);
+
+    float DizzyYaw = 0.0f;
+    float DizzyRoll = 0.0f;
+    if (DizzyTimeRemaining > 0.0f && GetWorld() && Participant && Participant->IsHumanControlled())
+    {
+        const float Now = GetWorld()->GetTimeSeconds();
+        const float Strength = FMath::Clamp(DizzyTimeRemaining / 1.8f, 0.0f, 1.0f);
+        DizzyYaw = FMath::Sin(Now * 9.0f) * 2.8f * Strength;
+        DizzyRoll = FMath::Sin(Now * 12.0f + 0.8f) * 2.2f * Strength;
+    }
+
     if (CameraBoom)
     {
-        CameraBoom->SetRelativeRotation(FRotator(-12.5f, CameraKickYaw, CameraKickRoll));
+        CameraBoom->SetRelativeRotation(FRotator(-12.5f, CameraKickYaw + DizzyYaw, CameraKickRoll + DizzyRoll));
     }
 
     const bool bTipped = GetActorUpVector().Z < 0.38f;
@@ -429,6 +425,10 @@ void ARIBikePawn::Tick(float DeltaSeconds)
     if (bTipped && !bCrashLatched)
     {
         bCrashLatched = true;
+        DizzyTimeRemaining = 1.8f;
+        TriggerComicImpact(1.0f, TEXT("DIZZY!"), 1.35f);
+        RIPrototypeVisuals::PlayReaction(this, 1.0f);
+
         if (HasAuthority() && GetWorld() && GetWorld()->GetTimeSeconds() >= DamageEnabledAfterTime)
         {
             Health->ApplyImpact(3.0f);
@@ -463,6 +463,7 @@ void ARIBikePawn::RecoverUprightHere()
     Chassis->SetPhysicsAngularVelocityInRadians(FVector::ZeroVector);
     SetActorLocationAndRotation(Location, FRotator(0.0f, Yaw, 0.0f), false, nullptr, ETeleportType::TeleportPhysics);
     TippedStillTime = 0.0f;
+    DizzyTimeRemaining = 0.0f;
     bCrashLatched = false;
 }
 
@@ -485,5 +486,6 @@ void ARIBikePawn::RecoverBike()
     BikeMovement->SetBrakeInput(0.0f);
     BikeMovement->SetSteeringInput(0.0f);
     TippedStillTime = 0.0f;
+    DizzyTimeRemaining = 0.0f;
     bCrashLatched = false;
 }
