@@ -7,6 +7,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "Engine/Engine.h"
 #include "Engine/StaticMesh.h"
+#include "Kismet/GameplayStatics.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialInterface.h"
 #include "UObject/ConstructorHelpers.h"
@@ -191,16 +192,17 @@ void ARIPoopHazard::SpawnMessEffect(ARIBikePawn* Bike, const bool bCowMess, cons
 {
     if (!Bike || !GetWorld()) return;
 
-    FActorSpawnParameters Params;
-    Params.Owner = Bike;
-    Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-
-    if (ARIPoopMessEffect* Effect = GetWorld()->SpawnActor<ARIPoopMessEffect>(
+    const FTransform SpawnTransform(Bike->GetActorRotation(), Bike->GetActorLocation());
+    AActor* DeferredActor = UGameplayStatics::BeginDeferredActorSpawnFromClass(
+        GetWorld(),
         ARIPoopMessEffect::StaticClass(),
-        Bike->GetActorLocation(),
-        Bike->GetActorRotation(),
-        Params))
+        SpawnTransform,
+        ESpawnActorCollisionHandlingMethod::AlwaysSpawn,
+        Bike);
+
+    if (ARIPoopMessEffect* Effect = Cast<ARIPoopMessEffect>(DeferredActor))
     {
         Effect->Configure(Bike, bCowMess, LifetimeSeconds);
+        UGameplayStatics::FinishSpawningActor(Effect, SpawnTransform);
     }
 }
