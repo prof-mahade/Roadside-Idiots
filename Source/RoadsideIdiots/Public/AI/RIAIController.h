@@ -26,6 +26,7 @@ private:
     ARIBikePawn* FindBestItemVictim() const;
     bool FindUsefulPickupTarget(FVector& OutTarget) const;
     float ComputeAvoidanceShift(const FVector& BikeLocation, const FVector& Forward, const FVector& Right) const;
+    float ComputeCrowdSpeedScale(const FVector& BikeLocation, const FVector& Forward, const FVector& Right) const;
 
     UPROPERTY() TObjectPtr<ARIBikePawn> Bike;
     TArray<FVector> RoutePoints;
@@ -44,6 +45,7 @@ private:
     FVector CachedPickupTarget = FVector::ZeroVector;
     bool bHasCachedPickupTarget = false;
     float CachedAvoidanceShift = 0.0f;
+    float CachedCrowdSpeedScale = 1.0f;
     float SenseRefreshRemaining = 0.0f;
     float ItemDecisionRemaining = 0.0f;
     float LowMotionTime = 0.0f;
@@ -58,6 +60,8 @@ private:
     UPROPERTY(EditAnywhere, Category="AI Tuning|Awareness") float PickupSeekRange = 1600.0f;
     UPROPERTY(EditAnywhere, Category="AI Tuning|Awareness") float AvoidanceStrength = 0.80f;
     UPROPERTY(EditAnywhere, Category="AI Tuning|Awareness") float SenseRefreshIntervalSeconds = 0.18f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Awareness") float CrowdLookAhead = 720.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Awareness") float CrowdSideClearance = 205.0f;
     UPROPERTY(EditAnywhere, Category="AI Tuning|Items") float ItemDecisionIntervalSeconds = 0.22f;
     UPROPERTY(EditAnywhere, Category="AI Tuning|Items") float EggUseCooldownSeconds = 3.6f;
     UPROPERTY(EditAnywhere, Category="AI Tuning|Items") float PeelUseCooldownSeconds = 4.2f;
