@@ -1,8 +1,11 @@
 #include "Presentation/RITrafficStyleSubsystem.h"
 
 #include "Traffic/RITrafficVehicle.h"
+#include "Core/RIRaceSettingsSubsystem.h"
+#include "Race/RIRaceManager.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
+#include "Engine/GameInstance.h"
 #include "EngineUtils.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialInterface.h"
@@ -194,6 +197,31 @@ void URITrafficStyleSubsystem::TryStyleTraffic()
         return;
     }
 
+    // Do not repeatedly load assets and scan the world while the setup menu is
+    // still open. ARIRaceManager appears only after START RACE is confirmed.
+    bool bRaceReady = false;
+    for (TActorIterator<ARIRaceManager> It(World); It; ++It)
+    {
+        if (*It)
+        {
+            bRaceReady = true;
+            break;
+        }
+    }
+    if (!bRaceReady) return;
+
+    if (UGameInstance* GameInstance = World->GetGameInstance())
+    {
+        if (const URIRaceSettingsSubsystem* Settings = GameInstance->GetSubsystem<URIRaceSettingsSubsystem>())
+        {
+            if (Settings->GetTrafficCount() <= 0)
+            {
+                bStyled = true;
+                return;
+            }
+        }
+    }
+
     CubeMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
     BasicMaterial = LoadObject<UMaterialInterface>(nullptr, TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial"));
     if (!CubeMesh || !BasicMaterial)
@@ -212,8 +240,7 @@ void URITrafficStyleSubsystem::TryStyleTraffic()
 
     if (Vehicles.Num() == 0)
     {
-        // Traffic can now legitimately be set to zero from the race setup menu.
-        // Keep ticking briefly until the traffic spawner has had a chance to run.
+        // Traffic spawns in its own world-subsystem tick; wait one more frame.
         return;
     }
 
