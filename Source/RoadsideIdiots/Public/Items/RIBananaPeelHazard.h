@@ -45,6 +45,12 @@ private:
     TObjectPtr<UStaticMeshComponent> Visual;
 
     UPROPERTY(VisibleAnywhere, Category="Components")
+    TObjectPtr<UStaticMeshComponent> VisualLeft;
+
+    UPROPERTY(VisibleAnywhere, Category="Components")
+    TObjectPtr<UStaticMeshComponent> VisualRight;
+
+    UPROPERTY(VisibleAnywhere, Category="Components")
     TObjectPtr<UPointLightComponent> Glow;
 
     TWeakObjectPtr<ARIBikePawn> SourceBike;
