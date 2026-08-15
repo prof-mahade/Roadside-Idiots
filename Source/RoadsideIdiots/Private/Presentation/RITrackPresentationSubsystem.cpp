@@ -341,29 +341,36 @@ void URITrackPresentationSubsystem::BuildStartFinish()
 
 void URITrackPresentationSubsystem::BuildRoadsideScenery()
 {
-    // Instancing lets us use more visual landmarks without exploding actor count.
-    for (int32 Index = 0; Index < TPRouteSegments; Index += 2)
+    // Keep the original sphere/cube trees only as a true fallback for machines
+    // that do not have the approved free banana pack installed locally.
+    const bool bUsePrimitiveTreeFallback =
+        LoadObject<UStaticMesh>(nullptr, TEXT("/Game/PN_Banana/Meshes/plants/banana_01_07.banana_01_07")) == nullptr;
+
+    if (bUsePrimitiveTreeFallback)
     {
-        const float Angle = 2.0f * PI * static_cast<float>(Index) / static_cast<float>(TPRouteSegments);
-        const FVector RouteCenter = RoutePoint(Angle, 0.0f);
-        const FVector Forward = RouteTangent(Angle).GetSafeNormal2D();
-        const FVector Right = FVector::CrossProduct(FVector::UpVector, Forward).GetSafeNormal();
-        const float Side = (Index / 2) % 2 == 0 ? 1.0f : -1.0f;
-        const float Distance = TPRoadWidth * 0.5f + 900.0f + 110.0f * static_cast<float>(Index % 5);
-        const FVector TreeBase = RouteCenter + Right * (Distance * Side);
-        const float HeightVariation = 0.88f + 0.07f * static_cast<float>(Index % 5);
+        for (int32 Index = 0; Index < TPRouteSegments; Index += 2)
+        {
+            const float Angle = 2.0f * PI * static_cast<float>(Index) / static_cast<float>(TPRouteSegments);
+            const FVector RouteCenter = RoutePoint(Angle, 0.0f);
+            const FVector Forward = RouteTangent(Angle).GetSafeNormal2D();
+            const FVector Right = FVector::CrossProduct(FVector::UpVector, Forward).GetSafeNormal();
+            const float Side = (Index / 2) % 2 == 0 ? 1.0f : -1.0f;
+            const float Distance = TPRoadWidth * 0.5f + 900.0f + 110.0f * static_cast<float>(Index % 5);
+            const FVector TreeBase = RouteCenter + Right * (Distance * Side);
+            const float HeightVariation = 0.88f + 0.07f * static_cast<float>(Index % 5);
 
-        AddVisualInstance(
-            TrunkInstances,
-            FVector(TreeBase.X, TreeBase.Y, 135.0f),
-            FRotator::ZeroRotator,
-            FVector(0.30f, 0.30f, 2.7f * HeightVariation));
+            AddVisualInstance(
+                TrunkInstances,
+                FVector(TreeBase.X, TreeBase.Y, 135.0f),
+                FRotator::ZeroRotator,
+                FVector(0.30f, 0.30f, 2.7f * HeightVariation));
 
-        AddVisualInstance(
-            (Index % 4 == 0) ? LeafAInstances : LeafBInstances,
-            FVector(TreeBase.X, TreeBase.Y, 350.0f * HeightVariation),
-            FRotator::ZeroRotator,
-            FVector(1.28f, 1.16f, 1.55f) * HeightVariation);
+            AddVisualInstance(
+                (Index % 4 == 0) ? LeafAInstances : LeafBInstances,
+                FVector(TreeBase.X, TreeBase.Y, 350.0f * HeightVariation),
+                FRotator::ZeroRotator,
+                FVector(1.28f, 1.16f, 1.55f) * HeightVariation);
+        }
     }
 
     UInstancedStaticMeshComponent* SignGroups[] =
