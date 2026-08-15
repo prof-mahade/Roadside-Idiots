@@ -5,10 +5,10 @@
 #include "Core/RIParticipantComponent.h"
 #include "AI/RIAIController.h"
 #include "Visual/RIPrototypeVisuals.h"
+#include "Audio/RIAudioEvents.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/PointLightComponent.h"
-#include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialInterface.h"
@@ -18,8 +18,6 @@ ARIBananaPeelHazard::ARIBananaPeelHazard()
 {
     PrimaryActorTick.bCanEverTick = false;
 
-    // A small physical root lets gravity visibly drop the peel onto the road.
-    // It blocks only WorldStatic so it cannot shove motorcycles around by itself.
     PhysicsBody = CreateDefaultSubobject<USphereComponent>(TEXT("PhysicsBody"));
     SetRootComponent(PhysicsBody);
     PhysicsBody->SetSphereRadius(12.0f);
@@ -34,7 +32,6 @@ ARIBananaPeelHazard::ARIBananaPeelHazard()
     PhysicsBody->SetAngularDamping(1.25f);
     PhysicsBody->BodyInstance.bUseCCD = true;
 
-    // Large query-only trigger catches bikes without affecting their physics.
     Trigger = CreateDefaultSubobject<USphereComponent>(TEXT("Trigger"));
     Trigger->SetupAttachment(PhysicsBody);
     Trigger->SetSphereRadius(78.0f);
@@ -71,11 +68,7 @@ void ARIBananaPeelHazard::BeginPlay()
 {
     Super::BeginPlay();
 
-    // Set the custom mass only after the physics world/engine is initialized.
-    // Doing this during native CDO construction makes UE query physical material
-    // data before GEngine exists and produces the red startup error.
     PhysicsBody->SetMassOverrideInKg(NAME_None, 0.20f, true);
-
     Trigger->OnComponentBeginOverlap.AddDynamic(this, &ARIBananaPeelHazard::HandleHazardOverlap);
 
     if (const UWorld* World = GetWorld())
@@ -83,8 +76,6 @@ void ARIBananaPeelHazard::BeginPlay()
         SourceImmunityEndsAt = World->GetTimeSeconds() + SourceImmunitySeconds;
     }
 
-    // Carry a little of the bike's momentum so the peel visibly falls away
-    // behind the rider instead of materializing motionless in mid-air.
     if (ARIBikePawn* Dropper = SourceBike.Get())
     {
         if (UStaticMeshComponent* DropperChassis = Dropper->GetChassis())
@@ -123,8 +114,6 @@ void ARIBananaPeelHazard::HandleHazardOverlap(
     ARIBikePawn* OtherBike = Cast<ARIBikePawn>(OtherActor);
     if (!OtherBike) return;
 
-    // The dropper gets only a short grace period. After that, their own peel is
-    // fair game; turning around and slipping on your own banana should work.
     ARIBikePawn* ValidSource = SourceBike.Get();
     if (OtherBike == ValidSource)
     {
@@ -145,8 +134,6 @@ void ARIBananaPeelHazard::HandleHazardOverlap(
 
     if (UStaticMeshComponent* Chassis = OtherBike->GetChassis())
     {
-        // Deliberately exaggerated prototype slip so the mechanic is impossible
-        // to miss during testing. We can tune this down after the loop is proven.
         const FVector SideImpulse = OtherBike->GetActorRightVector() * (SideSign * 520.0f);
         Chassis->AddImpulse(SideImpulse + FVector::UpVector * 85.0f, NAME_None, true);
 
@@ -157,39 +144,15 @@ void ARIBananaPeelHazard::HandleHazardOverlap(
     }
 
     OtherBike->GetHealthComponent()->ApplyImpact(2.0f);
+    OtherBike->TriggerComicImpact(SideSign, ValidSource == OtherBike ? TEXT("OWN GOAL!" ) : TEXT("SLIP!"), 0.95f);
     RIPrototypeVisuals::PlayReaction(OtherBike, SideSign);
+    RIAudioEvents::Play(this, TEXT("PeelSlip"), OtherBike->GetActorLocation(), 1.0f, FMath::FRandRange(0.94f, 1.08f));
 
     if (ValidSource)
     {
         if (ARIAIController* OtherController = Cast<ARIAIController>(OtherBike->GetController()))
         {
             OtherController->NotifyProvokedBy(ValidSource);
-        }
-    }
-
-    if (GEngine)
-    {
-        const URIParticipantComponent* SourceParticipant = ValidSource ? ValidSource->GetParticipantComponent() : nullptr;
-        const bool bOtherHuman = OtherParticipant && OtherParticipant->IsHumanControlled();
-        const bool bSourceHuman = SourceParticipant && SourceParticipant->IsHumanControlled();
-        const bool bSelfOwnGoal = bOtherHuman && ValidSource == OtherBike;
-        const FString OtherName = OtherParticipant ? OtherParticipant->GetParticipantId().ToString() : TEXT("RIVAL");
-
-        if (bSelfOwnGoal)
-        {
-            GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Yellow, TEXT("OWN GOAL! You slipped on YOUR banana peel."));
-        }
-        else if (bOtherHuman)
-        {
-            GEngine->AddOnScreenDebugMessage(-1, 1.8f, FColor::Yellow, TEXT("BANANA BETRAYAL! You hit a peel!"));
-        }
-        else if (bSourceHuman)
-        {
-            GEngine->AddOnScreenDebugMessage(
-                -1,
-                1.8f,
-                FColor::Yellow,
-                FString::Printf(TEXT("%s slipped on YOUR banana peel!"), *OtherName));
         }
     }
 
