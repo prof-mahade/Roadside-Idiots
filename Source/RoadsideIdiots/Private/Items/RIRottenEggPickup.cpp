@@ -12,7 +12,7 @@
 
 ARIRottenEggPickup::ARIRottenEggPickup()
 {
-    PrimaryActorTick.bCanEverTick = false;
+    PrimaryActorTick.bCanEverTick = true;
 
     Trigger = CreateDefaultSubobject<USphereComponent>(TEXT("Trigger"));
     SetRootComponent(Trigger);
@@ -56,6 +56,12 @@ void ARIRottenEggPickup::BeginPlay()
             Visual->SetMaterial(0, Material);
         }
     }
+}
+
+void ARIRottenEggPickup::Tick(const float DeltaSeconds)
+{
+    Super::Tick(DeltaSeconds);
+    Visual->AddLocalRotation(FRotator(0.0f, 72.0f * DeltaSeconds, 0.0f));
 }
 
 void ARIRottenEggPickup::HandleOverlap(
