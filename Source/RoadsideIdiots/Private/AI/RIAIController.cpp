@@ -135,6 +135,16 @@ void ARIAIController::NotifyProvokedBy(ARIBikePawn* InstigatorBike)
     // Fight fatigue prevents two riders from refreshing each other's chase forever.
     if (IsTacticalIntentActive() || TacticalCooldownRemaining > 0.0f) return;
 
+    float RetaliationChance = 0.35f;
+    if (PersonalityLabel.Equals(TEXT("HOTHEAD"), ESearchCase::IgnoreCase)) RetaliationChance = 0.72f;
+    else if (PersonalityLabel.Equals(TEXT("BRAWLER"), ESearchCase::IgnoreCase)) RetaliationChance = 0.66f;
+    else if (PersonalityLabel.Equals(TEXT("PETTY"), ESearchCase::IgnoreCase)) RetaliationChance = 0.46f;
+    else if (PersonalityLabel.Equals(TEXT("GREMLIN"), ESearchCase::IgnoreCase)) RetaliationChance = 0.42f;
+    else if (PersonalityLabel.Equals(TEXT("LEECH"), ESearchCase::IgnoreCase)) RetaliationChance = 0.30f;
+    else if (PersonalityLabel.Equals(TEXT("TRYHARD"), ESearchCase::IgnoreCase)) RetaliationChance = 0.14f;
+
+    if (FMath::FRand() > RetaliationChance) return;
+
     AttackCooldownRemaining = 0.25f;
     TacticalTarget = InstigatorBike;
     TacticalIntent = ERITacticalIntent::SidePressure;
@@ -289,12 +299,9 @@ FVector ARIAIController::ComputeRaceLookAheadTarget(const FVector& BikeLocation,
 
     const int32 Count = RoutePoints.Num();
     int32 NearestSegment = 0;
-    float NearestAlpha = 0.0f;
     float NearestDistanceSq = TNumericLimits<float>::Max();
     FVector RouteProjection = RoutePoints[0];
 
-    // Project onto the actual polyline segment instead of snapping to one of 40
-    // sparse route points. This makes target progression continuous through bends.
     for (int32 Index = 0; Index < Count; ++Index)
     {
         const FVector A = RoutePoints[Index];
@@ -313,7 +320,6 @@ FVector ARIAIController::ComputeRaceLookAheadTarget(const FVector& BikeLocation,
         {
             NearestDistanceSq = DistanceSq;
             NearestSegment = Index;
-            NearestAlpha = Alpha;
             RouteProjection = Projection;
         }
     }
