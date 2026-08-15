@@ -39,6 +39,20 @@ public:
     UFUNCTION(BlueprintPure, Category="Roadside Idiots|Items")
     int32 GetBananaPeelCount() const { return BananaPeelCount; }
 
+    UFUNCTION(BlueprintCallable, Category="Roadside Idiots|Items")
+    void AddRottenEgg(int32 Amount = 1);
+
+    UFUNCTION(BlueprintPure, Category="Roadside Idiots|Items")
+    int32 GetRottenEggCount() const { return RottenEggCount; }
+
+    UFUNCTION(BlueprintPure, Category="Roadside Idiots|Items")
+    int32 GetMaxRottenEggs() const { return MaxRottenEggs; }
+
+    // Shared item actions. Human input and AI both call these same functions so
+    // bots do not get a separate fake item implementation.
+    bool DropBananaPeel();
+    bool ThrowRottenEggAt(ARIBikePawn* TargetBike = nullptr);
+
     // Short-lived prototype feedback used by the HUD and local camera.
     void TriggerComicImpact(float Side, const FString& Text, float Duration = 0.70f);
     bool GetActiveComicImpact(FString& OutText, float& OutAlpha) const;
@@ -110,6 +124,12 @@ private:
 
     UPROPERTY(EditDefaultsOnly, Category="Items")
     int32 MaxBananaPeels = 3;
+
+    UPROPERTY(VisibleAnywhere, Category="Items")
+    int32 RottenEggCount = 0;
+
+    UPROPERTY(EditDefaultsOnly, Category="Items")
+    int32 MaxRottenEggs = 2;
 
     FTransform RecoveryTransform = FTransform::Identity;
     bool bHasRecoveryTransform = false;
