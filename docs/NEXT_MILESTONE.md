@@ -1,6 +1,6 @@
-# Next milestone — VPR-24A Smart Rivals + Assisted Eggs Gate
+# Next milestone — VPR-24B High-Speed Racing AI Gate
 
-The user tested the configurable 7-rider build on 2026-08-15 and found the core setup/play loop usable, but correctly rejected the first chaos-AI tuning because too many rivals spent too much of the race fighting instead of racing. VPR-24A is therefore a focused AI/item quality gate before packaging.
+The user rejected the VPR-24A driving quality on 2026-08-15 because rivals still hit the barriers too often and did not look like competent racers. VPR-24B therefore treats racing control as the primary system: opponents must be able to run near the bike's available top speed on straights, plan for bends before reaching them, and dodge traffic/hazards without abandoning the racing line.
 
 ## Permanent project constraint — FREE ONLY
 Roadside Idiots must use only:
@@ -11,86 +11,77 @@ Do not recommend, plan around, purchase, or retain paid packs. The removed Sanko
 
 ## Frozen systems
 Do not retune unless a real regression is observed:
-- VPR-18 physical bike baseline
-- seamless flat authoritative road collision
-- checkpoint/lap/place/finish logic
-- VPR-19/20/21 environment
-- VPR-22A traffic presentation
+- VPR-18 physical bike movement/physics baseline
+- continuous flat authoritative road floor collision
+- checkpoint/lap/place/finish rules
+- traffic movement itself
+- player controls and assisted egg behavior
 - race setup: 2–6 opponents, 1–5 laps, 0–6 traffic
 - title/setup/pause/settings/restart/quit flow
 
-## Why the old rival behavior failed
-The previous chaos layer reused long grudge/chase behavior. With six AI, directive intervals were shorter than some grudge durations, so several riders could remain in direct pursuit at once. While angry, an AI also targeted the rival's current position instead of primarily following the racing line. That caused permanent-looking brawls, bunching and poor driving.
+## Why VPR-24A driving failed
+The previous AI still used a world-space look-ahead point as the main steering command. Avoidance, pickup seeking and tactical behavior could move that point laterally or blend it toward another actor. At speed the bot therefore over-corrected toward changing targets rather than continuously tracking a stable racing path.
 
-## VPR-24A changes
+The physical bike supports up to 155 km/h, while VPR-24A personalities were only targeting about 108–116 km/h. Despite being slow, they could still arrive at a bend before the simple angle-based speed limiter had planned enough braking.
 
-### Race remains the default state
-- ordinary racing-line following is always the base plan
-- director-created chaos is intermittent rather than continuous
-- 2–4 opponents: at most one deliberate director troublemaker at once
-- 5–6 opponents: at most two deliberate director troublemakers at once
-- TRYHARD receives no proactive chaos directive and remains race-first
-- targets are reserved so deliberate troublemakers do not all dogpile one victim
+The prototype oval was also represented by only 40 straight route/barrier segments. That coarse polygon and the old large barrier padding created unnecessarily abrupt tangent changes and wall-joint geometry for a physics motorcycle.
 
-### Short tactical intents
-The director now assigns a temporary intent instead of manufacturing a long grudge:
-- `SidePressure` — briefly line up beside a rider and attempt one slap
-- `Block` — move into a useful line ahead of a rival without directly aiming for collision
-- `PeelTrap` — get ahead/aligned, drop a peel, then disengage
-- `EggShot` — stay mostly on the racing line, obtain a firing lane and throw
+## VPR-24B controller
 
-Typical tactical windows are about 2.8–4.0 seconds, followed by roughly 7–9 seconds of tactical cooldown.
+### Path tracking owns steering
+The racing controller now projects the bike onto the nearest route segment and tracks a smoothed lane reference using three terms:
+- heading error toward the local racing-path heading
+- Stanley-style lateral/cross-track correction
+- preview-curvature feed-forward
 
-### Fight fatigue / retaliation variety
-A hit can still create a short grudge, but it cannot continuously refresh a chase while the victim is already acting or cooling down.
+Speed increases the look-ahead distance. Avoidance no longer replaces the route target with an arbitrary world position.
 
-Retaliation is personality-weighted rather than guaranteed:
-- HOTHEAD/BRAWLER: often retaliate
-- PETTY/GREMLIN: sometimes retaliate
-- LEECH: less often
-- TRYHARD: usually ignores the fight and keeps racing
+### Near-top-speed straights, planned corners
+Straight-line personality targets are now roughly 142–151 km/h, below the bike's 155 km/h physical ceiling.
 
-### Driving/path-following rewrite
-The physical motorcycle model is unchanged. AI control was improved around it:
-- project the bike onto the nearest route segment instead of snapping to one of 40 route points
-- use speed-dependent look-ahead along the route
-- smooth steering, throttle, brake and avoidance inputs
-- slow before bends using forward route curvature
-- use relative velocity / predicted separation for rider crowd braking
-- retain avoidance even when another rider is a tactical target
-- clamp final planned target points to a safe road corridor so tactics/avoidance cannot stack into a barrier target
-- when almost stationary, reverse-and-steer first; only use recovery if the escape attempt fails
+The controller samples several points well ahead, estimates path curvature and converts that curvature into a speed limit using a configurable lateral-acceleration budget. Therefore the AI can stay near full throttle on usable straights but starts slowing before the tight ends of the oval instead of reacting after steering error becomes large.
 
-### Rotten egg usability
-Player input now explicitly defines `G = ThrowEgg` in `DefaultInput.ini`.
+### Obstacle and hazard avoidance
+Traffic, poop, banana peels and other bikes are evaluated as threats using distance plus approximate time-to-collision. The strongest threat requests a bounded lane offset.
 
-When G is pressed:
-- search up to 1000 cm / 10 m
-- nearest other race-enabled bike is first priority regardless of human/AI identity
-- if a target is found, initial aim leads it slightly and the projectile gets a short homing assist toward its chassis
-- if no rider is inside 10 m, the egg still throws forward normally
+The dodge side is barrier-aware:
+- prefer moving away from the obstacle
+- measure usable road space on both sides
+- if the preferred side is too close to the boundary, flip to the safer side
+- clamp the requested lane inside the safe corridor
+- smooth the lane transition
 
-AI tactical egg shots use the same assisted projectile behavior.
+Braking for obstacles is an emergency fallback. The normal goal is to change lane and preserve speed.
 
-## VPR-24A local verification gate
+### Wall protection
+Three forward wall feelers (center / left / right) provide an emergency steering correction when the bike is actually pointing toward static collision geometry.
+
+The route projection also acts as a corridor guardian. If physics pushes a bike too close to either barrier, tactical/avoidance lane requests are progressively ignored and the controller applies an inward correction until the bike is back on usable asphalt.
+
+### Chaos cannot override a hard corner
+Side pressure, blocking and peel-trap lane changes are suppressed during hard turns. Egg shots may still happen because they do not require abandoning the racing line.
+
+### Smoother course reference
+The oval dimensions and road width are unchanged, but route/barrier resolution is doubled from 40 to 80 pieces. Checkpoints remain at the same eight fractional positions and pickups remain distributed around the same fractions of the lap. Barrier overhang is reduced to avoid coarse inward wall wedges.
+
+## VPR-24B local verification gate
 1. close Unreal and pull current `dev/mvp-foundation`
 2. compile `RoadsideIdiotsEditor Win64 Development`
-3. HUD must show `VPR-24A | SMART RIVALS + ASSISTED EGGS`
-4. run Opponents=6, Laps=2, Traffic=4–6
-5. watch at least 60–90 seconds: most riders should be racing most of the time
-6. a deliberate fight/trap should be a short event, not a permanent pack brawl
-7. observe at least one non-fight tactic over repeated tests if items are available: block, peel trap or egg shot
-8. TRYHARD should generally keep racing unless directly provoked
-9. watch corners: AI should steer more smoothly and brake earlier instead of waypoint-snapping/weaving
-10. if a bot gets boxed/stuck, it should attempt a brief reverse before recovery
-11. get an egg, place two rivals within 10 m if possible, press G and verify the nearer one is selected/assisted
-12. press G with nobody inside 10 m and verify the egg still fires forward
-13. confirm player physics, checkpoints, minimap, traffic, hazards, pause/settings and finish flow did not regress
+3. HUD must show `VPR-24B | HIGH-SPEED RACING AI`
+4. first run Opponents=6, Laps=2, Traffic=0 for a pure path-following test
+5. watch at least one full lap: ordinary AI should not touch a barrier repeatedly; a clean lap is the target
+6. on straights, fast rivals should build toward roughly 140–150 km/h when unobstructed
+7. the tight oval ends may require planned braking; slowing for physical cornering is correct, wall impact is not
+8. then run Opponents=6, Traffic=6
+9. rivals should normally dodge cars/hazards with a lane change rather than brake to a crawl or aim at a wall
+10. traps/traffic must not cause repeated left-right oscillation
+11. deliberate chaos must remain short and must not pull bots off-line through hard corners
+12. confirm player physics, checkpoint order, lap/finish flow, minimap, pickups, pause/settings and G egg still work
 
-A compile failure, constant pack fighting, obvious new wall-following, or broken G egg behavior blocks VPR-24A.
+A compile failure, repeated barrier impacts during an unobstructed lap, obvious lane oscillation, or regressions in lap/checkpoint flow block VPR-24B.
 
 ## Packaging status
-`tools/package_demo1.ps1` remains ready, but final packaging is intentionally paused until VPR-24A passes. Once it passes, run the first Windows package and outside-editor smoke test.
+Final Demo 1 packaging stays paused until VPR-24B passes. After that, run the Windows packaged smoke test and final performance/package audit.
 
 ## Demo 1 definition
 Demo 1 is a packaged Windows solo build; multiplayer is not required.
@@ -99,7 +90,7 @@ Required before calling Demo 1 ready:
 1. coherent configurable race course
 2. 2–6 selectable AI opponents
 3. selectable laps and traffic
-4. rivals that primarily race but create occasional distinct chaos
+4. competent high-speed racing AI with occasional distinct chaos
 5. stable assisted egg / peel / slap / poop mechanics
 6. stable traffic, recovery and finish flow
 7. readable HUD/minimap/results
@@ -111,6 +102,6 @@ Required before calling Demo 1 ready:
 ## Deferred beyond Demo 1
 - multiplayer networking
 - final commercial motorcycle/traffic physics
-- sophisticated navmesh/Detour crowd conversion for physics bikes
+- navmesh/Detour/Mass conversion for physics bikes
 - final-quality maps/assets/audio
 - additional maps/modes
