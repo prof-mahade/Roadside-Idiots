@@ -152,6 +152,7 @@ void ARIRottenEggProjectile::SplatterBike(ARIBikePawn* Victim)
             Victim->GetActorLocation(),
             Victim->GetActorRotation()))
         {
+            Stink->SetOwner(Victim);
             Stink->AttachToActor(Victim, FAttachmentTransformRules::KeepWorldTransform);
         }
     }
