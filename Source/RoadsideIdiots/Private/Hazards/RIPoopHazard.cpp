@@ -5,8 +5,8 @@
 #include "Visual/RIPrototypeVisuals.h"
 #include "Components/BoxComponent.h"
 #include "Components/StaticMeshComponent.h"
-#include "Engine/Engine.h"
 #include "Engine/StaticMesh.h"
+#include "EngineUtils.h"
 #include "Kismet/GameplayStatics.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialInterface.h"
@@ -82,23 +82,23 @@ void ARIPoopHazard::ApplyPresentation()
 
     if (bCow)
     {
-        TriggerVolume->SetBoxExtent(FVector(125.0f, 100.0f, 38.0f));
-        BlobA->SetRelativeLocation(FVector(-18.0f, 0.0f, -15.0f));
-        BlobA->SetRelativeScale3D(FVector(1.15f, 0.90f, 0.22f));
-        BlobB->SetRelativeLocation(FVector(58.0f, 28.0f, -9.0f));
-        BlobB->SetRelativeScale3D(FVector(0.70f, 0.58f, 0.20f));
-        BlobC->SetRelativeLocation(FVector(36.0f, -45.0f, -7.0f));
-        BlobC->SetRelativeScale3D(FVector(0.58f, 0.46f, 0.18f));
+        TriggerVolume->SetBoxExtent(FVector(108.0f, 88.0f, 36.0f));
+        BlobA->SetRelativeLocation(FVector(-16.0f, 0.0f, -17.0f));
+        BlobA->SetRelativeScale3D(FVector(0.68f, 0.54f, 0.16f));
+        BlobB->SetRelativeLocation(FVector(42.0f, 24.0f, -12.0f));
+        BlobB->SetRelativeScale3D(FVector(0.43f, 0.35f, 0.14f));
+        BlobC->SetRelativeLocation(FVector(28.0f, -34.0f, -10.0f));
+        BlobC->SetRelativeScale3D(FVector(0.36f, 0.30f, 0.13f));
     }
     else
     {
-        TriggerVolume->SetBoxExtent(FVector(62.0f, 52.0f, 30.0f));
-        BlobA->SetRelativeLocation(FVector(-12.0f, 0.0f, -17.0f));
-        BlobA->SetRelativeScale3D(FVector(0.42f, 0.34f, 0.18f));
-        BlobB->SetRelativeLocation(FVector(22.0f, 15.0f, -12.0f));
-        BlobB->SetRelativeScale3D(FVector(0.28f, 0.24f, 0.15f));
-        BlobC->SetRelativeLocation(FVector(15.0f, -18.0f, -10.0f));
-        BlobC->SetRelativeScale3D(FVector(0.23f, 0.20f, 0.13f));
+        TriggerVolume->SetBoxExtent(FVector(58.0f, 48.0f, 28.0f));
+        BlobA->SetRelativeLocation(FVector(-12.0f, 0.0f, -18.0f));
+        BlobA->SetRelativeScale3D(FVector(0.31f, 0.25f, 0.13f));
+        BlobB->SetRelativeLocation(FVector(18.0f, 13.0f, -14.0f));
+        BlobB->SetRelativeScale3D(FVector(0.21f, 0.18f, 0.11f));
+        BlobC->SetRelativeLocation(FVector(12.0f, -15.0f, -12.0f));
+        BlobC->SetRelativeScale3D(FVector(0.17f, 0.15f, 0.10f));
     }
 }
 
@@ -153,11 +153,6 @@ void ARIPoopHazard::ApplyDogPoop(ARIBikePawn* Bike)
     Bike->TriggerComicImpact(Side, TEXT("SKID! DOG POOP!"), 1.0f);
     RIPrototypeVisuals::PlayReaction(Bike, Side);
     SpawnMessEffect(Bike, false, 4.0f);
-
-    if (GEngine)
-    {
-        GEngine->AddOnScreenDebugMessage(-1, 1.7f, FColor(165, 92, 38), TEXT("DOG POOP! Your dignity has left the road."));
-    }
 }
 
 void ARIPoopHazard::ApplyCowPoop(ARIBikePawn* Bike)
@@ -181,16 +176,23 @@ void ARIPoopHazard::ApplyCowPoop(ARIBikePawn* Bike)
     Bike->TriggerComicImpact(0.0f, TEXT("SPLORCH! COW PATTY!"), 1.2f);
     RIPrototypeVisuals::PlayReaction(Bike, 1.0f);
     SpawnMessEffect(Bike, true, 6.5f);
-
-    if (GEngine)
-    {
-        GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor(120, 72, 30), TEXT("COW PATTY! Speed reduced. Smell increased."));
-    }
 }
 
 void ARIPoopHazard::SpawnMessEffect(ARIBikePawn* Bike, const bool bCowMess, const float LifetimeSeconds)
 {
     if (!Bike || !GetWorld()) return;
+
+    // Keep at most one poop mess actor per bike. Repeated hazards refresh or
+    // upgrade the existing effect instead of building an opaque stack of blobs.
+    for (TActorIterator<ARIPoopMessEffect> It(GetWorld()); It; ++It)
+    {
+        ARIPoopMessEffect* Existing = *It;
+        if (Existing && Existing->GetAffectedBike() == Bike)
+        {
+            Existing->Refresh(bCowMess, LifetimeSeconds);
+            return;
+        }
+    }
 
     const FTransform SpawnTransform(Bike->GetActorRotation(), Bike->GetActorLocation());
     AActor* DeferredActor = UGameplayStatics::BeginDeferredActorSpawnFromClass(
