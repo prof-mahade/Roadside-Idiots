@@ -2,14 +2,12 @@
 
 #include "Items/RIBananaPickup.h"
 #include "Items/RIRottenEggPickup.h"
-#include "Items/RIRottenEggProjectile.h"
 #include "Vehicle/RIBikePawn.h"
 #include "Core/RIParticipantComponent.h"
 #include "Engine/Engine.h"
 #include "EngineUtils.h"
 #include "GameFramework/PlayerController.h"
 #include "InputCoreTypes.h"
-#include "Kismet/GameplayStatics.h"
 
 bool URIRottenEggWorldSubsystem::IsTickable() const
 {
@@ -39,10 +37,16 @@ ARIBikePawn* URIRottenEggWorldSubsystem::FindHumanBike() const
     return nullptr;
 }
 
-void URIRottenEggWorldSubsystem::AddEgg(int32 Amount)
+int32 URIRottenEggWorldSubsystem::GetEggCount() const
 {
-    if (Amount <= 0) return;
-    EggCount = FMath::Clamp(EggCount + Amount, 0, MaxEggs);
+    const ARIBikePawn* Bike = FindHumanBike();
+    return Bike ? Bike->GetRottenEggCount() : 0;
+}
+
+int32 URIRottenEggWorldSubsystem::GetMaxEggCount() const
+{
+    const ARIBikePawn* Bike = FindHumanBike();
+    return Bike ? Bike->GetMaxRottenEggs() : 2;
 }
 
 void URIRottenEggWorldSubsystem::TrySpawnPickups()
@@ -106,12 +110,11 @@ void URIRottenEggWorldSubsystem::TryThrowEgg()
     {
         return;
     }
-    LastThrowTime = Now;
 
     ARIBikePawn* Bike = FindHumanBike();
     if (!Bike) return;
 
-    if (EggCount <= 0)
+    if (!Bike->ThrowRottenEggAt(nullptr))
     {
         if (GEngine)
         {
@@ -120,29 +123,7 @@ void URIRottenEggWorldSubsystem::TryThrowEgg()
         return;
     }
 
-    const FVector Forward = Bike->GetActorForwardVector().GetSafeNormal2D();
-    const FVector SpawnLocation = Bike->GetActorLocation() + Forward * 150.0f + FVector::UpVector * 130.0f;
-    const FRotator SpawnRotation = Forward.Rotation();
-    const FTransform SpawnTransform(SpawnRotation, SpawnLocation);
-
-    AActor* DeferredActor = UGameplayStatics::BeginDeferredActorSpawnFromClass(
-        Bike,
-        ARIRottenEggProjectile::StaticClass(),
-        SpawnTransform,
-        ESpawnActorCollisionHandlingMethod::AlwaysSpawn,
-        Bike);
-
-    if (ARIRottenEggProjectile* Projectile = Cast<ARIRottenEggProjectile>(DeferredActor))
-    {
-        Projectile->ConfigureSource(Bike);
-        UGameplayStatics::FinishSpawningActor(Projectile, SpawnTransform);
-        EggCount = FMath::Max(0, EggCount - 1);
-
-        if (GEngine)
-        {
-            GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor(130, 180, 35), TEXT("ROTTEN EGG AWAY! Public hygiene -1."));
-        }
-    }
+    LastThrowTime = Now;
 }
 
 void URIRottenEggWorldSubsystem::Tick(float DeltaTime)
