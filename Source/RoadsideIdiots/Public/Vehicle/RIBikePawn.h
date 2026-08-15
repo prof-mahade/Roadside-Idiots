@@ -49,17 +49,14 @@ public:
     UFUNCTION(BlueprintPure, Category="Roadside Idiots|Items")
     int32 GetMaxRottenEggs() const { return MaxRottenEggs; }
 
-    // Shared item actions. Human input and AI both call these same functions so
-    // bots do not get a separate fake item implementation.
     bool DropBananaPeel();
     bool ThrowRottenEggAt(ARIBikePawn* TargetBike = nullptr);
 
-    // Lets AI skip sensing/stuck logic during the real pre-race countdown.
     bool AreRaceControlsEnabled() const { return IsRaceInputEnabled(); }
 
-    // Short-lived prototype feedback used by the HUD and local camera.
     void TriggerComicImpact(float Side, const FString& Text, float Duration = 0.70f);
     bool GetActiveComicImpact(FString& OutText, float& OutAlpha) const;
+    float GetDizzyTimeRemaining() const { return DizzyTimeRemaining; }
 
     UFUNCTION(BlueprintPure, Category="Roadside Idiots|Bike")
     UStaticMeshComponent* GetChassis() const { return Chassis; }
@@ -145,6 +142,7 @@ private:
     float PlayerBrakeInput = 0.0f;
     float TippedStillTime = 0.0f;
     bool bCrashLatched = false;
+    float DizzyTimeRemaining = 0.0f;
     double LastImpactTime = -100.0;
     double DamageEnabledAfterTime = 0.0;
 
