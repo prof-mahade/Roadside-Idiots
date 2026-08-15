@@ -52,8 +52,8 @@ Presentation architecture:
 - road width: 1200 cm
 - barrier height: 120 cm
 - one continuous flat collision floor is authoritative
-- visible road boxes have collision disabled
-- chase camera: arm 550, height 185, pitch -12.5, FOV 95
+- original visible road boxes have collision disabled
+- chase camera base: arm 550, height 185, pitch -12.5
 - user confirmed random invisible road bumps are gone
 
 ## Condition / damage
@@ -94,21 +94,21 @@ Optimization architecture:
 - max 3
 - F drops gravity-driven peel
 - short self-immunity prevents instant self-hit
-- peel slip now uses comic `SLIP!` / `OWN GOAL!` feedback and shared audio event hook
+- peel slip uses comic `SLIP!` / `OWN GOAL!` feedback and shared audio event hook
 
 ### Rotten egg
 - max 2 per bike
 - G throws player egg; AI uses the same shared throw action
 - SPLAT + wobble + 1 Condition damage + stink + grudge attribution
-- repeated egg hits now refresh one stink actor instead of stacking multiple stink actors
+- repeated egg hits refresh one stink actor instead of stacking multiple stink actors
 
 ### Dog/cow poop
 Map seeds 3 dog piles + 3 cow patties.
 - dog: quick sideways skid/wobble + shorter filth/stink
 - cow: horizontal speed cut to ~42% + longer filth/stink
 - at most one poop mess effect per bike; repeated hits refresh/upgrade it
-- VPR-15 fumes are now three narrow rising wisps rather than large solid green spheres
-- rider splats/glow were reduced again to keep the motorcycle readable
+- fumes are three narrow rising wisps rather than large solid green spheres
+- rider splats/glow are reduced to keep the motorcycle readable
 
 ## Civilian traffic
 Traffic follows the analytic oval:
@@ -117,60 +117,55 @@ Traffic follows the analytic oval:
 - orange DELIVERY VAN ~72 km/h
 - overlap-impact architecture avoids hard kinematic deadlocks
 - pre-GO traffic contact is ignored for racers
-- traffic contact now fires separate `Honk` + `TrafficHit` audio events and no longer emits redundant GEngine screen spam
+- traffic contact fires separate `Honk` + `TrafficHit` audio events
 
-## VPR-14 — locally passed
-User screenshots proved:
+## Passed visual gates
+### VPR-14
 - circular minimap tracks racers/traffic
-- top strip shows LAP/POS/time
-- race advances through multiple laps instead of ending after one circuit
+- LAP/POS/time strip works
+- race advances correctly through multiple laps
 
-## VPR-14.1 — locally visually passed
-Latest user screenshot proved:
-- dark-backed HUD/minimap layout is much cleaner
-- stink no longer completely hides the bike
-- riders are more separated instead of sitting in one obvious pile
-- minimap/race loop remains intact
+### VPR-14.1
+- HUD/minimap layout became much cleaner
+- stink stopped completely hiding bikes
+- pack spacing improved
+- DIZZY + short camera wobble retained
 
-Crash/dizzy pass retained:
-- tipping triggers `DIZZY!`
-- existing get-hit reaction animation is reused
-- human camera gets a short decaying wobble
-- auto upright remains 2.4 s
-- R/auto recovery clears dizzy state
+### VPR-15
+User screenshots on 2026-08-15 proved:
+- `VPR-15 | PRESENTATION + AUDIO HOOKS` compiled/runs
+- comic WHACK burst and edge-impact treatment are visible
+- compact HUD/minimap remain readable
+- FILTH status appears correctly inside the left panel
+- reduced stink effect remains readable without obscuring the motorcycle
+- no visible regression in race presentation
 
-## VPR-15 — CURRENT PENDING LOCAL GATE
-### HUD / VFX cleanup
-- build marker: `VPR-15 | PRESENTATION + AUDIO HOOKS`
-- player filth/egg stink is shown in the compact left status panel instead of repeated world-space stink labels
-- rival labels are closer-range and suppressed if they would overlap the left HUD, top race strip or minimap
-- active player comic impacts now draw an 8-ray comic burst plus a brief red edge vignette
-- poop fumes are narrower wisps
-- rotten-egg stink was reduced from five large puffs to three small wisps; glow is much weaker
-- repeated rotten-egg stink refreshes existing effect instead of stacking
+VPR-15 audio architecture:
+- `RIAudioEvents` resolves optional `/Game/Audio/SFX/SFX_<Event>` assets
+- missing audio stays silent and is cached
+- wired events: Countdown, RaceGo, LapComplete, Finish, SlapHit, PeelSlip, EggThrow, EggSplat, EggMiss, DogPoop, CowPoop, Honk, TrafficHit, Crash
+- `URIPresentationWorldSubsystem` owns race/countdown/lap/finish/crash presentation cues
 
-### Optional audio foundation
-`RIAudioEvents` resolves optional assets from `/Game/Audio/SFX/SFX_<Event>` and stays silent if an asset is missing. Missing assets are cached for the editor run so absent local content does not cause repeated load attempts.
+## VPR-16 — CURRENT PENDING LOCAL GATE
+New `URITrackPresentationSubsystem` is presentation-only. It does not alter the proven road collision or movement code.
 
-Currently wired events:
-- Countdown
-- RaceGo
-- LapComplete
-- Finish
-- SlapHit
-- PeelSlip
-- EggThrow
-- EggSplat
-- EggMiss
-- DogPoop
-- CowPoop
-- Honk
-- TrafficHit
-- Crash
+Track skin:
+- muted green ground overlay
+- dark asphalt overlay over checkerboard road
+- dashed center guides
+- yellow edge lines
+- concrete barrier shells + yellow top caps
+- checkered start/finish line
+- simple start/finish gantry
+- sparse roadside trees and colored landmark boards
+- all new presentation geometry has collision disabled
 
-See `docs/AUDIO_ASSET_CONVENTION.md` for exact names.
+Camera feel:
+- human chase camera FOV smoothly ranges from roughly 92 degrees at low speed to 101 degrees around 100 km/h
+- impact/dizzy camera logic remains separate and unchanged
 
-`URIPresentationWorldSubsystem` handles race/countdown/lap/finish/crash presentation cues without changing race mechanics.
+HUD marker:
+`VPR-16 | TRACK SKIN + CAMERA FEEL`
 
 ## Controls
 - W accelerate
@@ -186,15 +181,15 @@ See `docs/AUDIO_ASSET_CONVENTION.md` for exact names.
 1. Close Unreal.
 2. Pull latest `dev/mvp-foundation`.
 3. Compile `RoadsideIdiotsEditor`.
-4. Launch PIE and verify `VPR-15 | PRESENTATION + AUDIO HOOKS`.
-5. Hit cow/dog poop: the status belongs in the left HUD; the green visual should be much thinner than VPR-14.1.
-6. Get egged more than once: there should still be only one compact egg-stink effect, not stacked clouds.
-7. Slap/hit traffic/peel/egg/poop and confirm comic feedback still works; audio is expected to remain silent until SFX assets are imported.
-8. Deliberately tip the player: DIZZY/camera wobble still works and the new presentation subsystem must not interfere with recovery.
-9. Reconfirm minimap, 3 laps, countdown, F/G items, AI item use, traffic, Condition and flat road.
-10. Watch rival labels near the minimap/top strip; they should disappear instead of drawing over HUD panels.
+4. Launch PIE and verify `VPR-16 | TRACK SKIN + CAMERA FEEL`.
+5. Confirm the road is dark asphalt and the outside ground is green rather than checkerboard gray/white.
+6. Confirm center/edge lines, barrier caps, checkered start/finish and gantry are visible and aligned.
+7. Confirm sparse trees/sign boards remain outside the racing surface.
+8. Accelerate from low to high speed and verify FOV widens smoothly rather than snapping.
+9. Drive over multiple old road segment boundaries and confirm the invisible-bump bug does not return.
+10. Reconfirm minimap, 3 laps, countdown, AI, traffic, slap, peel/egg, poop, Condition and recovery.
 
-After VPR-15 compiles/looks good, next work can add actual sound assets/engine loop and then move into environment/map art replacement without another core gameplay refactor.
+If VPR-16 passes, continue into actual prototype sound/engine-loop work and further world-quality replacement without changing core gameplay architecture.
 
 ## New-chat protocol
 1. Read this file.
