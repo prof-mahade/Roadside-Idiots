@@ -202,6 +202,44 @@ void ARIBikePawn::AddBananaPeel(int32 Amount)
     BananaPeelCount = FMath::Clamp(BananaPeelCount + Amount, 0, MaxBananaPeels);
 }
 
+void ARIBikePawn::TriggerComicImpact(float Side, const FString& Text, float Duration)
+{
+    ComicImpactText = Text;
+    ComicImpactDuration = FMath::Clamp(Duration, 0.25f, 1.50f);
+
+    if (const UWorld* World = GetWorld())
+    {
+        ComicImpactStartedAt = World->GetTimeSeconds();
+        ComicImpactExpiresAt = ComicImpactStartedAt + ComicImpactDuration;
+    }
+
+    // Only the human player's camera exists as meaningful feedback. Keep the
+    // kick small so it reads as impact rather than motion sickness.
+    if (Participant && Participant->IsHumanControlled())
+    {
+        const float SignedSide = Side < 0.0f ? -1.0f : 1.0f;
+        CameraKickYaw = FMath::Clamp(CameraKickYaw + SignedSide * 4.0f, -6.0f, 6.0f);
+        CameraKickRoll = FMath::Clamp(CameraKickRoll - SignedSide * 2.8f, -4.0f, 4.0f);
+    }
+}
+
+bool ARIBikePawn::GetActiveComicImpact(FString& OutText, float& OutAlpha) const
+{
+    OutText.Reset();
+    OutAlpha = 0.0f;
+
+    const UWorld* World = GetWorld();
+    if (!World || ComicImpactText.IsEmpty()) return false;
+
+    const double Now = World->GetTimeSeconds();
+    if (Now >= ComicImpactExpiresAt) return false;
+
+    OutText = ComicImpactText;
+    const double Remaining = ComicImpactExpiresAt - Now;
+    OutAlpha = FMath::Clamp(static_cast<float>(Remaining / FMath::Max(0.01f, ComicImpactDuration)), 0.0f, 1.0f);
+    return true;
+}
+
 void ARIBikePawn::UseItem()
 {
     if (!HasAuthority() || !GetWorld()) return;
@@ -215,10 +253,6 @@ void ARIBikePawn::UseItem()
         return;
     }
 
-    // Start the peel near the rider and above the ground so gravity visibly
-    // drops it behind the bike. Deferred spawning is critical: ConfigureSource
-    // runs before BeginPlay/overlap events, preventing the player from slipping
-    // on their own peel during the spawn frame.
     const FVector Forward = GetActorForwardVector().GetSafeNormal2D();
     const FVector SpawnLocation = GetActorLocation() - Forward * 135.0f + FVector::UpVector * 95.0f;
     const FRotator SpawnRotation(0.0f, GetActorRotation().Yaw, 0.0f);
@@ -273,8 +307,6 @@ void ARIBikePawn::HandleChassisHit(UPrimitiveComponent* HitComponent, AActor* Ot
     if (Now < DamageEnabledAfterTime) return;
     if (Now - LastImpactTime < 0.85) return;
 
-    // Ignore ordinary scraping and rider-to-rider rubbing. Only meaningful crashes
-    // should move the condition bar through the physics collision path.
     const float ImpulseSize = NormalImpulse.Size();
     if (ImpulseSize > 30000.0f)
     {
@@ -289,6 +321,14 @@ void ARIBikePawn::Tick(float DeltaSeconds)
     Super::Tick(DeltaSeconds);
 
     RIPrototypeVisuals::Update(this);
+
+    // Ease camera slap-kick back to the normal chase angle every frame.
+    CameraKickYaw = FMath::FInterpTo(CameraKickYaw, 0.0f, DeltaSeconds, 10.0f);
+    CameraKickRoll = FMath::FInterpTo(CameraKickRoll, 0.0f, DeltaSeconds, 11.0f);
+    if (CameraBoom)
+    {
+        CameraBoom->SetRelativeRotation(FRotator(-12.5f, CameraKickYaw, CameraKickRoll));
+    }
 
     const bool bTipped = GetActorUpVector().Z < 0.38f;
     const float HorizontalSpeed = Chassis->GetPhysicsLinearVelocity().Size2D();
