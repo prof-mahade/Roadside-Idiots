@@ -15,6 +15,7 @@ class ROADSIDEIDIOTS_API ARIRottenEggPickup : public AActor
 
 public:
     ARIRottenEggPickup();
+    virtual void Tick(float DeltaSeconds) override;
 
 protected:
     virtual void BeginPlay() override;
