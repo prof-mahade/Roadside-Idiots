@@ -72,6 +72,33 @@ void URIPresentationWorldSubsystem::UpdateRaceCues()
         LastCountdownNumber = INDEX_NONE;
         RIAudioEvents::Play(this, TEXT("RaceGo"), CueLocation, 1.0f, 1.0f);
     }
+
+    if (!HumanBike || !HumanBike->GetParticipantComponent()) return;
+
+    FRIRaceProgress HumanProgress;
+    const FName HumanId = HumanBike->GetParticipantComponent()->GetParticipantId();
+    if (!CachedRaceManager->GetProgress(HumanId, HumanProgress)) return;
+
+    if (!bLapStateInitialized)
+    {
+        LastHumanCompletedLaps = HumanProgress.CompletedLaps;
+        bLapStateInitialized = true;
+    }
+
+    if (HumanProgress.bFinished)
+    {
+        if (!bPlayedFinishCue)
+        {
+            bPlayedFinishCue = true;
+            RIAudioEvents::Play(this, TEXT("Finish"), CueLocation, 1.0f, 1.0f);
+        }
+    }
+    else if (HumanProgress.CompletedLaps > LastHumanCompletedLaps)
+    {
+        RIAudioEvents::Play(this, TEXT("LapComplete"), CueLocation, 0.95f, 1.0f);
+    }
+
+    LastHumanCompletedLaps = FMath::Max(LastHumanCompletedLaps, HumanProgress.CompletedLaps);
 }
 
 void URIPresentationWorldSubsystem::UpdateCrashCues()
