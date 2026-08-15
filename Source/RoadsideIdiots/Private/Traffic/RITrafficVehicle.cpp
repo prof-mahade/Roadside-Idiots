@@ -237,7 +237,7 @@ void ARITrafficVehicle::HandleImpactOverlap(
     const FHitResult& SweepResult)
 {
     ARIBikePawn* Bike = Cast<ARIBikePawn>(OtherActor);
-    if (!Bike || !GetWorld()) return;
+    if (!Bike || !GetWorld() || !Bike->AreRaceControlsEnabled()) return;
 
     const double Now = GetWorld()->GetTimeSeconds();
     const TWeakObjectPtr<ARIBikePawn> BikeKey(Bike);
