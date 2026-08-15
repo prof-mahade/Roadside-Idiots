@@ -1,68 +1,74 @@
-# Next milestone — VPR-13 AI Item Parity + Stink Gate
+# Next milestone — VPR-14 Race Readability Gate
 
-VPR-12 dog/cow hazards are locally proven to spawn and trigger. The user requested two upgrades before moving on: poop must visibly stink, and AI riders should be smarter and have the same item abilities as the player.
+VPR-13 AI item parity + stink presentation ran successfully in the user's latest screenshot and is good enough to move forward.
 
 ## Immediate goal
-Verify that bots now participate in the same comedy-item ecosystem instead of behaving like race-line puppets, while dog/cow filth has an obvious lingering stink presentation.
+Turn the prototype from a one-loop mechanics test into a readable race: real laps, real countdown, circular minimap, position/time strip and cleaner AI runtime behavior.
 
-## VPR-13 gate
-After pulling/compiling latest `dev/mvp-foundation`:
-- HUD shows `BUILD: VPR-13 | AI: ITEM PARITY | FILTH: STINKY`
-- existing road/traffic/race systems still function
+## VPR-14 gate
+After pulling/compiling latest `dev/mvp-foundation`, verify:
+- HUD shows `BUILD: VPR-14 | MINIMAP + 3 LAPS | AI: OPTIMIZED`
+- existing items/hazards/traffic/AI still run
 
-### Poop stink
-- dog poop still produces the quick skid/wobble
-- cow poop still produces the strong sticky slowdown
-- dirty rider now has rising green/brown fume blobs
-- persistent projected label says `DOG STINK!` or `COW STINK!`
-- cow fumes are more obvious/longer because cow mess lifetime is longer
-- poop itself still does not directly reduce Condition
+### Start flow
+- bikes stay stationary during 3 / 2 / 1
+- GO appears and controls release
+- player cannot slap/drop/throw before GO
+- AI does not recover itself as "stuck" during the intentional countdown freeze
+- pre-race traffic contact should not unfairly drain Condition before GO
 
-### Shared inventory architecture
-Every `ARIBikePawn` owns:
-- banana peel inventory
-- rotten egg inventory
-- shared `DropBananaPeel()` action
-- shared `ThrowRottenEggAt()` action
+### Race / laps
+- race is 3 laps
+- lap 1 completion advances to LAP 2/3 instead of finishing
+- lap 2 advances to LAP 3/3
+- lap 3 finishes normally
+- placement compares completed laps before checkpoint progress
+- finish panel displays place and elapsed race time
+- Enter restart starts a fresh countdown/race
 
-Player and AI call the same item actions.
+### Circular minimap
+Top-right map should show:
+- round course ring
+- start/finish tick
+- yellow player marker + heading
+- three rival markers
+- angry rival marker turns red
+- small neutral civilian-traffic markers
+- markers stay within the map frame while circulating
 
-### AI pickup/item behavior
-- banana pickups can be collected by AI and heal/grant peel
-- rotten eggs can be collected by AI
-- projected bot label includes inventory: `P# E#`
-- AI seeks a useful nearby pickup when not actively grudging
-- AI can throw a rotten egg at a suitable rider ahead
-- AI can drop a peel when a suitable victim is following behind
-- HOTHEAD should be the easiest bot to observe throwing eggs
-- PETTY should be the easiest bot to observe dropping peels
+### HUD
+- top-center strip shows `LAP x/3`, `POS x/4`, and running time
+- left debug data remains available for prototype diagnostics
+- player rotten-egg count comes directly from `ARIBikePawn`, matching shared inventory architecture
 
-### AI awareness
-- bots attempt to avoid civilian traffic
-- bots attempt to dodge dog/cow piles and dropped peels
-- bots give non-target bikes some forward clearance
-- HOTHEAD deliberately becomes more reckless with hazard avoidance during an active grudge
+### AI optimization regression
+- steering remains responsive
+- pickup/hazard/traffic avoidance still works
+- AI still collects and uses items
+- expensive world-awareness scans are throttled/staggered instead of running on every 20 Hz steering tick
+- stuck timer is now stored on each AI controller, not in a static map
 
 ## Regression checks
-- player F peel still works
-- player G egg still works and HUD count comes from the player's bike inventory
-- egg source attribution/grudges still work
-- banana self-hit immunity still works
-- traffic remains circulating
-- road remains flat
-- Condition tuning remains stable
-- Q/E slap/grudge behavior remains intact
-- checkpoint/finish/restart remain intact
+- flat road stays flat
+- Q/E combat works after GO
+- F banana peel works
+- G rotten egg works
+- AI P#/E# labels still update
+- traffic continues circulating
+- dog/cow poop + stink still work
+- Condition/damage tuning remains stable
+- R recovery still works
 
-## If VPR-13 passes
-Stop adding new item architecture for a while. Move to:
-1. free/placeholder audio layer: slap, impact, honk, skid, splat, gross hazard reactions
-2. stronger crash/dizzy comedy state
-3. controlled VFX/presentation polish
-4. then environment/map art and final asset replacement
+## If VPR-14 passes
+Move into presentation/feel, not another large item architecture change:
+1. first free/placeholder audio layer: engine, slap, whack, honk, skid, splat, gross hazard sounds
+2. stronger crash/dizzy comedy state using already-imported dizzy/get-hit animations
+3. controlled impact/hazard VFX
+4. cleaner final-style HUD replacing the diagnostic text gradually
+5. environment/map art and final asset replacement later
 
 ## Still deferred
-- final models/textures
-- sophisticated vehicle physics
+- final models/textures/environment
+- sophisticated final motorcycle/traffic physics
 - perfect off-track recovery
 - multiplayer networking
