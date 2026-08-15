@@ -14,4 +14,7 @@ public:
 
 private:
     void DrawRaceSetupMenu();
+    void DrawPauseMenu();
+    void DrawSettingsMenu();
+    void DrawGameplayMenuHints();
 };
