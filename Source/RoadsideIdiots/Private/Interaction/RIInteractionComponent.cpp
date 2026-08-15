@@ -4,6 +4,7 @@
 #include "Core/RIParticipantComponent.h"
 #include "AI/RIAIController.h"
 #include "Visual/RIPrototypeVisuals.h"
+#include "Audio/RIAudioEvents.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
 
@@ -76,6 +77,7 @@ bool URIInteractionComponent::TrySideInteraction(float Side)
         }
 
         RIPrototypeVisuals::PlayReaction(OtherBike, -Side);
+        RIAudioEvents::Play(this, TEXT("SlapHit"), OtherBike->GetActorLocation(), 1.0f, FMath::FRandRange(0.94f, 1.06f));
 
         ARIAIController* RivalController = Cast<ARIAIController>(OtherBike->GetController());
         if (RivalController)
@@ -86,8 +88,6 @@ bool URIInteractionComponent::TrySideInteraction(float Side)
         const URIParticipantComponent* OtherParticipant = OtherBike->GetParticipantComponent();
         const bool bOtherHuman = OtherParticipant && OtherParticipant->IsHumanControlled();
 
-        // HUD/world-space impact text already communicates the hit clearly.
-        // Avoid GEngine screen messages here because they stack over the race HUD.
         OtherBike->TriggerComicImpact(-Side, bOtherHuman ? TEXT("WHACK!") : TEXT("SMACK!"), 0.72f);
         return true;
     }
