@@ -103,23 +103,37 @@ private:
     float SmoothedThrottle = 0.0f;
     float SmoothedBrake = 0.0f;
 
+    // VPR-24C: straight-line pace remains fast, but corner speed is now based on
+    // a realistic lateral-acceleration budget for the prototype physics bike.
+    // The old 2200 cm/s^2 value made the planner believe turns were physically
+    // possible at speeds the bike could not actually hold.
     UPROPERTY(EditAnywhere, Category="AI Tuning|Speed") float TargetSpeedKph = 146.0f;
-    UPROPERTY(EditAnywhere, Category="AI Tuning|Speed") float MaxLateralAccelCmS2 = 2200.0f;
-    UPROPERTY(EditAnywhere, Category="AI Tuning|Speed") float MinimumCornerSpeedKph = 72.0f;
-    UPROPERTY(EditAnywhere, Category="AI Tuning|Speed") float CurvePreviewMinDistance = 2600.0f;
-    UPROPERTY(EditAnywhere, Category="AI Tuning|Speed") float CurvePreviewMaxDistance = 4600.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Speed") float MaxLateralAccelCmS2 = 1150.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Speed") float MinimumCornerSpeedKph = 50.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Speed") float CurvePreviewMinDistance = 3200.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Speed") float CurvePreviewMaxDistance = 5400.0f;
 
-    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float MinLookAheadDistance = 900.0f;
-    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float MaxLookAheadDistance = 2450.0f;
-    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float HeadingGain = 1.10f;
-    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float CrossTrackGain = 4.8f;
-    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float StanleySofteningSpeedCmS = 700.0f;
-    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float CurvatureFeedForwardDistance = 1150.0f;
-    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float SteeringCommandRadians = 0.58f;
-    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float SteeringInterpSpeed = 8.0f;
-    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float LaneChangeInterpSpeed = 5.5f;
-    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float SafeRoadHalfWidth = 455.0f;
-    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float WallTraceLength = 1900.0f;
+    // Earlier, stronger path authority. The feed-forward distance is deliberately
+    // large enough that a tight oval end commands steering before cross-track
+    // error grows, instead of waiting for the bike to drift toward the barrier.
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float MinLookAheadDistance = 850.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float MaxLookAheadDistance = 2200.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float HeadingGain = 1.20f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float CrossTrackGain = 5.6f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float StanleySofteningSpeedCmS = 650.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float CurvatureFeedForwardDistance = 2600.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float SteeringCommandRadians = 0.50f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float SteeringInterpSpeed = 10.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float LaneChangeInterpSpeed = 3.8f;
+
+    // Keep AI bike centers well away from the physical barriers. The road is
+    // still visually/physically 12 m wide; this is only the AI's safety envelope.
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float SafeRoadHalfWidth = 320.0f;
+
+    // A long tangent ray naturally intersects the wall on a curved road and was
+    // generating false "wall ahead" corrections. Keep this as a short emergency
+    // bumper while the route controller owns normal cornering.
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float WallTraceLength = 850.0f;
 
     UPROPERTY(EditAnywhere, Category="AI Tuning|Retaliation") float GrudgeDurationSeconds = 4.5f;
     UPROPERTY(EditAnywhere, Category="AI Tuning|Retaliation") float GrudgeCatchupSpeedKph = 150.0f;
