@@ -28,7 +28,6 @@ ARIBikePawn::ARIBikePawn()
     Chassis->SetNotifyRigidBodyCollision(true);
     Chassis->SetGenerateOverlapEvents(true);
     Chassis->BodyInstance.bUseCCD = true;
-    Chassis->SetMassOverrideInKg(NAME_None, 180.0f, true);
 
     static ConstructorHelpers::FObjectFinder<UStaticMesh> CubeMesh(TEXT("/Engine/BasicShapes/Cube.Cube"));
     static ConstructorHelpers::FObjectFinder<UStaticMesh> CylinderMesh(TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
@@ -106,6 +105,11 @@ ARIBikePawn::ARIBikePawn()
 void ARIBikePawn::BeginPlay()
 {
     Super::BeginPlay();
+
+    // Apply custom mass after engine/physics initialization. Calling this in the
+    // native constructor causes UE to query physical-material data while the CDO
+    // is being built, before GEngine exists.
+    Chassis->SetMassOverrideInKg(NAME_None, 180.0f, true);
 
     if (GetWorld())
     {
