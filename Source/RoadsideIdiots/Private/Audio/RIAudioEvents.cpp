@@ -1,5 +1,6 @@
 #include "Audio/RIAudioEvents.h"
 
+#include "GameFramework/Pawn.h"
 #include "HAL/PlatformTime.h"
 #include "Kismet/GameplayStatics.h"
 #include "Sound/SoundBase.h"
@@ -56,12 +57,15 @@ namespace
         const bool bHonk = EventName == FName(TEXT("Honk"));
         const bool bCrash = EventName == FName(TEXT("Crash"));
         const bool bSlap = EventName == FName(TEXT("SlapHit"));
-        const bool bTrafficImpact = EventName == FName(TEXT("TrafficImpact"));
+        const bool bTrafficImpact = EventName == FName(TEXT("TrafficImpact")) || EventName == FName(TEXT("TrafficHit"));
         const bool bEggThrow = EventName == FName(TEXT("EggThrow"));
         const bool bEggSplat = EventName == FName(TEXT("EggSplat"));
+        const bool bEggMiss = EventName == FName(TEXT("EggMiss"));
         const bool bPeelSlip = EventName == FName(TEXT("PeelSlip"));
         const bool bDogPoop = EventName == FName(TEXT("DogPoop"));
         const bool bCowPoop = EventName == FName(TEXT("CowPoop"));
+        const bool bPickupBanana = EventName == FName(TEXT("PickupBanana"));
+        const bool bPickupEgg = EventName == FName(TEXT("PickupEgg"));
 
         if (bCountdown)
         {
@@ -111,6 +115,12 @@ namespace
             BaseFrequency = 430.0f;
             Amplitude = 0.22f;
         }
+        else if (bEggMiss)
+        {
+            Duration = 0.11f;
+            BaseFrequency = 300.0f;
+            Amplitude = 0.16f;
+        }
         else if (bEggSplat || bDogPoop || bCowPoop)
         {
             Duration = bCowPoop ? 0.34f : 0.23f;
@@ -122,6 +132,12 @@ namespace
             Duration = 0.24f;
             BaseFrequency = 720.0f;
             Amplitude = 0.24f;
+        }
+        else if (bPickupBanana || bPickupEgg)
+        {
+            Duration = 0.16f;
+            BaseFrequency = bPickupBanana ? 760.0f : 430.0f;
+            Amplitude = 0.20f;
         }
 
         const int32 SampleCount = FMath::Max(1, FMath::RoundToInt(Duration * static_cast<float>(RIFallbackSampleRate)));
@@ -140,9 +156,13 @@ namespace
             const float Envelope = Attack * Release;
 
             float Frequency = BaseFrequency;
-            if (bRaceGo || bEggThrow)
+            if (bRaceGo || bEggThrow || bPickupBanana)
             {
                 Frequency *= FMath::Lerp(0.72f, 1.65f, Alpha);
+            }
+            else if (bPickupEgg)
+            {
+                Frequency *= FMath::Lerp(1.10f, 0.72f, Alpha);
             }
             else if (bPeelSlip)
             {
@@ -175,6 +195,10 @@ namespace
                 const float Noise = NextNoise(NoiseState);
                 const float WetPulse = FMath::Sin(Phase) * (0.55f + 0.45f * FMath::Sin(Alpha * PI * 5.0f));
                 Value = 0.52f * WetPulse + 0.48f * Noise;
+            }
+            else if (bEggMiss)
+            {
+                Value = 0.65f * FMath::Sin(Phase) + 0.35f * NextNoise(NoiseState);
             }
 
             const float Scaled = FMath::Clamp(Value * Envelope * Amplitude, -0.96f, 0.96f);
@@ -210,6 +234,7 @@ namespace RIAudioEvents
         PruneFallbackSounds();
 
         USoundBase* Sound = nullptr;
+        bool bUsingFallback = false;
         if (!MissingAudioEvents.Contains(EventName))
         {
             const FString AssetName = FString::Printf(TEXT("SFX_%s"), *EventName.ToString());
@@ -224,15 +249,27 @@ namespace RIAudioEvents
         if (!Sound)
         {
             Sound = BuildFallbackWave(EventName);
+            bUsingFallback = Sound != nullptr;
         }
 
         if (!Sound) return;
+
+        float EffectiveVolume = FMath::Clamp(Volume, 0.0f, 2.5f);
+        if (bUsingFallback)
+        {
+            if (const APawn* PlayerPawn = UGameplayStatics::GetPlayerPawn(WorldContext, 0))
+            {
+                const float Distance = FVector::Dist(PlayerPawn->GetActorLocation(), WorldLocation);
+                const float DistanceAlpha = FMath::Clamp(Distance / 6500.0f, 0.0f, 1.0f);
+                EffectiveVolume *= FMath::Lerp(1.0f, 0.12f, DistanceAlpha);
+            }
+        }
 
         UGameplayStatics::PlaySoundAtLocation(
             WorldContext,
             Sound,
             WorldLocation,
-            FMath::Clamp(Volume, 0.0f, 2.5f),
+            EffectiveVolume,
             FMath::Clamp(Pitch, 0.55f, 1.75f));
     }
 }
