@@ -28,21 +28,31 @@ ARIBananaPickup::ARIBananaPickup()
     Visual->SetupAttachment(PickupTrigger);
     Visual->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     Visual->SetGenerateOverlapEvents(false);
-    Visual->SetRelativeScale3D(FVector(0.42f, 0.22f, 0.18f));
-    Visual->SetRelativeRotation(FRotator(0.0f, 0.0f, 22.0f));
+    Visual->SetRelativeScale3D(FVector(0.38f, 0.18f, 0.15f));
+    Visual->SetRelativeLocation(FVector(-13.0f, 0.0f, 0.0f));
+    Visual->SetRelativeRotation(FRotator(0.0f, 0.0f, 28.0f));
+
+    VisualTip = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("VisualTip"));
+    VisualTip->SetupAttachment(PickupTrigger);
+    VisualTip->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    VisualTip->SetGenerateOverlapEvents(false);
+    VisualTip->SetRelativeScale3D(FVector(0.31f, 0.16f, 0.14f));
+    VisualTip->SetRelativeLocation(FVector(20.0f, 0.0f, 9.0f));
+    VisualTip->SetRelativeRotation(FRotator(0.0f, 0.0f, -28.0f));
 
     static ConstructorHelpers::FObjectFinder<UStaticMesh> SphereMesh(TEXT("/Engine/BasicShapes/Sphere.Sphere"));
     if (SphereMesh.Succeeded())
     {
         Visual->SetStaticMesh(SphereMesh.Object);
+        VisualTip->SetStaticMesh(SphereMesh.Object);
     }
 
     Glow = CreateDefaultSubobject<UPointLightComponent>(TEXT("Glow"));
     Glow->SetupAttachment(PickupTrigger);
     Glow->SetLightColor(FLinearColor(1.0f, 0.72f, 0.04f));
-    Glow->SetIntensity(1800.0f);
-    Glow->SetAttenuationRadius(260.0f);
-    Glow->SetRelativeLocation(FVector(0.0f, 0.0f, 30.0f));
+    Glow->SetIntensity(1450.0f);
+    Glow->SetAttenuationRadius(240.0f);
+    Glow->SetRelativeLocation(FVector(0.0f, 0.0f, 28.0f));
 }
 
 void ARIBananaPickup::BeginPlay()
@@ -56,6 +66,7 @@ void ARIBananaPickup::BeginPlay()
         {
             Material->SetVectorParameterValue(TEXT("Color"), FLinearColor(1.0f, 0.68f, 0.02f, 1.0f));
             Visual->SetMaterial(0, Material);
+            VisualTip->SetMaterial(0, Material);
         }
     }
 }
@@ -63,7 +74,7 @@ void ARIBananaPickup::BeginPlay()
 void ARIBananaPickup::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
-    Visual->AddLocalRotation(FRotator(0.0f, 100.0f * DeltaSeconds, 0.0f));
+    AddActorLocalRotation(FRotator(0.0f, 100.0f * DeltaSeconds, 0.0f));
 }
 
 void ARIBananaPickup::HandlePickupOverlap(
