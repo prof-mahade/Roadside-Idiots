@@ -6,9 +6,9 @@
 #include "Core/RIParticipantComponent.h"
 #include "AI/RIAIController.h"
 #include "Visual/RIPrototypeVisuals.h"
+#include "Audio/RIAudioEvents.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
-#include "Engine/Engine.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialInterface.h"
@@ -69,6 +69,7 @@ void ARIRottenEggProjectile::BeginPlay()
     }
 
     Movement->Velocity = GetActorForwardVector() * Movement->InitialSpeed;
+    RIAudioEvents::Play(this, TEXT("EggThrow"), GetActorLocation(), 0.80f, FMath::FRandRange(0.96f, 1.04f));
 
     if (UMaterialInterface* BaseMaterial = LoadObject<UMaterialInterface>(nullptr, TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial")))
     {
@@ -115,7 +116,6 @@ void ARIRottenEggProjectile::SplatterBike(ARIBikePawn* Victim)
 
     ARIBikePawn* Source = SourceBike.Get();
     const URIParticipantComponent* VictimParticipant = Victim->GetParticipantComponent();
-    const URIParticipantComponent* SourceParticipant = Source ? Source->GetParticipantComponent() : nullptr;
 
     const uint32 StableHash = VictimParticipant ? GetTypeHash(VictimParticipant->GetParticipantId()) : GetTypeHash(Victim);
     const float SideSign = (StableHash & 1u) == 0u ? 1.0f : -1.0f;
@@ -134,6 +134,7 @@ void ARIRottenEggProjectile::SplatterBike(ARIBikePawn* Victim)
         Health->ApplyImpact(1.0f);
     }
 
+    RIAudioEvents::Play(this, TEXT("EggSplat"), Victim->GetActorLocation(), 1.0f, FMath::FRandRange(0.94f, 1.06f));
     Victim->TriggerComicImpact(SideSign, TEXT("SPLAT!"), 0.95f);
     RIPrototypeVisuals::PlayReaction(Victim, SideSign);
 
@@ -157,30 +158,6 @@ void ARIRottenEggProjectile::SplatterBike(ARIBikePawn* Victim)
         }
     }
 
-    if (GEngine)
-    {
-        const bool bVictimHuman = VictimParticipant && VictimParticipant->IsHumanControlled();
-        const bool bSourceHuman = SourceParticipant && SourceParticipant->IsHumanControlled();
-        const FString VictimName = VictimParticipant ? VictimParticipant->GetParticipantId().ToString() : TEXT("RIVAL");
-
-        if (bVictimHuman && Victim == Source)
-        {
-            GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor(130, 190, 35), TEXT("YOU EGGED YOURSELF. Magnificent."));
-        }
-        else if (bVictimHuman)
-        {
-            GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor(130, 190, 35), TEXT("SPLAT! You smell like a bad decision."));
-        }
-        else if (bSourceHuman)
-        {
-            GEngine->AddOnScreenDebugMessage(
-                -1,
-                2.0f,
-                FColor(130, 190, 35),
-                FString::Printf(TEXT("SPLAT! %s now smells like regret."), *VictimName));
-        }
-    }
-
     Destroy();
 }
 
@@ -199,13 +176,6 @@ void ARIRottenEggProjectile::HandleWorldHit(
     }
 
     bResolved = true;
-
-    ARIBikePawn* Source = SourceBike.Get();
-    const URIParticipantComponent* SourceParticipant = Source ? Source->GetParticipantComponent() : nullptr;
-    if (GEngine && SourceParticipant && SourceParticipant->IsHumanControlled())
-    {
-        GEngine->AddOnScreenDebugMessage(-1, 1.2f, FColor(110, 150, 40), TEXT("Egg wasted. The road is unimpressed."));
-    }
-
+    RIAudioEvents::Play(this, TEXT("EggMiss"), GetActorLocation(), 0.55f, FMath::FRandRange(0.95f, 1.05f));
     Destroy();
 }
