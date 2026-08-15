@@ -64,9 +64,9 @@ void ARIRaceSetupHUD::DrawGameplayMenuHints()
     UFont* Font = GEngine->GetSmallFont();
     if (!Font) return;
 
-    DrawRect(FLinearColor(0.015f, 0.022f, 0.030f, 0.96f), 24.0f, 45.0f, 345.0f, 19.0f);
+    DrawRect(FLinearColor(0.015f, 0.022f, 0.030f, 0.96f), 24.0f, 45.0f, 360.0f, 19.0f);
     DrawText(
-        TEXT("VPR-24A | SMART RIVALS + ASSISTED EGGS"),
+        TEXT("VPR-24B | HIGH-SPEED RACING AI"),
         FLinearColor(0.52f, 1.0f, 0.70f),
         28.0f,
         48.0f,
