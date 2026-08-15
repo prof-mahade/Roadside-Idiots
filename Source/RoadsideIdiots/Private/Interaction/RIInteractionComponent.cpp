@@ -64,7 +64,12 @@ bool URIInteractionComponent::TrySideInteraction(float Side)
 
         if (UStaticMeshComponent* OtherChassis = OtherBike->GetChassis())
         {
-            OtherChassis->AddImpulse(SideDirection * SideVelocityChange + FVector::UpVector * 45.0f, NAME_None, true);
+            // The slap should read as a wobble, not just invisible sideways drift.
+            OtherChassis->AddImpulse(SideDirection * SideVelocityChange + FVector::UpVector * 38.0f, NAME_None, true);
+
+            const FVector RollKick = OtherBike->GetActorForwardVector() * (-Side * 3.6f);
+            const FVector YawKick = FVector::UpVector * (Side * 0.9f);
+            OtherChassis->AddAngularImpulseInRadians(RollKick + YawKick, NAME_None, true);
         }
 
         if (URIHealthComponent* OtherHealth = OtherBike->GetHealthComponent())
@@ -80,15 +85,19 @@ bool URIInteractionComponent::TrySideInteraction(float Side)
             RivalController->NotifyProvokedBy(OwnerBike);
         }
 
+        const URIParticipantComponent* OwnerParticipant = OwnerBike->GetParticipantComponent();
+        const URIParticipantComponent* OtherParticipant = OtherBike->GetParticipantComponent();
+        const bool bOwnerHuman = OwnerParticipant && OwnerParticipant->IsHumanControlled();
+        const bool bOtherHuman = OtherParticipant && OtherParticipant->IsHumanControlled();
+        const FString OtherName = OtherParticipant ? OtherParticipant->GetParticipantId().ToString() : TEXT("RIVAL");
+        const FString OwnerName = OwnerParticipant ? OwnerParticipant->GetParticipantId().ToString() : TEXT("RIVAL");
+
+        // Short-lived comic impact text is drawn near the victim. Human victims
+        // also receive a small chase-camera kick from TriggerComicImpact.
+        OtherBike->TriggerComicImpact(-Side, bOtherHuman ? TEXT("WHACK!") : TEXT("SMACK!"), 0.72f);
+
         if (GEngine)
         {
-            const URIParticipantComponent* OwnerParticipant = OwnerBike->GetParticipantComponent();
-            const URIParticipantComponent* OtherParticipant = OtherBike->GetParticipantComponent();
-            const bool bOwnerHuman = OwnerParticipant && OwnerParticipant->IsHumanControlled();
-            const bool bOtherHuman = OtherParticipant && OtherParticipant->IsHumanControlled();
-            const FString OtherName = OtherParticipant ? OtherParticipant->GetParticipantId().ToString() : TEXT("RIVAL");
-            const FString OwnerName = OwnerParticipant ? OwnerParticipant->GetParticipantId().ToString() : TEXT("RIVAL");
-
             if (bOwnerHuman)
             {
                 const FString Personality = RivalController ? RivalController->GetPersonalityLabel() : TEXT("IDIOT");
