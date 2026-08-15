@@ -54,6 +54,7 @@ UStaticMeshComponent* URIDamagePresentationSubsystem::EnsureAccent(
 
     if (UStaticMeshComponent* Existing = FindStaticComponent(Bike, AccentName))
     {
+        Existing->SetVisibility(ParentBandage->IsVisible(), true);
         return Existing;
     }
 
@@ -70,6 +71,7 @@ UStaticMeshComponent* URIDamagePresentationSubsystem::EnsureAccent(
     Accent->SetRelativeRotation(FRotator::ZeroRotator);
     Accent->SetRelativeScale3D(RelativeScale);
     Accent->RegisterComponent();
+    Accent->SetVisibility(ParentBandage->IsVisible(), true);
 
     if (UMaterialInterface* BaseMaterial = LoadObject<UMaterialInterface>(nullptr, TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial")))
     {
