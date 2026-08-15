@@ -73,7 +73,11 @@ void ARIDemoWorldBuilder::BuildWorld(ARIRaceManager* InRaceManager, APlayerContr
 void ARIDemoWorldBuilder::BuildRoute()
 {
     RoutePoints.Reset();
-    constexpr int32 PointCount = 40;
+
+    // VPR-24B: double the route resolution. The course is the exact same oval,
+    // but the path tangent and physical barrier chain change in smaller steps,
+    // which is much friendlier to a high-speed physics bike.
+    constexpr int32 PointCount = 80;
     constexpr float RadiusX = 9000.0f;
     constexpr float RadiusY = 5000.0f;
 
@@ -112,7 +116,7 @@ void ARIDemoWorldBuilder::BuildTrackGeometry()
     if (Count < 3) return;
 
     constexpr float RoadSegmentPadding = 120.0f;
-    constexpr float BarrierSegmentPadding = 240.0f;
+    constexpr float BarrierSegmentPadding = 160.0f;
 
     for (int32 Index = 0; Index < Count; ++Index)
     {
@@ -147,6 +151,8 @@ void ARIDemoWorldBuilder::BuildTrackGeometry()
         const FVector LeftBarrier = Center - Right * BarrierOffset;
         const FVector RightBarrier = Center + Right * BarrierOffset;
 
+        // More, shorter barrier pieces with less overhang reduce the inward
+        // corner wedges created by the old coarse 40-piece chain.
         SpawnBox(
             FVector(LeftBarrier.X, LeftBarrier.Y, 60.0f),
             Rotation,
@@ -161,9 +167,18 @@ void ARIDemoWorldBuilder::BuildTrackGeometry()
 
 void ARIDemoWorldBuilder::BuildCheckpoints(ARIRaceManager* RaceManager)
 {
-    if (!GetWorld() || RoutePoints.Num() < 10 || !RaceManager) return;
+    if (!GetWorld() || RoutePoints.Num() < 16 || !RaceManager) return;
 
-    TArray<int32> CheckpointRouteIndices = {5, 10, 15, 20, 25, 30, 35, 0};
+    // Keep the same eight checkpoint locations by expressing them as fractions
+    // of the route rather than depending on the old 40-point resolution.
+    TArray<int32> CheckpointRouteIndices;
+    CheckpointRouteIndices.Reserve(8);
+    for (int32 Checkpoint = 1; Checkpoint < 8; ++Checkpoint)
+    {
+        CheckpointRouteIndices.Add((RoutePoints.Num() * Checkpoint) / 8);
+    }
+    CheckpointRouteIndices.Add(0);
+
     const URIRaceSettingsSubsystem* Settings = RIWorldBuilder_GetRaceSettings(GetWorld());
     const int32 TotalLaps = Settings ? Settings->GetLapCount() : 3;
     RaceManager->ConfigureRace(CheckpointRouteIndices.Num(), TotalLaps);
@@ -185,14 +200,14 @@ void ARIDemoWorldBuilder::BuildCheckpoints(ARIRaceManager* RaceManager)
 
 void ARIDemoWorldBuilder::SpawnPrototypePickups()
 {
-    if (!GetWorld() || RoutePoints.Num() < 8) return;
+    if (!GetWorld() || RoutePoints.Num() < 16) return;
 
-    const int32 PickupIndices[] = {4, 9, 14, 19, 24, 29, 34, 39};
+    const float PickupFractions[] = {0.10f, 0.225f, 0.35f, 0.475f, 0.60f, 0.725f, 0.85f, 0.975f};
     const float LaneOffsets[] = {-250.0f, 180.0f, 0.0f, -190.0f, 255.0f, 0.0f, -245.0f, 210.0f};
 
-    for (int32 PickupIndex = 0; PickupIndex < UE_ARRAY_COUNT(PickupIndices); ++PickupIndex)
+    for (int32 PickupIndex = 0; PickupIndex < UE_ARRAY_COUNT(PickupFractions); ++PickupIndex)
     {
-        const int32 RouteIndex = PickupIndices[PickupIndex] % RoutePoints.Num();
+        const int32 RouteIndex = FMath::RoundToInt(PickupFractions[PickupIndex] * static_cast<float>(RoutePoints.Num())) % RoutePoints.Num();
         const int32 PrevIndex = (RouteIndex - 1 + RoutePoints.Num()) % RoutePoints.Num();
         const int32 NextIndex = (RouteIndex + 1) % RoutePoints.Num();
         const FVector Tangent = (RoutePoints[NextIndex] - RoutePoints[PrevIndex]).GetSafeNormal2D();
@@ -218,9 +233,6 @@ void ARIDemoWorldBuilder::SpawnRacers(ARIRaceManager* RaceManager, APlayerContro
     const FVector Right = FVector::CrossProduct(FVector::UpVector, Forward).GetSafeNormal();
     const FRotator StartRotation = Forward.Rotation();
 
-    // Three-wide staggered grid. This safely scales the existing demo from the
-    // original player + 3 rivals up to player + 6 rivals without squeezing bikes
-    // against the barriers.
     const float GridLaneOffsets[3] = {0.0f, -300.0f, 300.0f};
     constexpr float RowSpacing = 330.0f;
 
