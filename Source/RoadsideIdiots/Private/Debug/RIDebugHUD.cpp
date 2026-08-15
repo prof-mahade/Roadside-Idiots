@@ -5,7 +5,6 @@
 #include "Core/RIParticipantComponent.h"
 #include "Race/RIRaceManager.h"
 #include "AI/RIAIController.h"
-#include "Items/RIRottenEggWorldSubsystem.h"
 #include "Items/RIRottenEggStinkEffect.h"
 #include "Traffic/RITrafficVehicle.h"
 #include "Hazards/RIPoopWorldSubsystem.h"
@@ -40,8 +39,25 @@ void ARIDebugHUD::DrawHUD()
         Y += 24.0f;
     };
 
+    const FName PlayerId = Bike->GetParticipantComponent()->GetParticipantId();
+    FRIRaceProgress PlayerProgress;
+    const bool bHasRaceProgress = CachedRaceManager && CachedRaceManager->GetProgress(PlayerId, PlayerProgress);
+    const int32 TotalLaps = CachedRaceManager ? CachedRaceManager->GetTotalLaps() : 1;
+    const int32 PlayerPlace = CachedRaceManager ? CachedRaceManager->GetPlace(PlayerId) : 1;
+    const int32 ParticipantCount = CachedRaceManager ? CachedRaceManager->GetParticipantCount() : 1;
+    const int32 CurrentLap = bHasRaceProgress
+        ? FMath::Clamp(PlayerProgress.bFinished ? TotalLaps : PlayerProgress.CompletedLaps + 1, 1, TotalLaps)
+        : 1;
+    const float RaceTime = CachedRaceManager
+        ? (PlayerProgress.bFinished ? PlayerProgress.FinishTime : CachedRaceManager->GetRaceElapsedTime())
+        : 0.0f;
+
+    const int32 RaceMinutes = FMath::FloorToInt(RaceTime / 60.0f);
+    const float RaceSeconds = RaceTime - static_cast<float>(RaceMinutes * 60);
+    const FString RaceTimeText = FString::Printf(TEXT("%d:%05.2f"), RaceMinutes, RaceSeconds);
+
     Line(TEXT("ROADSIDE IDIOTS - MVP"), FLinearColor(1.0f, 0.75f, 0.2f));
-    Line(TEXT("BUILD: VPR-13 | AI: ITEM PARITY | FILTH: STINKY"), FLinearColor(0.55f, 1.0f, 0.70f));
+    Line(TEXT("BUILD: VPR-14 | MINIMAP + 3 LAPS | AI: OPTIMIZED"), FLinearColor(0.55f, 1.0f, 0.70f));
     Line(FString::Printf(TEXT("Speed: %.0f km/h"), FMath::Abs(Bike->GetBikeMovement()->GetForwardSpeedKph())));
 
     const float CurrentCondition = Bike->GetHealthComponent()->GetCurrentHealth();
@@ -78,20 +94,19 @@ void ARIDebugHUD::DrawHUD()
     }
 
     Line(FString::Printf(TEXT("Banana peels: %d / 3"), Bike->GetBananaPeelCount()), FLinearColor(1.0f, 0.85f, 0.18f));
+    Line(
+        FString::Printf(TEXT("Rotten eggs: %d / %d | G throw"), Bike->GetRottenEggCount(), Bike->GetMaxRottenEggs()),
+        FLinearColor(0.55f, 0.78f, 0.12f));
 
-    if (const URIRottenEggWorldSubsystem* EggSystem = GetWorld()->GetSubsystem<URIRottenEggWorldSubsystem>())
-    {
-        Line(
-            FString::Printf(TEXT("Rotten eggs: %d / %d | G throw"), EggSystem->GetEggCount(), EggSystem->GetMaxEggCount()),
-            FLinearColor(0.55f, 0.78f, 0.12f));
-    }
-
-    int32 TrafficCount = 0;
+    TArray<ARITrafficVehicle*> TrafficVehicles;
     for (TActorIterator<ARITrafficVehicle> It(GetWorld()); It; ++It)
     {
-        ++TrafficCount;
+        if (*It)
+        {
+            TrafficVehicles.Add(*It);
+        }
     }
-    Line(FString::Printf(TEXT("Traffic: %d civilian idiots"), TrafficCount), FLinearColor(0.72f, 0.82f, 1.0f));
+    Line(FString::Printf(TEXT("Traffic: %d civilian idiots"), TrafficVehicles.Num()), FLinearColor(0.72f, 0.82f, 1.0f));
 
     if (const URIPoopWorldSubsystem* PoopSystem = GetWorld()->GetSubsystem<URIPoopWorldSubsystem>())
     {
@@ -102,22 +117,197 @@ void ARIDebugHUD::DrawHUD()
             FLinearColor(0.67f, 0.43f, 0.20f));
     }
 
+    if (bHasRaceProgress && CachedRaceManager)
+    {
+        if (PlayerProgress.bFinished)
+        {
+            Line(FString::Printf(TEXT("FINISHED - Place %d/%d | Time %s"), PlayerPlace, ParticipantCount, *RaceTimeText), FLinearColor::Green);
+            Line(TEXT("Press ENTER for another race."), FLinearColor(1.0f, 0.85f, 0.25f));
+        }
+        else
+        {
+            Line(FString::Printf(TEXT("Lap: %d/%d | Checkpoint: %d/%d"),
+                CurrentLap,
+                TotalLaps,
+                PlayerProgress.NextCheckpoint,
+                CachedRaceManager->GetCheckpointCount()));
+            Line(FString::Printf(TEXT("Place: %d/%d | Time: %s"), PlayerPlace, ParticipantCount, *RaceTimeText));
+        }
+    }
+
+    // Compact race strip near the top center. It remains useful after the left
+    // debug block is eventually replaced by the final HUD.
+    if (CachedRaceManager && bHasRaceProgress)
+    {
+        const FString RaceStrip = FString::Printf(
+            TEXT("LAP %d/%d     POS %d/%d     %s"),
+            CurrentLap,
+            TotalLaps,
+            PlayerPlace,
+            ParticipantCount,
+            *RaceTimeText);
+        DrawText(
+            RaceStrip,
+            FLinearColor(0.95f, 0.97f, 1.0f),
+            Canvas->SizeX * 0.39f,
+            28.0f,
+            Font,
+            1.35f,
+            false);
+    }
+
+    // Real 3-2-1-GO countdown. Bike/AI drive inputs are gated by the same race
+    // manager state, so this is not just a decorative overlay.
     if (CachedRaceManager)
     {
-        const FName Id = Bike->GetParticipantComponent()->GetParticipantId();
-        FRIRaceProgress Progress;
-        if (CachedRaceManager->GetProgress(Id, Progress))
+        const float SecondsUntilStart = CachedRaceManager->GetSecondsUntilStart();
+        if (SecondsUntilStart > 0.0f)
         {
-            if (Progress.bFinished)
+            const int32 Count = FMath::Max(1, FMath::CeilToInt(SecondsUntilStart));
+            DrawText(
+                FString::FromInt(Count),
+                FLinearColor(1.0f, 0.72f, 0.08f),
+                Canvas->SizeX * 0.49f,
+                Canvas->SizeY * 0.27f,
+                Font,
+                4.0f,
+                false);
+        }
+        else if (CachedRaceManager->GetRaceElapsedTime() < 0.85f)
+        {
+            DrawText(
+                TEXT("GO!"),
+                FLinearColor(0.20f, 1.0f, 0.28f),
+                Canvas->SizeX * 0.46f,
+                Canvas->SizeY * 0.27f,
+                Font,
+                3.6f,
+                false);
+        }
+    }
+
+    TArray<ARIAIController*> RivalControllers;
+    for (TActorIterator<ARIAIController> It(GetWorld()); It; ++It)
+    {
+        if (*It)
+        {
+            RivalControllers.Add(*It);
+        }
+    }
+
+    // Circular minimap in the top-right. The prototype oval is normalized by
+    // its X/Y radii, so the course becomes a clean round racing-game map while
+    // still placing all actors according to their real world position.
+    {
+        constexpr float MapWorldRadiusX = 9000.0f;
+        constexpr float MapWorldRadiusY = 5000.0f;
+        constexpr int32 CircleSegments = 48;
+        const FVector2D MapCenter(Canvas->SizeX - 155.0f, 165.0f);
+        const float OuterRadius = 112.0f;
+        const float TrackRadius = 86.0f;
+
+        auto CirclePoint = [&](float Radius, int32 Index)
+        {
+            const float Angle = 2.0f * PI * static_cast<float>(Index) / static_cast<float>(CircleSegments);
+            return MapCenter + FVector2D(FMath::Cos(Angle), FMath::Sin(Angle)) * Radius;
+        };
+
+        auto DrawCircle = [&](float Radius, const FLinearColor& Color, float Thickness)
+        {
+            for (int32 Index = 0; Index < CircleSegments; ++Index)
             {
-                Line(FString::Printf(TEXT("FINISHED - Place %d/%d"), CachedRaceManager->GetPlace(Id), CachedRaceManager->GetParticipantCount()), FLinearColor::Green);
-                Line(TEXT("Press ENTER for another race."), FLinearColor(1.0f, 0.85f, 0.25f));
+                const FVector2D A = CirclePoint(Radius, Index);
+                const FVector2D B = CirclePoint(Radius, (Index + 1) % CircleSegments);
+                DrawLine(A.X, A.Y, B.X, B.Y, Color, Thickness);
             }
-            else
+        };
+
+        auto WorldToMap = [&](const FVector& WorldLocation)
+        {
+            FVector2D Normalized(
+                WorldLocation.X / MapWorldRadiusX,
+                -WorldLocation.Y / MapWorldRadiusY);
+            const float Length = Normalized.Size();
+            if (Length > 1.16f)
             {
-                Line(FString::Printf(TEXT("Checkpoint: %d/%d"), Progress.NextCheckpoint, CachedRaceManager->GetCheckpointCount()));
-                Line(FString::Printf(TEXT("Place: %d/%d"), CachedRaceManager->GetPlace(Id), CachedRaceManager->GetParticipantCount()));
+                Normalized *= 1.16f / Length;
             }
+            return MapCenter + Normalized * TrackRadius;
+        };
+
+        auto DrawMarker = [&](const FVector2D& Position, const FLinearColor& Color, float Size, float Thickness)
+        {
+            DrawLine(Position.X - Size, Position.Y, Position.X + Size, Position.Y, Color, Thickness);
+            DrawLine(Position.X, Position.Y - Size, Position.X, Position.Y + Size, Color, Thickness);
+        };
+
+        DrawCircle(OuterRadius, FLinearColor(0.25f, 0.30f, 0.36f, 0.95f), 2.2f);
+        DrawCircle(TrackRadius - 7.0f, FLinearColor(0.28f, 0.32f, 0.36f, 0.90f), 2.0f);
+        DrawCircle(TrackRadius + 7.0f, FLinearColor(0.72f, 0.78f, 0.84f, 0.95f), 2.4f);
+
+        DrawText(
+            FString::Printf(TEXT("LAP %d/%d"), CurrentLap, TotalLaps),
+            FLinearColor(0.95f, 0.97f, 1.0f),
+            MapCenter.X - 36.0f,
+            MapCenter.Y - OuterRadius - 24.0f,
+            Font,
+            1.05f,
+            false);
+
+        // Start/finish tick on the right edge of the round course.
+        DrawLine(
+            MapCenter.X + TrackRadius - 8.0f,
+            MapCenter.Y - 10.0f,
+            MapCenter.X + TrackRadius + 8.0f,
+            MapCenter.Y + 10.0f,
+            FLinearColor(1.0f, 0.85f, 0.18f),
+            3.0f);
+
+        for (ARITrafficVehicle* Traffic : TrafficVehicles)
+        {
+            if (!Traffic) continue;
+            DrawMarker(WorldToMap(Traffic->GetActorLocation()), FLinearColor(0.72f, 0.76f, 0.80f), 2.5f, 1.4f);
+        }
+
+        for (ARIAIController* AI : RivalControllers)
+        {
+            ARIBikePawn* RivalBike = AI ? Cast<ARIBikePawn>(AI->GetPawn()) : nullptr;
+            if (!AI || !RivalBike) continue;
+
+            FLinearColor MarkerColor(0.35f, 0.85f, 1.0f);
+            if (AI->IsHoldingGrudgeAgainst(Bike))
+            {
+                MarkerColor = FLinearColor(1.0f, 0.18f, 0.08f);
+            }
+            else if (AI->GetPersonalityLabel().Equals(TEXT("HOTHEAD"), ESearchCase::IgnoreCase))
+            {
+                MarkerColor = FLinearColor(1.0f, 0.55f, 0.12f);
+            }
+            else if (AI->GetPersonalityLabel().Equals(TEXT("PETTY"), ESearchCase::IgnoreCase))
+            {
+                MarkerColor = FLinearColor(0.86f, 0.52f, 1.0f);
+            }
+
+            DrawMarker(WorldToMap(RivalBike->GetActorLocation()), MarkerColor, 4.0f, 2.0f);
+        }
+
+        const FVector2D PlayerMapPosition = WorldToMap(Bike->GetActorLocation());
+        DrawMarker(PlayerMapPosition, FLinearColor(1.0f, 0.86f, 0.08f), 5.5f, 2.8f);
+
+        FVector2D Heading(
+            Bike->GetActorForwardVector().X / MapWorldRadiusX,
+            -Bike->GetActorForwardVector().Y / MapWorldRadiusY);
+        if (!Heading.IsNearlyZero())
+        {
+            Heading.Normalize();
+            const FVector2D Tip = PlayerMapPosition + Heading * 13.0f;
+            DrawLine(
+                PlayerMapPosition.X,
+                PlayerMapPosition.Y,
+                Tip.X,
+                Tip.Y,
+                FLinearColor(1.0f, 0.86f, 0.08f),
+                2.5f);
         }
     }
 
@@ -129,9 +319,8 @@ void ARIDebugHUD::DrawHUD()
         DrawText(PlayerImpactText, ImpactColor, Canvas->SizeX * 0.46f, Canvas->SizeY * 0.43f, Font, 2.0f, false);
     }
 
-    for (TActorIterator<ARIAIController> It(GetWorld()); It; ++It)
+    for (ARIAIController* AI : RivalControllers)
     {
-        ARIAIController* AI = *It;
         ARIBikePawn* RivalBike = AI ? Cast<ARIBikePawn>(AI->GetPawn()) : nullptr;
         if (!AI || !RivalBike) continue;
 
@@ -233,9 +422,8 @@ void ARIDebugHUD::DrawHUD()
     }
 
     int32 AngryRivalCount = 0;
-    for (TActorIterator<ARIAIController> It(GetWorld()); It; ++It)
+    for (ARIAIController* AI : RivalControllers)
     {
-        ARIAIController* AI = *It;
         if (!AI || !AI->IsHoldingGrudgeAgainst(Bike)) continue;
 
         ARIBikePawn* RivalBike = Cast<ARIBikePawn>(AI->GetPawn());
@@ -275,6 +463,26 @@ void ARIDebugHUD::DrawHUD()
                 DistanceMeters),
             FLinearColor(1.0f, 0.28f, 0.12f));
         ++AngryRivalCount;
+    }
+
+    if (bHasRaceProgress && PlayerProgress.bFinished)
+    {
+        DrawText(
+            FString::Printf(TEXT("FINISH!  PLACE %d/%d"), PlayerPlace, ParticipantCount),
+            FLinearColor(0.20f, 1.0f, 0.32f),
+            Canvas->SizeX * 0.39f,
+            Canvas->SizeY * 0.34f,
+            Font,
+            2.3f,
+            false);
+        DrawText(
+            FString::Printf(TEXT("TIME %s   -   ENTER TO RACE AGAIN"), *RaceTimeText),
+            FLinearColor(1.0f, 0.86f, 0.22f),
+            Canvas->SizeX * 0.37f,
+            Canvas->SizeY * 0.40f,
+            Font,
+            1.35f,
+            false);
     }
 
     Y += 12.0f;
