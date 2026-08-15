@@ -33,7 +33,6 @@ ARIBananaPeelHazard::ARIBananaPeelHazard()
     PhysicsBody->SetLinearDamping(0.85f);
     PhysicsBody->SetAngularDamping(1.25f);
     PhysicsBody->BodyInstance.bUseCCD = true;
-    PhysicsBody->SetMassOverrideInKg(NAME_None, 0.20f, true);
 
     // Large query-only trigger catches bikes without affecting their physics.
     Trigger = CreateDefaultSubobject<USphereComponent>(TEXT("Trigger"));
@@ -71,6 +70,12 @@ ARIBananaPeelHazard::ARIBananaPeelHazard()
 void ARIBananaPeelHazard::BeginPlay()
 {
     Super::BeginPlay();
+
+    // Set the custom mass only after the physics world/engine is initialized.
+    // Doing this during native CDO construction makes UE query physical material
+    // data before GEngine exists and produces the red startup error.
+    PhysicsBody->SetMassOverrideInKg(NAME_None, 0.20f, true);
+
     Trigger->OnComponentBeginOverlap.AddDynamic(this, &ARIBananaPeelHazard::HandleHazardOverlap);
 
     if (const UWorld* World = GetWorld())
