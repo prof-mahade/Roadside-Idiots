@@ -1,61 +1,72 @@
-# Next milestone — VPR-19 Roadside Identity Gate
+# Next milestone — VPR-20 Real Art Import Gate
 
-VPR-18 was accepted by the user on 2026-08-15 as **"not bad, playable for now"**. Treat the current mechanics/audio/physics/race stack as a frozen playable baseline unless a real regression appears.
+VPR-19 passed visually on the user's machine on 2026-08-15.
 
-## Proven baseline through VPR-18
+## Proven baseline through VPR-19
+- VPR-18 mechanics/audio/physics/race stack remains the frozen playable baseline
 - UE 5.8 Unity Build succeeds; the engine-owned `SoundWaveProcedural.h` C4996 warning is non-fatal
 - three-lap race, minimap, finish flow, Condition, items, traffic and rival AI remain playable
-- continuous flat collision road is still authoritative; no invisible road-bump regression
-- instanced road/environment architecture keeps PIE actor count in the low-170s plus transient gameplay actors
-- generated fallback one-shot audio is usable for prototype testing
-- lightweight player engine pulse + skid cues are acceptable as temporary presentation
-- banana pickup/drop visuals are more readable while retaining proven mechanics
+- continuous flat collision road remains authoritative; no invisible road-bump regression
+- instanced environment architecture keeps PIE actor count low
+- VPR-19 roadside theme raised PIE actor count only from ~173 to ~174
+- roadside stalls/houses/poles/fields are visible outside the race surface and do not affect collision
+- dog/cow hazard silhouettes and rotating rotten-egg pickup remain presentation-only changes
 
-## VPR-19 goal
-Stop adding graybox mechanics and establish the first recognizable roadside identity while preserving the playable baseline.
+## VPR-20 goal
+Stop adding more primitive-code scenery and prove the first real Fab-asset integration pipeline while preserving the frozen gameplay baseline.
 
-## VPR-19 changes
+## Selected first-pass Fab targets
+Use free assets first so the real-art pipeline can be validated before any paid environment purchase.
 
-### Reversible roadside theme scaffold
-New `URIRoadsideThemeSubsystem` creates one collision-disabled presentation actor with instanced mesh groups. It does not alter road/barrier collision, race logic, AI, damage or motorcycle movement.
+1. `tropical Vegetation: Banana Plants` by Project Nature
+   - Unreal Engine format
+   - free on Fab at time of research
+   - 14 banana-plant meshes / growth stages plus ground props
+   - intended use: roadside vegetation clusters near stalls, fields and water
 
-The first theme is a **South-Asian/Bangladesh-inspired roadside graybox scaffold**, intentionally generic/reversible until real reference art/assets are chosen.
+2. `tropical Vegetation: Ground Plants` by Project Nature
+   - Unreal Engine format
+   - free on Fab at time of research
+   - 5 plant kinds with multiple growth-stage models
+   - intended use: grass/undergrowth breakup around structures and field edges
 
-It adds:
-- low-rise roadside stall/tea-shop silhouettes
-- small plaster/brick houses with colored tin-style roofs
-- a simple open roadside shelter/bus-stop silhouette
-- sparse utility poles, cross-arms and visual overhead lines
-- field patches and a few water/pond patches beyond the barriers
-- compact vegetation clusters behind roadside structures
-- dirt shoulder/plaza patches under landmark clusters
+3. `Indian Building Compound Gate - Game Ready Asset Pack (Unreal Engine Only)` by SankoolArts
+   - listed as free on Fab at time of research
+   - 10 static meshes, compound walls + metal gate variations
+   - intended use: culturally closer roadside boundary/gate details without buying a full village pack yet
 
-All theme geometry is collision-disabled and positioned outside the 12 m racing surface.
+Avoid the free `Megaplants: Giant Bamboo` in this first integration because its listing requires Experimental Procedural Vegetation / Nanite Foliage features. We do not need experimental rendering features for this prototype gate.
 
-### Hazard/item readability
-- dog poop is now a small stacked pile silhouette
-- cow poop remains broad/flat, making the two road hazards visually different before impact
-- trigger sizes and gameplay effects are unchanged
-- rotten-egg pickup now slowly rotates for better item readability at speed; inventory behavior is unchanged
+## Import protocol
+The developer imports these assets locally through the Fab integration. Binary `.uasset` content remains local and is intentionally not committed to Git.
 
-## VPR-19 local verification gate
-After pulling/compiling latest `dev/mvp-foundation`:
-1. UE 5.8 Unity Build must succeed
-2. actor count should rise only slightly from the low-170s because the theme uses one root actor + instanced components
-3. no roadside theme object may intrude onto the racing surface or create collision/bump/jump behavior
-4. stalls/houses/utility poles/fields should make the course feel less empty without making it visually busy
-5. road/minimap/three-lap race/traffic/AI/items/Condition/recovery remain stable
-6. dog and cow poop should be visually distinguishable before hitting them
-7. rotten-egg pickup should visibly rotate and still collect normally
-8. VPR-18 engine/skid and VPR-17 one-shot audio should remain intact
+After import, before code integration:
+1. show/search the imported folders in Content Browser
+2. record exact folder names and a few candidate Static Mesh asset names
+3. integrate only selected meshes into presentation code via soft/static asset paths
+4. keep every environment replacement collision-disabled
+5. preserve one-root/instanced presentation architecture where practical
+6. keep primitive fallback scenery available if an optional real asset is missing
 
-## If VPR-19 passes
-Next work should use references/assets rather than more primitive-code scenery:
-1. choose/confirm the first real map art direction with the user
-2. research legally usable Fab/environment packs and real SFX that fit that direction
-3. replace the reversible primitive stalls/trees/signs with reusable art assets while preserving instancing
-4. improve bike/rider animation transitions and presentation only after the environment direction is clear
-5. keep multiplayer networking deferred until solo presentation is materially stronger
+## VPR-20 local gate
+After the three free packs are added locally:
+1. exact imported folder/mesh paths must be identified
+2. real vegetation/wall assets should replace only selected VPR-19 primitive groups
+3. PIE actor count should remain near the current ~174 baseline plus transient gameplay actors
+4. no imported asset may create road collision, overlap damage, bumps or off-track blocking
+5. road/minimap/three-lap race/traffic/AI/items/Condition/recovery remain unchanged
+6. visual direction should feel more like a humid South-Asian roadside and less like an engine-primitives demo
+
+## Paid architecture remains optional
+Do not purchase a full village pack yet. Regional Fab packs exist, including Indian village-house kits, but the free-art pipeline should be proven first. If the user later wants a more authentic architecture pass, evaluate those paid packs separately before spending money.
+
+## After VPR-20 passes
+1. replace more primitive vegetation and boundary pieces using the proven optional-asset path
+2. decide whether paid regional architecture is worth it or whether to build/customize a small reusable house/stall kit
+3. replace prototype civilian traffic visuals
+4. import real SFX to override generated fallbacks
+5. revisit bike/rider animation transitions after the environment identity is materially stronger
+6. keep multiplayer networking deferred until solo presentation is visually coherent
 
 ## Still deferred
 - final environment/models/textures
