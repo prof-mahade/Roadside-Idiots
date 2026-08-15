@@ -6,6 +6,7 @@
 #include "Core/RIParticipantComponent.h"
 #include "Core/RIRaceSettingsSubsystem.h"
 #include "AI/RIAIController.h"
+#include "AI/RIRacingLineFollower.h"
 #include "Items/RIBananaPickup.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMeshActor.h"
@@ -234,10 +235,8 @@ void ARIDemoWorldBuilder::SpawnRacers(ARIRaceManager* RaceManager, APlayerContro
     const FVector Right = FVector::CrossProduct(FVector::UpVector, Forward).GetSafeNormal();
     const FRotator StartRotation = Forward.Rotation();
 
-    // The physical start grid remains wide for readable staging, but VPR-24C
-    // deliberately separates it from the permanent racing lanes. Previously the
-    // +/-300 cm grid positions were also fed to the controller as forever-lanes,
-    // which kept two rivals unnecessarily close to a barrier around every bend.
+    // The physical start grid remains wide for readable staging, but it is not
+    // reused as a permanent racing lane.
     const float GridLaneOffsets[3] = {0.0f, -300.0f, 300.0f};
     const float RaceLaneOffsets[6] = {-220.0f, 220.0f, -40.0f, -130.0f, 130.0f, 40.0f};
     constexpr float RowSpacing = 330.0f;
@@ -276,24 +275,33 @@ void ARIDemoWorldBuilder::SpawnRacers(ARIRaceManager* RaceManager, APlayerContro
             if (AI)
             {
                 AI->Possess(Bike);
-
-                // VPR-24D: the old AI actor ticked at 20 Hz. At racing speed that
-                // held stale steering commands for metres of travel while the
-                // physics component kept applying them. Run the cheap path
-                // controller every frame; sensing/item scans remain internally
-                // throttled by their own timers.
                 AI->SetActorTickInterval(0.0f);
 
-                // Both controller and movement are PrePhysics. Make the movement
-                // component explicitly wait for the AI actor so this frame's
-                // steering input is consumed by this frame's physics update.
-                if (URIBikeMovementComponent* Movement = Bike->GetBikeMovement())
+                const int32 RivalIndex = FMath::Clamp(RacerIndex - 1, 0, 5);
+                const float RaceLane = RaceLaneOffsets[RivalIndex];
+                AI->SetRoute(RoutePoints, 2, RaceLane);
+
+                // VPR-24E: high-level AI still decides pace, items, grudges and
+                // chaos. A separate low-level racing driver owns the final
+                // steering command. Tick order is explicitly:
+                //     chaos AI -> racing line follower -> bike physics.
+                // This prevents five competing steering corrections from
+                // producing the left/right wall ping-pong seen in VPR-24B-D.
+                if (ARIRacingLineFollower* Driver = GetWorld()->SpawnActor<ARIRacingLineFollower>())
+                {
+                    Driver->Configure(Bike, RoutePoints, RaceLane);
+                    Driver->AddTickPrerequisiteActor(AI);
+
+                    if (URIBikeMovementComponent* Movement = Bike->GetBikeMovement())
+                    {
+                        Movement->AddTickPrerequisiteActor(AI);
+                        Movement->AddTickPrerequisiteActor(Driver);
+                    }
+                }
+                else if (URIBikeMovementComponent* Movement = Bike->GetBikeMovement())
                 {
                     Movement->AddTickPrerequisiteActor(AI);
                 }
-
-                const int32 RivalIndex = FMath::Clamp(RacerIndex - 1, 0, 5);
-                AI->SetRoute(RoutePoints, 2, RaceLaneOffsets[RivalIndex]);
             }
         }
     }
