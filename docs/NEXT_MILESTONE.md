@@ -1,4 +1,4 @@
-# Next milestone — VPR-20 Free Real-Art Integration Gate
+# Next milestone — VPR-20.1 Free Real-Art Refinement Gate
 
 VPR-19 passed visually on the user's machine on 2026-08-15.
 
@@ -16,43 +16,50 @@ Do not recommend, plan around, or purchase paid packs. Do not keep "paid later" 
 - continuous flat collision road remains authoritative; no invisible road-bump regression
 - instanced presentation architecture remains mandatory
 
-## VPR-20 status — CODED, LOCAL GATE PENDING
-The user imported the two approved free Fab vegetation packs locally:
+## VPR-20 technical asset gate — PASSED VISUALLY
+The user's screenshots on 2026-08-15 confirmed that the approved free vegetation assets load and render in PIE while actor count remains ~174.
+
+Approved local free Fab packs:
 1. `PN_Banana`
 2. `PN_tropicalGroundPlants`
 
-The SankoolArts compound/gate pack was removed and must not be used.
+Removed / forbidden:
+- SankoolArts compound/gate pack; do not use it.
 
-Exact free mesh paths selected from the user's Content Browser screenshots:
+Exact free mesh paths:
 - `/Game/PN_Banana/Meshes/plants/banana_01_07.banana_01_07`
 - `/Game/PN_Banana/Meshes/plants/banana_02_05.banana_02_05`
 - `/Game/PN_tropicalGroundPlants/Meshes/tropicalPlant_01_04.tropicalPlant_01_04`
 - `/Game/PN_tropicalGroundPlants/Meshes/tropicalPlant_05_04.tropicalPlant_05_04`
 
-## VPR-20 implementation
-`RIRoadsideThemeSubsystem` now:
-- loads those four asset paths optionally at runtime
-- preserves the imported meshes' authored materials/textures
-- creates NoCollision instanced-mesh groups under the existing roadside-theme root actor
-- normalizes instance scale from each mesh's bounds so imported author scale cannot create giant vegetation
-- replaces the old primitive ball-tree rows whenever banana assets are available
-- places mature/medium banana plants and low/tall tropical ground cover safely outside the 12 m race surface
-- retains primitive vegetation fallback if local free assets are missing
-- does not alter road/barrier collision, race logic, AI, items, traffic, health or bike physics
+## VPR-20.1 implementation — CODED, LOCAL COMPILE/VISUAL GATE PENDING
+The first real-art screenshot proved the pipeline but showed vegetation was too sparse and old VPR-16 spherical trees were still visually dominant.
 
-Expected actor-count effect: effectively unchanged from ~174 because the imported vegetation is components/instances under the existing theme actor, not separate actors.
+VPR-20.1 therefore:
+- roughly doubles roadside vegetation sites around the route
+- adds irregular depth, yaw and height variation
+- creates occasional two-banana clusters instead of identical isolated trees
+- increases low/tall tropical ground-cover density around banana clusters
+- keeps every real vegetation instance safely beyond the barrier
+- keeps all imported vegetation `NoCollision` with overlap generation disabled
+- keeps vegetation instanced under the existing roadside-theme actor, so actor count should remain effectively unchanged
+- makes old cube/sphere roadside trees fallback-only when the approved banana pack is present
+- preserves primitive fallback scenery when the free pack is missing
+- updates the HUD build marker to `VPR-20.1 | FREE VEG DENSITY + CLEANUP`
+- does not alter road/barrier collision, bike physics, race logic, AI, items, hazards, traffic, health, minimap or recovery
 
-## VPR-20 local verification gate
+## VPR-20.1 local verification gate
 1. close Unreal and pull current `dev/mvp-foundation`
 2. compile `RoadsideIdiotsEditor Win64 Development`
-3. launch PIE and confirm the real banana/ground-plant materials render correctly
-4. verify old spherical tree rows are reduced/replaced around roadside clusters
-5. confirm vegetation stays outside the barriers/race surface
-6. confirm zero collision, overlap, bumps or off-track blocking from imported art
-7. verify actor count stays roughly near the ~174 baseline plus transient gameplay actors
-8. drive at least one lap and confirm race/minimap/traffic/AI/items remain unchanged
+3. launch PIE and verify HUD says `VPR-20.1 | FREE VEG DENSITY + CLEANUP`
+4. verify old round lollipop-tree rows are gone when the banana pack is installed
+5. verify banana plants now appear in small natural clusters with more ground cover
+6. verify plants do not intrude into the road or barrier geometry
+7. verify zero collision, overlap, bumps or off-track blocking from imported art
+8. verify PIE actor count remains roughly ~174 plus transient gameplay actors
+9. drive at least one lap and confirm race/minimap/traffic/AI/items remain unchanged
 
-If VPR-20 passes visually, freeze this free-art pipeline and move directly to VPR-21 instead of adding more random Fab packs.
+If this gate passes, VPR-20 is frozen and work moves directly to VPR-21 rather than adding more random asset packs.
 
 ## Demo 1 definition
 Demo 1 is a packaged Windows solo build and does NOT require multiplayer.
