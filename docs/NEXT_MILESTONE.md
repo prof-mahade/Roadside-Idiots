@@ -1,52 +1,54 @@
-# Next milestone — Banana Hazard & Rival Readability Gate
+# Next milestone — VPR-12 Dog/Cow Poop Hazard Gate
 
-The VPR-06 foundation is locally verified: seamless flat road, tuned Condition damage, readable retaliation, and deterministic LEECH/HOTHEAD/PETTY personalities. That milestone has been fast-forwarded into `main`. Active work continues on `dev/mvp-foundation`.
+The solo prototype foundation now has locally accepted road physics, combat impact feel, bandage damage states, banana hazards, rotten eggs and VPR-11.1 shaped civilian traffic.
 
 ## Immediate goal
-Validate the first complete funny item loop and make visually identical prototype rivals readable while racing.
+Verify the first map-dependent comedy hazard pair. Dog poop and cow poop must feel mechanically different rather than being banana reskins.
 
-## VPR-07 gate
-After pulling and compiling the latest `dev/mvp-foundation`, verify:
-- HUD shows `BUILD: VPR-07 | BANANA: PROTOTYPE | RIVALS: LABELED`
-- nearby bots have projected `BOT_XX [PERSONALITY]` labels above them
-- angry rivals append `!! MAD !!`
-- glowing banana pickups are visible around the route
-- driving through a banana heals up to 12 Condition
-- pickup grants one peel and HUD inventory increases
-- F drops one carried peel behind the bike
-- peel inventory decreases after a successful drop
-- another rider touching the peel receives a strong wobble/slip response
-- a bot slipping on the player's peel becomes angry at the player
-- the personality/grudge HUD remains readable after the peel incident
-- seamless road remains flat and stable
-- normal clean driving still does not drain Condition
+## VPR-12 gate
+After pulling and compiling latest `dev/mvp-foundation`, verify:
+- HUD shows `BUILD: VPR-12 | HAZARDS: DOG + COW POOP | TRAFFIC: PASSED`
+- HUD reports `Road hazards: 3 dog poop | 3 cow patties`
+- 3 small dark dog-poop piles and 3 larger cow patties are distributed around the oval
 
-## Design intent
-The banana is deliberately the first item because one mechanic exercises multiple core systems at once:
-1. world pickup
-2. healing/reward
-3. small inventory
-4. item input
-5. spawned road hazard
-6. opponent physics reaction
-7. visual feedback
-8. AI attribution/grudge response
+### Dog poop
+- small and easier to miss
+- touching it produces a quick sideways skid/wobble
+- `SKID! DOG POOP!` feedback appears
+- smaller brown filth follows the affected bike for about 4 seconds
+- poop itself does not reduce Condition
 
-If this works, the same architecture can later support rotten eggs, dog/cow poop, map-specific hazards and other irritating comedy items without rewriting the core item loop.
+### Cow poop
+- substantially larger/clearer pile
+- touching it cuts current horizontal speed to roughly 42%
+- smaller wobble but strong sticky slowdown
+- `SPLORCH! COW PATTY!` feedback appears
+- larger brown filth follows the bike for about 6.5 seconds
+- poop itself does not reduce Condition
 
-## If the gate passes
-Move into:
-1. stronger slap/punch impact presentation
-2. dedicated crash/dizzy rider reaction
-3. simple traffic actors
-4. rotten egg visual impairment prototype
-5. map-dependent poop hazards
+### Persistence / NPCs
+- piles remain on the road after being hit
+- same bike cannot retrigger a pile continuously because of per-bike cooldown
+- NPC bikes can trigger the same hazards
+
+## Regression checks
+- road remains flat with no invisible seam bumps
+- civilian traffic still circulates normally
+- banana pickup/peel loop still works
+- rotten egg inventory/throw still works
+- Q/E combat and rival grudges still work
+- race checkpoints, finish and Enter restart still work
+
+## If VPR-12 passes
+Do not add another item immediately. Move into higher-value presentation/feel work:
+1. first real impact/honk/slap audio layer using free assets or generated placeholders
+2. clearer crash/dizzy comedy state
+3. stronger but controlled traffic/hazard VFX
+4. later final environment/map art and final asset replacement
 
 ## Still deferred
-- final character/bike art
-- final banana/peel models
-- final sounds and VFX
-- ragdoll-quality crash system
-- sophisticated long-term grudge memory
-- perfect off-track pathfinding
+- final bike/car/banana/egg/poop assets
+- final character clothing and unique rider models
+- sophisticated traffic physics
+- perfect bot off-track recovery
 - multiplayer networking
