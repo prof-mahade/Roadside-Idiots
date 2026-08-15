@@ -7,6 +7,7 @@
 #include "AI/RIAIController.h"
 #include "Items/RIRottenEggWorldSubsystem.h"
 #include "Items/RIRottenEggStinkEffect.h"
+#include "Traffic/RITrafficVehicle.h"
 #include "Engine/Engine.h"
 #include "Engine/Canvas.h"
 #include "EngineUtils.h"
@@ -38,7 +39,7 @@ void ARIDebugHUD::DrawHUD()
     };
 
     Line(TEXT("ROADSIDE IDIOTS - MVP"), FLinearColor(1.0f, 0.75f, 0.2f));
-    Line(TEXT("BUILD: VPR-10.1 | ROTTEN EGG: READABLE | BANDAGES: PASSED"), FLinearColor(0.55f, 1.0f, 0.70f));
+    Line(TEXT("BUILD: VPR-11 | TRAFFIC: CIVILIAN IDIOTS | ITEMS: WORKING"), FLinearColor(0.55f, 1.0f, 0.70f));
     Line(FString::Printf(TEXT("Speed: %.0f km/h"), FMath::Abs(Bike->GetBikeMovement()->GetForwardSpeedKph())));
 
     const float CurrentCondition = Bike->GetHealthComponent()->GetCurrentHealth();
@@ -82,6 +83,13 @@ void ARIDebugHUD::DrawHUD()
             FString::Printf(TEXT("Rotten eggs: %d / %d | G throw"), EggSystem->GetEggCount(), EggSystem->GetMaxEggCount()),
             FLinearColor(0.55f, 0.78f, 0.12f));
     }
+
+    int32 TrafficCount = 0;
+    for (TActorIterator<ARITrafficVehicle> It(GetWorld()); It; ++It)
+    {
+        ++TrafficCount;
+    }
+    Line(FString::Printf(TEXT("Traffic: %d civilian idiots"), TrafficCount), FLinearColor(0.72f, 0.82f, 1.0f));
 
     if (CachedRaceManager)
     {
@@ -132,10 +140,7 @@ void ARIDebugHUD::DrawHUD()
         const FString RivalName = RivalParticipant ? RivalParticipant->GetParticipantId().ToString() : TEXT("RIVAL");
         const bool bMad = AI->IsHoldingGrudgeAgainst(Bike);
 
-        FString Label = FString::Printf(
-            TEXT("%s [%s]"),
-            *RivalName,
-            *AI->GetPersonalityLabel());
+        FString Label = FString::Printf(TEXT("%s [%s]"), *RivalName, *AI->GetPersonalityLabel());
         if (bMad)
         {
             Label += TEXT(" !! MAD !!");
@@ -171,7 +176,6 @@ void ARIDebugHUD::DrawHUD()
         }
     }
 
-    // While an egg stink actor exists, keep a persistent marker above the affected rider.
     for (TActorIterator<ARIRottenEggStinkEffect> It(GetWorld()); It; ++It)
     {
         ARIRottenEggStinkEffect* Stink = *It;
