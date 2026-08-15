@@ -39,6 +39,15 @@ private:
     float PeelUseCooldownRemaining = 0.0f;
     FString PersonalityLabel = TEXT("IDIOT");
 
+    // Cached awareness keeps expensive TActorIterator scans off the 20 Hz
+    // steering loop. Movement remains responsive while sensing can scale better.
+    FVector CachedPickupTarget = FVector::ZeroVector;
+    bool bHasCachedPickupTarget = false;
+    float CachedAvoidanceShift = 0.0f;
+    float SenseRefreshRemaining = 0.0f;
+    float ItemDecisionRemaining = 0.0f;
+    float LowMotionTime = 0.0f;
+
     UPROPERTY(EditAnywhere, Category="AI Tuning") float TargetSpeedKph = 132.0f;
     UPROPERTY(EditAnywhere, Category="AI Tuning") float WaypointReachDistance = 520.0f;
     UPROPERTY(EditAnywhere, Category="AI Tuning|Retaliation") float GrudgeDurationSeconds = 8.0f;
@@ -48,6 +57,8 @@ private:
 
     UPROPERTY(EditAnywhere, Category="AI Tuning|Awareness") float PickupSeekRange = 1600.0f;
     UPROPERTY(EditAnywhere, Category="AI Tuning|Awareness") float AvoidanceStrength = 0.80f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Awareness") float SenseRefreshIntervalSeconds = 0.18f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Items") float ItemDecisionIntervalSeconds = 0.22f;
     UPROPERTY(EditAnywhere, Category="AI Tuning|Items") float EggUseCooldownSeconds = 3.6f;
     UPROPERTY(EditAnywhere, Category="AI Tuning|Items") float PeelUseCooldownSeconds = 4.2f;
 };
