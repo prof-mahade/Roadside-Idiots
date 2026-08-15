@@ -1,21 +1,29 @@
 #include "Core/RIGameMode.h"
+#include "Core/RIPlayerController.h"
 #include "Race/RIRaceManager.h"
 #include "World/RIDemoWorldBuilder.h"
-#include "Debug/RIDebugHUD.h"
+#include "Debug/RIRaceSetupHUD.h"
 #include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
 
 ARIGameMode::ARIGameMode()
 {
     DefaultPawnClass = nullptr;
-    PlayerControllerClass = APlayerController::StaticClass();
-    HUDClass = ARIDebugHUD::StaticClass();
+    PlayerControllerClass = ARIPlayerController::StaticClass();
+    HUDClass = ARIRaceSetupHUD::StaticClass();
 }
 
 void ARIGameMode::BeginPlay()
 {
     Super::BeginPlay();
-    if (!HasAuthority() || !GetWorld()) return;
+
+    // VPR-23A intentionally waits for the local race-setup menu. The world is
+    // built only after the player confirms opponents/laps/traffic.
+}
+
+void ARIGameMode::StartConfiguredRace()
+{
+    if (bConfiguredRaceStarted || !HasAuthority() || !GetWorld()) return;
 
     RaceManager = GetWorld()->SpawnActor<ARIRaceManager>();
     DemoWorldBuilder = GetWorld()->SpawnActor<ARIDemoWorldBuilder>();
@@ -23,6 +31,7 @@ void ARIGameMode::BeginPlay()
 
     if (RaceManager && DemoWorldBuilder)
     {
+        bConfiguredRaceStarted = true;
         DemoWorldBuilder->BuildWorld(RaceManager, PlayerController);
     }
 }
