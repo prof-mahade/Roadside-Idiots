@@ -51,6 +51,7 @@ public:
 
     bool DropBananaPeel();
     bool ThrowRottenEggAt(ARIBikePawn* TargetBike = nullptr);
+    ARIBikePawn* FindNearestEggTarget(float MaxRangeCm = 1000.0f) const;
 
     bool AreRaceControlsEnabled() const { return IsRaceInputEnabled(); }
 
@@ -81,6 +82,7 @@ private:
     void InteractLeft();
     void InteractRight();
     void UseItem();
+    void UseEgg();
     void RestartRace();
     void RecoverUprightHere();
     bool IsRaceInputEnabled() const;
