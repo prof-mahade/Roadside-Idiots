@@ -46,7 +46,7 @@ bool ARIRaceManager::ReportCheckpoint(FName ParticipantId, int32 CheckpointIndex
         if (Progress->CompletedLaps >= TotalLaps)
         {
             Progress->bFinished = true;
-            Progress->FinishTime = Now;
+            Progress->FinishTime = FMath::Max(0.0f, static_cast<float>(Now - RaceStartWorldTime));
             Progress->NextCheckpoint = CheckpointCount;
         }
         else
