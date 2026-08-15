@@ -290,7 +290,14 @@ void URIRoadsideThemeSubsystem::BuildRealVegetation()
         return;
     }
 
-    const int32 VegetationIndices[] = {1, 4, 7, 10, 13, 17, 20, 23, 27, 30, 34, 38};
+    // VPR-20.1: denser but still deterministic vegetation. Everything remains well
+    // beyond the barrier and uses instancing, so this does not affect gameplay or actor count.
+    const int32 VegetationIndices[] =
+    {
+        0, 2, 4, 6, 8, 10, 12, 14, 16, 18,
+        20, 22, 24, 26, 28, 30, 32, 34, 36, 38
+    };
+
     for (int32 Site = 0; Site < UE_ARRAY_COUNT(VegetationIndices); ++Site)
     {
         const int32 RouteIndex = VegetationIndices[Site];
@@ -299,30 +306,75 @@ void URIRoadsideThemeSubsystem::BuildRealVegetation()
         const FVector Forward = RouteTangent(Angle).GetSafeNormal2D();
         const FVector Right = FVector::CrossProduct(FVector::UpVector, Forward).GetSafeNormal();
         const float Side = (Site % 2 == 0) ? 1.0f : -1.0f;
-        const float Distance = RITHRoadWidth * 0.5f + 1050.0f + static_cast<float>(Site % 3) * 210.0f;
+
+        const float DepthVariation = static_cast<float>((Site * 137) % 430);
+        const float Distance = RITHRoadWidth * 0.5f + 1120.0f + DepthVariation;
         const FVector Base = RouteCenter + Right * (Distance * Side);
-        const float YawVariation = static_cast<float>((Site * 37) % 110) - 55.0f;
+        const float YawVariation = static_cast<float>((Site * 53) % 150) - 75.0f;
         const FRotator PlantRotation(0.0f, Forward.Rotation().Yaw + YawVariation, 0.0f);
 
-        UInstancedStaticMeshComponent* BananaGroup = (Site % 3 == 0 && BananaMediumInstances)
+        UInstancedStaticMeshComponent* PrimaryBanana = ((Site % 3 == 0) && BananaMediumInstances)
             ? BananaMediumInstances
             : BananaTallInstances;
-        if (!BananaGroup)
+        if (!PrimaryBanana)
         {
-            BananaGroup = BananaMediumInstances;
+            PrimaryBanana = BananaMediumInstances;
         }
 
-        AddAssetInstance(BananaGroup, Base, PlantRotation, (Site % 3 == 0) ? 275.0f : 360.0f, 0.92f + 0.04f * static_cast<float>(Site % 4));
+        const float PrimaryHeight = 330.0f + 24.0f * static_cast<float>(Site % 5);
+        AddAssetInstance(
+            PrimaryBanana,
+            Base,
+            PlantRotation,
+            PrimaryHeight,
+            0.94f + 0.03f * static_cast<float>(Site % 4));
 
-        const FVector GroundA = Base + Forward * 150.0f + Right * (75.0f * Side);
-        const FVector GroundB = Base - Forward * 125.0f - Right * (105.0f * Side);
-        AddAssetInstance(GroundPlantTallInstances, GroundA, FRotator(0.0f, PlantRotation.Yaw + 63.0f, 0.0f), 105.0f, 0.85f + 0.05f * static_cast<float>(Site % 3));
-        AddAssetInstance(GroundPlantLowInstances, GroundB, FRotator(0.0f, PlantRotation.Yaw - 44.0f, 0.0f), 70.0f, 0.90f + 0.04f * static_cast<float>((Site + 1) % 3));
-
-        if (Site % 4 == 0)
+        // Roughly half the sites get a second, smaller banana so the landscape reads
+        // as clusters/gardens rather than identical single trees placed on a spline.
+        if ((Site % 2 == 0) && (BananaMediumInstances || BananaTallInstances))
         {
-            const FVector Extra = Base + Forward * 300.0f - Right * (110.0f * Side);
-            AddAssetInstance(GroundPlantLowInstances, Extra, FRotator(0.0f, PlantRotation.Yaw + 121.0f, 0.0f), 62.0f, 0.85f);
+            UInstancedStaticMeshComponent* SecondaryBanana = BananaMediumInstances ? BananaMediumInstances : BananaTallInstances;
+            const FVector SecondaryBase = Base + Forward * (220.0f + 25.0f * static_cast<float>(Site % 3)) + Right * (190.0f * Side);
+            AddAssetInstance(
+                SecondaryBanana,
+                SecondaryBase,
+                FRotator(0.0f, PlantRotation.Yaw + 72.0f, 0.0f),
+                255.0f + 18.0f * static_cast<float>(Site % 4),
+                0.92f);
+        }
+
+        const FVector GroundA = Base + Forward * 135.0f + Right * (95.0f * Side);
+        const FVector GroundB = Base - Forward * 155.0f - Right * (115.0f * Side);
+        const FVector GroundC = Base + Forward * 305.0f - Right * (165.0f * Side);
+        const FVector GroundD = Base - Forward * 315.0f + Right * (145.0f * Side);
+
+        AddAssetInstance(
+            GroundPlantTallInstances,
+            GroundA,
+            FRotator(0.0f, PlantRotation.Yaw + 63.0f, 0.0f),
+            96.0f + 7.0f * static_cast<float>(Site % 4),
+            0.90f);
+        AddAssetInstance(
+            GroundPlantLowInstances,
+            GroundB,
+            FRotator(0.0f, PlantRotation.Yaw - 44.0f, 0.0f),
+            62.0f + 5.0f * static_cast<float>(Site % 3),
+            0.92f);
+        AddAssetInstance(
+            GroundPlantLowInstances,
+            GroundC,
+            FRotator(0.0f, PlantRotation.Yaw + 121.0f, 0.0f),
+            58.0f + 4.0f * static_cast<float>((Site + 1) % 4),
+            0.88f);
+
+        if (Site % 3 != 1)
+        {
+            AddAssetInstance(
+                GroundPlantTallInstances,
+                GroundD,
+                FRotator(0.0f, PlantRotation.Yaw - 103.0f, 0.0f),
+                82.0f + 6.0f * static_cast<float>(Site % 3),
+                0.86f);
         }
     }
 }
