@@ -2,7 +2,9 @@
 
 #include "Traffic/RITrafficVehicle.h"
 #include "Core/RIRaceSettingsSubsystem.h"
+#include "Race/RIRaceManager.h"
 #include "Engine/GameInstance.h"
+#include "EngineUtils.h"
 #include "Kismet/GameplayStatics.h"
 
 bool URITrafficWorldSubsystem::IsTickable() const
@@ -22,6 +24,20 @@ void URITrafficWorldSubsystem::TrySpawnTraffic()
 
     UWorld* World = GetWorld();
     if (!World) return;
+
+    // The race setup menu changes traffic before ARIRaceManager exists. Waiting
+    // for that actor prevents the default traffic count from spawning behind the
+    // menu before the player confirms their selection.
+    bool bRaceReady = false;
+    for (TActorIterator<ARIRaceManager> It(World); It; ++It)
+    {
+        if (*It)
+        {
+            bRaceReady = true;
+            break;
+        }
+    }
+    if (!bRaceReady) return;
 
     int32 TrafficCount = 3;
     if (UGameInstance* GameInstance = World->GetGameInstance())
