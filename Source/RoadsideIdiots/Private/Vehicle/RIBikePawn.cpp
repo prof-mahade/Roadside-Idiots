@@ -146,6 +146,7 @@ void ARIBikePawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponen
     PlayerInputComponent->BindAction(TEXT("InteractLeft"), IE_Pressed, this, &ARIBikePawn::InteractLeft);
     PlayerInputComponent->BindAction(TEXT("InteractRight"), IE_Pressed, this, &ARIBikePawn::InteractRight);
     PlayerInputComponent->BindAction(TEXT("UseItem"), IE_Pressed, this, &ARIBikePawn::UseItem);
+    PlayerInputComponent->BindAction(TEXT("ThrowEgg"), IE_Pressed, this, &ARIBikePawn::UseEgg);
     PlayerInputComponent->BindAction(TEXT("Recover"), IE_Pressed, this, &ARIBikePawn::RecoverBike);
     PlayerInputComponent->BindAction(TEXT("RestartRace"), IE_Pressed, this, &ARIBikePawn::RestartRace);
 }
@@ -308,6 +309,27 @@ bool ARIBikePawn::DropBananaPeel()
     return false;
 }
 
+ARIBikePawn* ARIBikePawn::FindNearestEggTarget(const float MaxRangeCm) const
+{
+    if (!GetWorld()) return nullptr;
+
+    ARIBikePawn* BestTarget = nullptr;
+    float BestDistanceSq = FMath::Square(FMath::Max(0.0f, MaxRangeCm));
+    for (TActorIterator<ARIBikePawn> It(GetWorld()); It; ++It)
+    {
+        ARIBikePawn* Candidate = *It;
+        if (!Candidate || Candidate == this || !Candidate->AreRaceControlsEnabled()) continue;
+
+        const float DistanceSq = FVector::DistSquared2D(GetActorLocation(), Candidate->GetActorLocation());
+        if (DistanceSq <= BestDistanceSq)
+        {
+            BestDistanceSq = DistanceSq;
+            BestTarget = Candidate;
+        }
+    }
+    return BestTarget;
+}
+
 bool ARIBikePawn::ThrowRottenEggAt(ARIBikePawn* TargetBike)
 {
     if (!HasAuthority() || !GetWorld() || RottenEggCount <= 0 || !IsRaceInputEnabled()) return false;
@@ -321,14 +343,11 @@ bool ARIBikePawn::ThrowRottenEggAt(ARIBikePawn* TargetBike)
         FVector PredictedTarget = TargetBike->GetActorLocation() + FVector::UpVector * 95.0f;
         if (UStaticMeshComponent* TargetChassis = TargetBike->GetChassis())
         {
-            PredictedTarget += TargetChassis->GetPhysicsLinearVelocity() * 0.22f;
+            PredictedTarget += TargetChassis->GetPhysicsLinearVelocity() * 0.16f;
         }
 
         const FVector ToPredicted = PredictedTarget - SpawnLocation;
-        if (!ToPredicted.IsNearlyZero())
-        {
-            AimDirection = ToPredicted.GetSafeNormal();
-        }
+        if (!ToPredicted.IsNearlyZero()) AimDirection = ToPredicted.GetSafeNormal();
     }
 
     const FTransform SpawnTransform(AimDirection.Rotation(), SpawnLocation);
@@ -342,6 +361,7 @@ bool ARIBikePawn::ThrowRottenEggAt(ARIBikePawn* TargetBike)
     if (ARIRottenEggProjectile* Projectile = Cast<ARIRottenEggProjectile>(DeferredActor))
     {
         Projectile->ConfigureSource(this);
+        Projectile->ConfigureTarget(TargetBike);
         UGameplayStatics::FinishSpawningActor(Projectile, SpawnTransform);
         RottenEggCount = FMath::Max(0, RottenEggCount - 1);
         return true;
@@ -354,6 +374,12 @@ void ARIBikePawn::UseItem()
 {
     if (!IsRaceInputEnabled()) return;
     DropBananaPeel();
+}
+
+void ARIBikePawn::UseEgg()
+{
+    if (!IsRaceInputEnabled() || RottenEggCount <= 0) return;
+    ThrowRottenEggAt(FindNearestEggTarget(1000.0f));
 }
 
 void ARIBikePawn::RestartRace()
