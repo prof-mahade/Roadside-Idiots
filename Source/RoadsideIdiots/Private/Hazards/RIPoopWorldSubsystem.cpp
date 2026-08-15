@@ -5,20 +5,20 @@
 
 namespace
 {
-    constexpr float RouteRadiusX = 9000.0f;
-    constexpr float RouteRadiusY = 5000.0f;
-    constexpr float HazardHeight = 18.0f;
+    constexpr float PoopRouteRadiusX = 9000.0f;
+    constexpr float PoopRouteRadiusY = 5000.0f;
+    constexpr float PoopHazardHeight = 18.0f;
 
-    FTransform MakeHazardTransform(const float AngleRadians, const float LaneOffset)
+    FTransform MakePoopHazardTransform(const float AngleRadians, const float LaneOffset)
     {
         const FVector Center(
-            FMath::Cos(AngleRadians) * RouteRadiusX,
-            FMath::Sin(AngleRadians) * RouteRadiusY,
-            HazardHeight);
+            FMath::Cos(AngleRadians) * PoopRouteRadiusX,
+            FMath::Sin(AngleRadians) * PoopRouteRadiusY,
+            PoopHazardHeight);
 
         const FVector Tangent(
-            -FMath::Sin(AngleRadians) * RouteRadiusX,
-            FMath::Cos(AngleRadians) * RouteRadiusY,
+            -FMath::Sin(AngleRadians) * PoopRouteRadiusX,
+            FMath::Cos(AngleRadians) * PoopRouteRadiusY,
             0.0f);
 
         const FVector Forward = Tangent.GetSafeNormal2D();
@@ -66,7 +66,7 @@ void URIPoopWorldSubsystem::TrySpawnMapHazards()
 
     for (const FPoopSeed& Seed : Seeds)
     {
-        const FTransform SpawnTransform = MakeHazardTransform(Seed.Angle, Seed.LaneOffset);
+        const FTransform SpawnTransform = MakePoopHazardTransform(Seed.Angle, Seed.LaneOffset);
         AActor* DeferredActor = UGameplayStatics::BeginDeferredActorSpawnFromClass(
             World,
             ARIPoopHazard::StaticClass(),
