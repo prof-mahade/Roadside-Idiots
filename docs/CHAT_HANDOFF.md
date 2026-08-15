@@ -8,8 +8,8 @@ Roadside Idiots is a Windows PC motorcycle racing game with believable road moti
 Tagline: **The road is dangerous. The riders are worse.**
 
 ## PERMANENT USER CONSTRAINT — FREE ONLY
-The user has explicitly required that the entire project use only:
-- assets/tools/content available to them for $0 under the applicable license, or
+The entire project must use only:
+- assets/tools/content available to the user for $0 under the applicable license, or
 - assets/models/materials/audio we create ourselves.
 
 Do not recommend or plan around paid packs, subscriptions, or "buy later" content. If a suitable free asset cannot be found, make a lightweight custom replacement.
@@ -22,7 +22,7 @@ Do not recommend or plan around paid packs, subscriptions, or "buy later" conten
 - Visual Studio Community 2026, Game Development with C++
 - imported local binary assets are intentionally not stored in Git
 
-## Frozen playable baseline (through VPR-18)
+## Frozen playable baseline
 User accepted VPR-18 on 2026-08-15 as **"not bad, playable for now"**. Do not retune the proven core unless a real regression is observed.
 
 Foundation:
@@ -49,7 +49,7 @@ Imported local presentation assets:
 - Fab `MotoInteractionAnims`
 - `SM_Bike`
 - riding/mounted/punch/get-hit/dizzy/interaction animations
-- free `PN_Banana` vegetation pack
+- free `PN_Banana` vegetation/prop pack
 - free `PN_tropicalGroundPlants` vegetation pack
 
 Removed / do not use:
@@ -83,21 +83,18 @@ Banana:
 - F drops gravity-driven peel
 - short owner immunity prevents instant self-hit
 - owner can still circle back and slip later
-- VPR-18 pickup uses a two-segment banana-like silhouette; dropped peel uses three visual lobes
 
 Rotten egg:
 - max 2 per bike
 - human/AI share throw path
 - SPLAT + wobble + 1 Condition + stink + grudge attribution
 - repeated egg hits refresh one stink actor
-- VPR-19 pickup slowly rotates for readability
 
 Poop:
 - 3 dog piles + 3 cow patties
 - dog: short sideways skid/wobble + shorter filth
 - cow: speed cut to roughly 42% + longer filth
 - one poop mess actor max per bike
-- dog silhouette stacked/small; cow broad/flat
 
 ## Civilian traffic
 - yellow SUNDAY DRIVER ~42 km/h
@@ -133,54 +130,69 @@ VPR-18 — PLAYABLE BASELINE:
 - user accepted overall result as playable
 
 VPR-19 — PASSED:
-- one additional collision-disabled roadside-theme root with instanced mesh groups
+- one collision-disabled roadside-theme root with instanced mesh groups
 - Bangladesh/South-Asian-inspired graybox scaffold: stalls/houses, tin-style roofs, shelter, fields/water, vegetation, utility poles/lines
 - PIE actor count observed ~174
 - theme stayed outside road; three-lap race/minimap/traffic stable
-- do not add more primitive scenery for its own sake
 
-VPR-20 — REAL-ASSET PIPELINE PROVEN:
-- user's 2026-08-15 screenshots confirmed free banana and tropical ground-plant meshes load/render in PIE
-- actor count remained ~174
-- first placement was visually too sparse
-- screenshots also exposed old VPR-16 sphere/cube trees still dominating some views
+VPR-20/20.1 — PASSED:
+- approved free banana/tropical ground-plant meshes load and render in PIE
+- authored materials preserved
+- imported art is instanced and `NoCollision`
+- scale normalized from mesh bounds
+- denser irregular banana/ground-cover clusters replaced the visible old lollipop-tree rows
+- user's VPR-20.1 screenshots on 2026-08-15 showed the intended cleanup and actor count still at 174
+- freeze vegetation now unless a genuine visual/collision regression appears
+
+Approved free vegetation paths:
+- `/Game/PN_Banana/Meshes/plants/banana_01_07.banana_01_07`
+- `/Game/PN_Banana/Meshes/plants/banana_02_05.banana_02_05`
+- `/Game/PN_tropicalGroundPlants/Meshes/tropicalPlant_01_04.tropicalPlant_01_04`
+- `/Game/PN_tropicalGroundPlants/Meshes/tropicalPlant_05_04.tropicalPlant_05_04`
+
+## CURRENT ACTIVE GATE — VPR-21 Custom/Free Roadside Art
+Status: CODED, pending local compile + visual verification.
+
+VPR-21 adds a separate `URIRoadsideArtSubsystem` so the new art pass is isolated from the proven VPR-20 vegetation and gameplay stack.
+
+Custom roadside layer:
+- dresses the same six roadside cluster anchors instead of adding random new landmarks
+- tea/snack stalls receive counter, shelf, awning, support posts, bench and sign details
+- rural houses receive doors, windows, veranda slab/roof/posts, steps and water barrel
+- shelter/repair stops receive benches, fascia/sign, crate stack, barrel and side screen
+- short broken bamboo-style fence runs help define yards/plots
+- all geometry is built from Engine basic shapes/materials, so no paid dependency exists
+- every component is instanced, collision-disabled and overlap-disabled
+- one new presentation root actor is expected, so PIE actor count should rise only from ~174 to ~175 before transient gameplay actors
+
+Optional already-approved free `PN_Banana` prop paths:
+- `/Game/PN_Banana/Meshes/props/groundBananas_01.groundBananas_01`
+- `/Game/PN_Banana/Meshes/props/groundBananas_03.groundBananas_03`
+- `/Game/PN_Banana/Meshes/props/rottenLeaves_01.rottenLeaves_01`
+
+VPR-21 intentionally does NOT modify:
+- road/barrier collision
+- bike physics/movement
+- AI/race logic
+- items/hazards/traffic
+- health/recovery/minimap
+- VPR-20 vegetation tuning
+
+Local gate:
+1. pull current branch
+2. compile
+3. launch PIE
+4. look for readable facade/details rather than plain boxes only
+5. verify optional banana/leaf ground props near some clusters
+6. verify new pieces remain outside barriers and create no bumps/collision
+7. expect roughly ~175 baseline PIE actors
+8. drive one full lap and confirm gameplay remains unchanged
 
 ## Audio architecture
 `RIAudioEvents` is asset-first:
 - checks `/Game/Audio/SFX/SFX_<Event>.SFX_<Event>`
 - real imported free SFX can override generated fallbacks automatically
 - generated fallbacks include countdown/GO/lap/finish, impacts, honk, eggs, peel, poop, pickups, engine pulse and tire skid
-
-## CURRENT ACTIVE GATE — VPR-20.1 Free Vegetation Refinement
-Status: CODED, pending local compile + visual verification.
-
-Approved local free mesh paths:
-- `/Game/PN_Banana/Meshes/plants/banana_01_07.banana_01_07`
-- `/Game/PN_Banana/Meshes/plants/banana_02_05.banana_02_05`
-- `/Game/PN_tropicalGroundPlants/Meshes/tropicalPlant_01_04.tropicalPlant_01_04`
-- `/Game/PN_tropicalGroundPlants/Meshes/tropicalPlant_05_04.tropicalPlant_05_04`
-
-VPR-20.1 changes:
-- roughly twice as many vegetation sites around the route
-- irregular depth/yaw/height variation instead of evenly spaced single plants
-- occasional two-banana clusters
-- denser low/tall ground cover
-- all imported vegetation remains `NoCollision` and overlap-disabled
-- actor count should stay effectively unchanged because all vegetation remains instanced under the existing theme actor
-- `RITrackPresentationSubsystem` old lollipop sphere/cube trees are now fallback-only when the free banana pack is missing
-- HUD marker is now `VPR-20.1 | FREE VEG DENSITY + CLEANUP`
-- no gameplay, physics, race, AI, items, traffic, health, recovery or minimap tuning in this pass
-
-Next local gate:
-1. pull current branch
-2. compile
-3. verify HUD marker says VPR-20.1
-4. verify lollipop trees are gone and real vegetation is noticeably denser
-5. verify plants remain outside barriers and have no collision/bumps
-6. drive one lap; confirm gameplay remains unchanged
-7. verify actor count stays near ~174
-
-If this passes, freeze VPR-20 and move directly to VPR-21 custom/free roadside-art cleanup.
 
 ## Demo 1 definition
 Demo 1 is a packaged Windows SOLO build. Multiplayer is not required.
@@ -192,19 +204,16 @@ Required:
 4. minimap/HUD/countdown/results readable
 5. comedy loops working
 6. usable audio feedback
-7. free real environment dressing or custom equivalents
+7. free/custom coherent environment dressing
 8. simple title/start/restart/quit flow
 9. packaged Windows build launches outside editor
 10. final bug/performance/package sweep
 
 Planned remaining gates:
-- VPR-20.1: current vegetation refinement local gate
-- VPR-21: custom/free roadside-art cleanup
+- VPR-21: custom/free roadside-art cleanup — current local gate
 - VPR-22: traffic/item/hazard visual cleanup + rider animation polish
 - VPR-23: menu/title/pause/settings + packaging flow
 - VPR-24: final demo audit/package
-
-If no major regression appears, Demo 1 is only a few focused milestone passes away.
 
 ## Known limitations deferred beyond Demo 1
 - multiplayer networking
