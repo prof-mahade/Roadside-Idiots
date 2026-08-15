@@ -210,13 +210,15 @@ void URITrafficStyleSubsystem::TryStyleTraffic()
         }
     }
 
-    if (Vehicles.Num() < 3)
+    if (Vehicles.Num() == 0)
     {
+        // Traffic can now legitimately be set to zero from the race setup menu.
+        // Keep ticking briefly until the traffic spawner has had a chance to run.
         return;
     }
 
-    // Spawn order is fixed by the traffic subsystem. Even if iteration order changes,
-    // this pass remains safe: all three silhouettes are purely visual and equivalent mechanically.
+    // Styles repeat for counts above three; the mechanical traffic class remains
+    // identical and only receives collision-free presentation components.
     for (int32 Index = 0; Index < Vehicles.Num(); ++Index)
     {
         StyleVehicle(Vehicles[Index], Index);
