@@ -39,9 +39,6 @@ void ARIRaceSetupHUD::DrawHUD()
 
     if (RIController->IsSettingsMenuOpen())
     {
-        // When settings was opened from Pause there is a pawn/race behind the
-        // panel; from the title/setup screen there is not. Both paths share the
-        // same settings UI and persistent UGameUserSettings values.
         if (RIController->GetPawn())
         {
             Super::DrawHUD();
@@ -67,11 +64,9 @@ void ARIRaceSetupHUD::DrawGameplayMenuHints()
     UFont* Font = GEngine->GetSmallFont();
     if (!Font) return;
 
-    // Cover only the old inherited milestone text rather than reopening the
-    // accepted gameplay HUD implementation.
-    DrawRect(FLinearColor(0.015f, 0.022f, 0.030f, 0.96f), 24.0f, 45.0f, 310.0f, 19.0f);
+    DrawRect(FLinearColor(0.015f, 0.022f, 0.030f, 0.96f), 24.0f, 45.0f, 345.0f, 19.0f);
     DrawText(
-        TEXT("VPR-23B | DEMO FLOW + CHAOS AI"),
+        TEXT("VPR-24A | SMART RIVALS + ASSISTED EGGS"),
         FLinearColor(0.52f, 1.0f, 0.70f),
         28.0f,
         48.0f,
@@ -79,7 +74,6 @@ void ARIRaceSetupHUD::DrawGameplayMenuHints()
         0.76f,
         false);
 
-    // Replace the inherited control strip so the pause key is discoverable.
     const float ControlsY = Canvas->SizeY - 47.0f;
     DrawRect(FLinearColor(0.015f, 0.022f, 0.030f, 0.94f), 16.0f, ControlsY - 8.0f, 700.0f, 34.0f);
     DrawText(
@@ -116,37 +110,11 @@ void ARIRaceSetupHUD::DrawRaceSetupMenu()
     DrawRect(FLinearColor(0.008f, 0.014f, 0.021f, 0.90f), PanelX, PanelY, PanelW, PanelH);
     DrawRect(FLinearColor(0.95f, 0.70f, 0.10f, 0.95f), PanelX, PanelY, PanelW, 6.0f);
 
-    DrawText(
-        TEXT("ROADSIDE IDIOTS"),
-        FLinearColor(1.0f, 0.77f, 0.16f),
-        PanelX + 34.0f,
-        PanelY + 28.0f,
-        Font,
-        2.15f,
-        false);
+    DrawText(TEXT("ROADSIDE IDIOTS"), FLinearColor(1.0f, 0.77f, 0.16f), PanelX + 34.0f, PanelY + 28.0f, Font, 2.15f, false);
+    DrawText(TEXT("THE ROAD IS DANGEROUS. THE RIDERS ARE WORSE."), FLinearColor(0.70f, 0.80f, 0.88f), PanelX + 37.0f, PanelY + 72.0f, Font, 0.90f, false);
+    DrawText(TEXT("DEMO 1 - RACE SETUP"), FLinearColor(0.52f, 1.0f, 0.70f), PanelX + 37.0f, PanelY + 102.0f, Font, 0.88f, false);
 
-    DrawText(
-        TEXT("THE ROAD IS DANGEROUS. THE RIDERS ARE WORSE."),
-        FLinearColor(0.70f, 0.80f, 0.88f),
-        PanelX + 37.0f,
-        PanelY + 72.0f,
-        Font,
-        0.90f,
-        false);
-
-    DrawText(
-        TEXT("DEMO 1 - RACE SETUP"),
-        FLinearColor(0.52f, 1.0f, 0.70f),
-        PanelX + 37.0f,
-        PanelY + 102.0f,
-        Font,
-        0.88f,
-        false);
-
-    const FString TrafficValue = Settings->GetTrafficCount() == 0
-        ? TEXT("OFF")
-        : FString::FromInt(Settings->GetTrafficCount());
-
+    const FString TrafficValue = Settings->GetTrafficCount() == 0 ? TEXT("OFF") : FString::FromInt(Settings->GetTrafficCount());
     const FString Rows[6] =
     {
         FString::Printf(TEXT("OPPONENTS        <  %d  >     (2 - 6)"), Settings->GetOpponentCount()),
@@ -163,36 +131,19 @@ void ARIRaceSetupHUD::DrawRaceSetupMenu()
     {
         const float Y = RowStartY + static_cast<float>(Row) * RowHeight;
         const bool bSelected = RIController->GetSelectedMenuRow() == Row;
-
         if (bSelected)
         {
             DrawRect(FLinearColor(0.95f, 0.69f, 0.08f, Row == 3 ? 0.32f : 0.18f), PanelX + 28.0f, Y - 10.0f, PanelW - 56.0f, 43.0f);
         }
 
-        FLinearColor TextColor = bSelected
-            ? FLinearColor(1.0f, 0.84f, 0.32f)
-            : FLinearColor(0.92f, 0.95f, 0.98f);
-
-        if (Row == 3)
-        {
-            TextColor = bSelected ? FLinearColor(0.35f, 1.0f, 0.45f) : FLinearColor(0.68f, 0.88f, 0.70f);
-        }
-        else if (Row == 5)
-        {
-            TextColor = bSelected ? FLinearColor(1.0f, 0.42f, 0.32f) : FLinearColor(0.88f, 0.55f, 0.50f);
-        }
+        FLinearColor TextColor = bSelected ? FLinearColor(1.0f, 0.84f, 0.32f) : FLinearColor(0.92f, 0.95f, 0.98f);
+        if (Row == 3) TextColor = bSelected ? FLinearColor(0.35f, 1.0f, 0.45f) : FLinearColor(0.68f, 0.88f, 0.70f);
+        else if (Row == 5) TextColor = bSelected ? FLinearColor(1.0f, 0.42f, 0.32f) : FLinearColor(0.88f, 0.55f, 0.50f);
 
         DrawText(Rows[Row], TextColor, PanelX + 44.0f, Y, Font, Row >= 3 ? 1.18f : 1.08f, false);
     }
 
-    DrawText(
-        TEXT("UP/DOWN select    LEFT/RIGHT change    ENTER confirm"),
-        FLinearColor(0.70f, 0.75f, 0.80f),
-        PanelX + 38.0f,
-        PanelY + PanelH - 40.0f,
-        Font,
-        0.88f,
-        false);
+    DrawText(TEXT("UP/DOWN select    LEFT/RIGHT change    ENTER confirm"), FLinearColor(0.70f, 0.75f, 0.80f), PanelX + 38.0f, PanelY + PanelH - 40.0f, Font, 0.88f, false);
 }
 
 void ARIRaceSetupHUD::DrawPauseMenu()
@@ -212,15 +163,7 @@ void ARIRaceSetupHUD::DrawPauseMenu()
     DrawRect(FLinearColor(0.95f, 0.70f, 0.10f, 0.95f), PanelX, PanelY, PanelW, 5.0f);
     DrawText(TEXT("PAUSED"), FLinearColor(1.0f, 0.78f, 0.18f), PanelX + 34.0f, PanelY + 28.0f, Font, 1.9f, false);
 
-    const FString Rows[5] =
-    {
-        TEXT("RESUME"),
-        TEXT("RESTART RACE"),
-        TEXT("CHANGE RACE SETUP"),
-        TEXT("SETTINGS"),
-        TEXT("QUIT GAME")
-    };
-
+    const FString Rows[5] = {TEXT("RESUME"), TEXT("RESTART RACE"), TEXT("CHANGE RACE SETUP"), TEXT("SETTINGS"), TEXT("QUIT GAME")};
     constexpr float RowHeight = 51.0f;
     const float RowStartY = PanelY + 91.0f;
     for (int32 Row = 0; Row < 5; ++Row)
@@ -238,14 +181,7 @@ void ARIRaceSetupHUD::DrawPauseMenu()
         DrawText(Rows[Row], Color, PanelX + 42.0f, Y, Font, 1.12f, false);
     }
 
-    DrawText(
-        TEXT("P / ESC resume    UP/DOWN select    ENTER confirm"),
-        FLinearColor(0.68f, 0.74f, 0.80f),
-        PanelX + 34.0f,
-        PanelY + PanelH - 36.0f,
-        Font,
-        0.82f,
-        false);
+    DrawText(TEXT("P / ESC resume    UP/DOWN select    ENTER confirm"), FLinearColor(0.68f, 0.74f, 0.80f), PanelX + 34.0f, PanelY + PanelH - 36.0f, Font, 0.82f, false);
 }
 
 void ARIRaceSetupHUD::DrawSettingsMenu()
@@ -285,18 +221,9 @@ void ARIRaceSetupHUD::DrawSettingsMenu()
             DrawRect(FLinearColor(0.24f, 0.62f, 0.92f, 0.22f), PanelX + 26.0f, Y - 9.0f, PanelW - 52.0f, 41.0f);
         }
 
-        const FLinearColor Color = bSelected
-            ? FLinearColor(0.55f, 0.88f, 1.0f)
-            : FLinearColor(0.90f, 0.94f, 0.98f);
+        const FLinearColor Color = bSelected ? FLinearColor(0.55f, 0.88f, 1.0f) : FLinearColor(0.90f, 0.94f, 0.98f);
         DrawText(Rows[Row], Color, PanelX + 42.0f, Y, Font, Row == 2 ? 1.12f : 1.02f, false);
     }
 
-    DrawText(
-        TEXT("LEFT/RIGHT change    ENTER on BACK    P/ESC back"),
-        FLinearColor(0.68f, 0.74f, 0.80f),
-        PanelX + 34.0f,
-        PanelY + PanelH - 34.0f,
-        Font,
-        0.80f,
-        false);
+    DrawText(TEXT("LEFT/RIGHT change    ENTER on BACK    P/ESC back"), FLinearColor(0.68f, 0.74f, 0.80f), PanelX + 34.0f, PanelY + PanelH - 34.0f, Font, 0.80f, false);
 }
