@@ -1,69 +1,70 @@
-# Next milestone — VPR-17 Audible Prototype + Track Polish Gate
+# Next milestone — VPR-18 Vehicle Sound + Item Readability Gate
 
-VPR-16.1 is visually passed from the user's 2026-08-15 screenshots.
+VPR-17 passed on the user's machine on 2026-08-15.
 
-## Proven VPR-16.1 result
-- instanced track/environment presentation compiles and runs
-- World Outliner dropped from roughly 542 actors in the first VPR-16 implementation to roughly 172 actors
-- road, barriers, green roadside, two dashed lane separators, trees/signs, minimap and three-lap race remain intact
-- the original seamless collision road remains authoritative and no collision architecture was changed
+## Proven VPR-17 result
+- UE 5.8 Unity Build succeeded
+- PIE actor count remained ~173, essentially unchanged from the optimized ~172 VPR-16.1 build
+- three-lap race, minimap and finish flow still work
+- track/environment polish is stable enough for the prototype
+- generated fallback SFX are acceptable enough to keep as temporary placeholders
+- compiler emits a C4996 deprecation warning from UE 5.8's own `SoundWaveProcedural.h`, but the project builds successfully
 
-The screenshots still exposed a few polish issues: occasional small green triangular gaps at visual road-segment joins, very broad yellow barrier caps, and a prototype that still had silent audio hooks when no local SFX assets existed.
+## VPR-18 goals
+Add lightweight motorcycle/tire sound feel and make banana gameplay objects easier to recognize, without changing proven physics, collision, race, AI or damage behavior.
 
-## VPR-17 changes
+## VPR-18 changes
 
-### Track polish layer
-New `URITrackPolishSubsystem` is visual-only and adds one lightweight root actor with instanced components.
+### Presentation optimization
+`URIPresentationWorldSubsystem` now caches the human motorcycle after first lookup instead of scanning all bike actors every presentation tick.
 
-It adds:
-- dark asphalt join patches at all 40 route vertices to hide small green corner wedges between straight visual road chords
-- dark inset strips over the existing yellow barrier caps, leaving yellow as a thinner safety trim instead of a glowing slab
-- sparse non-colliding curve/chevron markers for extra speed reference
+### Lightweight motorcycle sound
+The existing asset-first `RIAudioEvents` path gains two additional events:
+- `EnginePulse`
+- `TireSkid`
 
-No road/barrier collision, race rules, AI, items, damage, traffic or motorcycle movement code is changed.
+If real `/Game/Audio/SFX/SFX_EnginePulse` or `SFX_TireSkid` assets exist later, they override the generated prototype cues automatically.
 
-### Audible generated fallback SFX
-`RIAudioEvents` remains asset-first. It still checks for `/Game/Audio/SFX/SFX_<Event>` assets first.
+For the current asset-free prototype:
+- engine pulse rate/pitch rises with motorcycle speed
+- throttle slightly increases engine intensity/pitch
+- hard steering at speed can trigger a short tire-skid cue
+- hard braking at speed can trigger the same tire-skid family
+- skid cues are throttled so they do not spam every frame
+- only the human motorcycle gets the continuous prototype engine layer, avoiding unnecessary AI audio cost/noise
 
-When a real SFX asset is missing, VPR-17 now creates a short `USoundWaveProcedural` PCM fallback instead of remaining silent. This gives the playable prototype immediate generated cues while preserving the final asset pipeline.
+The movement component exposes read-only throttle/steering/brake getters for presentation systems. No movement tuning or physics equations were changed.
 
-Generated fallback families include:
-- countdown / GO
-- lap complete / finish
-- slap / crash / traffic impact
-- honk
-- rotten egg throw / splat / miss
-- banana-peel slip
-- dog/cow poop
-- banana / rotten-egg pickup cues
+### Banana pickup readability
+The banana pickup is no longer one flattened sphere. It now uses two rotated yellow segments to create a curved banana-like silhouette and a slightly reduced glow.
 
-Fallback cues receive simple distance-volume reduction relative to the human rider so distant AI events are quieter. Imported real SFX assets still override the generated fallback automatically.
+### Dropped peel readability
+The dropped peel keeps its proven physics body/trigger but now has three thin visible lobes arranged around the center, making it read more like a peel on the road rather than a yellow oval.
 
-### Pickup cleanup
-- banana and rotten-egg collection no longer add extra debug-message spam
-- human pickup feedback now uses the shared audio-event path
-- rotten-egg pickup silhouette is slightly tilted/darker for faster visual distinction
+No peel collision radius, gravity, self-immunity, slip impulse or damage logic changed.
 
-## VPR-17 local verification gate
+## VPR-18 local verification gate
 After pulling/compiling latest `dev/mvp-foundation`:
-1. compile must succeed under UE 5.8 Unity Build
-2. PIE actor count should remain close to the VPR-16.1 ~172 range; a tiny increase for the polish root is expected
-3. drive through several bends and verify the previous green triangular road gaps are gone or materially reduced
-4. barrier tops should read as dark caps with a thinner yellow rim rather than broad yellow slabs
-5. there must be no new invisible road bump/jump because all VPR-17 track polish geometry is collision-disabled
-6. listen for generated countdown / GO cues at race start
-7. collect a banana and rotten egg; each should make a distinct short pickup cue
-8. trigger slap, peel slip, egg splat, poop, traffic/honk and crash when practical; they should now make prototype generated sounds even with no `/Game/Audio/SFX` assets
-9. distant AI-triggered fallback sounds should be quieter than nearby events
-10. minimap, three laps, AI item parity, traffic, Condition, recovery and camera FOV must remain unchanged
+1. UE 5.8 Unity Build must succeed
+2. the existing `SoundWaveProcedural.h` C4996 warning may remain; it is not a build failure
+3. actor count should remain approximately in the low-170s aside from transient gameplay actors
+4. countdown/GO and other VPR-17 generated event sounds must still work
+5. after GO, the player motorcycle should have an audible low prototype engine rhythm
+6. engine rhythm/pitch should become faster/higher as speed rises, without becoming painfully loud
+7. make a hard turn above ~40 km/h or brake hard above ~30 km/h; a short skid/noise cue should occur, but not continuously spam
+8. banana pickup should look more curved/distinct than the old glowing oval
+9. press F after collecting a peel; the dropped peel should visibly have a three-lobe peel shape and still fall to the road normally
+10. run over a peel and verify slip behavior is unchanged
+11. confirm no road bumps/jumps returned
+12. reconfirm minimap, three laps, AI items, traffic, Condition, Q/E slap, G egg and R recovery
 
-## If VPR-17 passes
-Next batch should move away from graybox mechanics and into stronger identity:
-1. add a lightweight motorcycle engine/tire audio layer tied to speed/throttle
-2. replace generated one-shot fallbacks gradually with legally usable imported SFX
-3. improve banana/egg/poop/peel models and particle presentation
-4. choose the first real environment/map theme and begin replacing primitive roadside art
-5. retain the established gameplay/race architecture while art quality increases
+## If VPR-18 passes
+Next work should move toward recognizable game art rather than more mechanics:
+1. improve egg/poop/hazard presentation using the same lightweight approach
+2. choose the first real environment theme/reference direction
+3. begin replacing primitive trees/signs/traffic with reusable environment assets while retaining instancing
+4. begin importing legally usable real SFX to override generated placeholders
+5. revisit rider/bike animation polish once the environment identity is clearer
 
 ## Still deferred
 - final environment/models/textures
