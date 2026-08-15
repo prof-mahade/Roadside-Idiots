@@ -16,17 +16,14 @@ public:
     virtual TStatId GetStatId() const override;
     virtual bool IsTickable() const override;
 
-    void AddEgg(int32 Amount = 1);
-    int32 GetEggCount() const { return EggCount; }
-    int32 GetMaxEggCount() const { return MaxEggs; }
+    int32 GetEggCount() const;
+    int32 GetMaxEggCount() const;
 
 private:
     void TrySpawnPickups();
     void TryThrowEgg();
     ARIBikePawn* FindHumanBike() const;
 
-    int32 EggCount = 0;
-    int32 MaxEggs = 2;
     bool bSpawnedPickups = false;
     double LastThrowTime = -100.0;
 };
