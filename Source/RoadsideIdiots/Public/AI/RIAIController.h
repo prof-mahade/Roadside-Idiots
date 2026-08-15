@@ -52,6 +52,7 @@ private:
     float ComputeAvoidanceShift(const FVector& BikeLocation, const FVector& Forward, const FVector& Right) const;
     float ComputeCrowdSpeedScale(const FVector& BikeLocation, const FVector& Forward, const FVector& Right) const;
     FVector ComputeRaceLookAheadTarget(const FVector& BikeLocation, float SpeedKph, FVector& OutTangent, FVector& OutRight, float& OutTurnSeverity);
+    FVector ClampPointToRoadCorridor(const FVector& Point) const;
     void ApplyTacticalTargeting(FVector& InOutTargetPoint, const FVector& BikeLocation, const FVector& RouteRight);
 
     UPROPERTY() TObjectPtr<ARIBikePawn> Bike;
@@ -90,6 +91,7 @@ private:
     UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float MinLookAheadDistance = 620.0f;
     UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float MaxLookAheadDistance = 1550.0f;
     UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float SteeringInterpSpeed = 5.5f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float SafeRoadHalfWidth = 455.0f;
 
     UPROPERTY(EditAnywhere, Category="AI Tuning|Retaliation") float GrudgeDurationSeconds = 4.5f;
     UPROPERTY(EditAnywhere, Category="AI Tuning|Retaliation") float GrudgeCatchupSpeedKph = 121.0f;
