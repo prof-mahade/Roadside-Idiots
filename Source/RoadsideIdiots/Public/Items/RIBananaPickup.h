@@ -35,6 +35,9 @@ private:
     TObjectPtr<UStaticMeshComponent> Visual;
 
     UPROPERTY(VisibleAnywhere, Category="Components")
+    TObjectPtr<UStaticMeshComponent> VisualTip;
+
+    UPROPERTY(VisibleAnywhere, Category="Components")
     TObjectPtr<UPointLightComponent> Glow;
 
     bool bConsumed = false;
