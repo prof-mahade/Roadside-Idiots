@@ -139,39 +139,48 @@ VPR-19 — PASSED:
 - theme stayed outside road; three-lap race/minimap/traffic stable
 - do not add more primitive scenery for its own sake
 
+VPR-20 — REAL-ASSET PIPELINE PROVEN:
+- user's 2026-08-15 screenshots confirmed free banana and tropical ground-plant meshes load/render in PIE
+- actor count remained ~174
+- first placement was visually too sparse
+- screenshots also exposed old VPR-16 sphere/cube trees still dominating some views
+
 ## Audio architecture
 `RIAudioEvents` is asset-first:
 - checks `/Game/Audio/SFX/SFX_<Event>.SFX_<Event>`
 - real imported free SFX can override generated fallbacks automatically
 - generated fallbacks include countdown/GO/lap/finish, impacts, honk, eggs, peel, poop, pickups, engine pulse and tire skid
 
-## CURRENT ACTIVE GATE — VPR-20 Free Real-Art Integration
+## CURRENT ACTIVE GATE — VPR-20.1 Free Vegetation Refinement
 Status: CODED, pending local compile + visual verification.
 
-Approved local free mesh paths selected from the user's Content Browser screenshots:
+Approved local free mesh paths:
 - `/Game/PN_Banana/Meshes/plants/banana_01_07.banana_01_07`
 - `/Game/PN_Banana/Meshes/plants/banana_02_05.banana_02_05`
 - `/Game/PN_tropicalGroundPlants/Meshes/tropicalPlant_01_04.tropicalPlant_01_04`
 - `/Game/PN_tropicalGroundPlants/Meshes/tropicalPlant_05_04.tropicalPlant_05_04`
 
-`RIRoadsideThemeSubsystem` VPR-20 behavior:
-- optionally loads the four free meshes above
-- keeps their authored materials/textures
-- creates NoCollision instanced components under the existing one roadside-theme root actor
-- normalizes instance scale using each mesh's bounds
-- replaces old primitive ball-tree rows when banana meshes are available
-- adds banana/ground-plant clusters well outside the 12 m race surface
-- retains primitive fallbacks if local assets are missing
-- does not modify road collision, bike physics, race, AI, items, traffic or health
-- expected actor count remains near ~174 because this adds components/instances, not new actors
+VPR-20.1 changes:
+- roughly twice as many vegetation sites around the route
+- irregular depth/yaw/height variation instead of evenly spaced single plants
+- occasional two-banana clusters
+- denser low/tall ground cover
+- all imported vegetation remains `NoCollision` and overlap-disabled
+- actor count should stay effectively unchanged because all vegetation remains instanced under the existing theme actor
+- `RITrackPresentationSubsystem` old lollipop sphere/cube trees are now fallback-only when the free banana pack is missing
+- HUD marker is now `VPR-20.1 | FREE VEG DENSITY + CLEANUP`
+- no gameplay, physics, race, AI, items, traffic, health, recovery or minimap tuning in this pass
 
 Next local gate:
 1. pull current branch
 2. compile
-3. verify real materials/scale/placement in PIE
-4. drive one lap; confirm no bumps/collision/overlap regression
-5. confirm actor count remains near baseline
-6. send screenshots only if visual scale/density needs judgment
+3. verify HUD marker says VPR-20.1
+4. verify lollipop trees are gone and real vegetation is noticeably denser
+5. verify plants remain outside barriers and have no collision/bumps
+6. drive one lap; confirm gameplay remains unchanged
+7. verify actor count stays near ~174
+
+If this passes, freeze VPR-20 and move directly to VPR-21 custom/free roadside-art cleanup.
 
 ## Demo 1 definition
 Demo 1 is a packaged Windows SOLO build. Multiplayer is not required.
@@ -189,7 +198,7 @@ Required:
 10. final bug/performance/package sweep
 
 Planned remaining gates:
-- VPR-20: free vegetation integration — current local gate
+- VPR-20.1: current vegetation refinement local gate
 - VPR-21: custom/free roadside-art cleanup
 - VPR-22: traffic/item/hazard visual cleanup + rider animation polish
 - VPR-23: menu/title/pause/settings + packaging flow
