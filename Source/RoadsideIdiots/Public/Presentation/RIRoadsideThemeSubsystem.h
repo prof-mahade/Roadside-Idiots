@@ -24,13 +24,21 @@ private:
     void BuildFields();
     void BuildUtilityLines();
     void BuildRoadsideClusters();
+    void BuildRealVegetation();
 
     UInstancedStaticMeshComponent* CreateGroup(UStaticMesh* Mesh, const FLinearColor& Color);
+    UInstancedStaticMeshComponent* CreateAssetGroup(UStaticMesh* Mesh);
     void AddInstance(
         UInstancedStaticMeshComponent* Group,
         const FVector& Location,
         const FRotator& Rotation,
         const FVector& Scale);
+    void AddAssetInstance(
+        UInstancedStaticMeshComponent* Group,
+        const FVector& Location,
+        const FRotator& Rotation,
+        float DesiredHeightCm,
+        float UniformScaleMultiplier = 1.0f);
 
     FVector RoutePoint(float AngleRadians, float Height = 0.0f) const;
     FVector RouteTangent(float AngleRadians) const;
@@ -82,6 +90,18 @@ private:
 
     UPROPERTY()
     TObjectPtr<UInstancedStaticMeshComponent> LeafInstances;
+
+    UPROPERTY()
+    TObjectPtr<UInstancedStaticMeshComponent> BananaTallInstances;
+
+    UPROPERTY()
+    TObjectPtr<UInstancedStaticMeshComponent> BananaMediumInstances;
+
+    UPROPERTY()
+    TObjectPtr<UInstancedStaticMeshComponent> GroundPlantTallInstances;
+
+    UPROPERTY()
+    TObjectPtr<UInstancedStaticMeshComponent> GroundPlantLowInstances;
 
     bool bBuilt = false;
 };
