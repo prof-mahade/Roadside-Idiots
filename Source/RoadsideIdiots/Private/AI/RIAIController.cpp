@@ -132,9 +132,7 @@ void ARIAIController::NotifyProvokedBy(ARIBikePawn* InstigatorBike)
         ? FMath::Min(GrudgeTimeRemaining + 0.75f, GrudgeDurationSeconds * 1.10f)
         : GrudgeDurationSeconds;
 
-    // Fight fatigue: an impact can still create a short grudge and opportunistic
-    // item response, but it cannot keep resetting a chase while an intent is
-    // already active or while the rider is in its post-fight cooldown.
+    // Fight fatigue prevents two riders from refreshing each other's chase forever.
     if (IsTacticalIntentActive() || TacticalCooldownRemaining > 0.0f) return;
 
     AttackCooldownRemaining = 0.25f;
@@ -290,41 +288,58 @@ FVector ARIAIController::ComputeRaceLookAheadTarget(const FVector& BikeLocation,
     if (RoutePoints.Num() < 3) return BikeLocation + OutTangent * MinLookAheadDistance;
 
     const int32 Count = RoutePoints.Num();
-    int32 NearestIndex = 0;
+    int32 NearestSegment = 0;
+    float NearestAlpha = 0.0f;
     float NearestDistanceSq = TNumericLimits<float>::Max();
+    FVector RouteProjection = RoutePoints[0];
+
+    // Project onto the actual polyline segment instead of snapping to one of 40
+    // sparse route points. This makes target progression continuous through bends.
     for (int32 Index = 0; Index < Count; ++Index)
     {
-        FVector Delta = RoutePoints[Index] - BikeLocation;
-        Delta.Z = 0.0f;
-        const float DistanceSq = Delta.SizeSquared();
+        const FVector A = RoutePoints[Index];
+        const FVector B = RoutePoints[(Index + 1) % Count];
+        FVector AB = B - A;
+        AB.Z = 0.0f;
+        const float LengthSq = AB.SizeSquared();
+        if (LengthSq <= KINDA_SMALL_NUMBER) continue;
+
+        FVector AP = BikeLocation - A;
+        AP.Z = 0.0f;
+        const float Alpha = FMath::Clamp(FVector::DotProduct(AP, AB) / LengthSq, 0.0f, 1.0f);
+        const FVector Projection = A + AB * Alpha;
+        const float DistanceSq = FVector::DistSquared2D(BikeLocation, Projection);
         if (DistanceSq < NearestDistanceSq)
         {
             NearestDistanceSq = DistanceSq;
-            NearestIndex = Index;
+            NearestSegment = Index;
+            NearestAlpha = Alpha;
+            RouteProjection = Projection;
         }
     }
 
     const float SpeedAlpha = FMath::Clamp(SpeedKph / 120.0f, 0.0f, 1.0f);
-    const float LookAhead = FMath::Lerp(MinLookAheadDistance, MaxLookAheadDistance, SpeedAlpha);
-    int32 SegmentStartIndex = NearestIndex;
-    FVector SegmentStart = RoutePoints[SegmentStartIndex];
-    float Accumulated = 0.0f;
-    FVector Target = RoutePoints[(NearestIndex + 1) % Count];
+    float RemainingLookAhead = FMath::Lerp(MinLookAheadDistance, MaxLookAheadDistance, SpeedAlpha);
+    int32 SegmentIndex = NearestSegment;
+    FVector SegmentStart = RouteProjection;
+    FVector Target = RouteProjection;
 
     for (int32 Step = 0; Step < Count; ++Step)
     {
-        const int32 SegmentEndIndex = (SegmentStartIndex + 1) % Count;
+        const int32 SegmentEndIndex = (SegmentIndex + 1) % Count;
         const FVector SegmentEnd = RoutePoints[SegmentEndIndex];
         const float SegmentLength = FVector::Dist2D(SegmentStart, SegmentEnd);
-        if (SegmentLength > KINDA_SMALL_NUMBER && Accumulated + SegmentLength >= LookAhead)
+
+        if (SegmentLength > KINDA_SMALL_NUMBER && RemainingLookAhead <= SegmentLength)
         {
-            const float Alpha = FMath::Clamp((LookAhead - Accumulated) / SegmentLength, 0.0f, 1.0f);
+            const float Alpha = FMath::Clamp(RemainingLookAhead / SegmentLength, 0.0f, 1.0f);
             Target = FMath::Lerp(SegmentStart, SegmentEnd, Alpha);
             TargetIndex = SegmentEndIndex;
             break;
         }
-        Accumulated += SegmentLength;
-        SegmentStartIndex = SegmentEndIndex;
+
+        RemainingLookAhead -= SegmentLength;
+        SegmentIndex = SegmentEndIndex;
         SegmentStart = SegmentEnd;
         Target = SegmentEnd;
         TargetIndex = SegmentEndIndex;
@@ -338,7 +353,48 @@ FVector ARIAIController::ComputeRaceLookAheadTarget(const FVector& BikeLocation,
     const FVector FutureTangent = (RoutePoints[Next2Index] - RoutePoints[TargetIndex]).GetSafeNormal2D();
     const float TurnDot = FMath::Clamp(FVector::DotProduct(OutTangent, FutureTangent), -1.0f, 1.0f);
     OutTurnSeverity = FMath::Clamp(FMath::Acos(TurnDot) / 0.80f, 0.0f, 1.0f);
+
     return Target + OutRight * LaneOffset;
+}
+
+FVector ARIAIController::ClampPointToRoadCorridor(const FVector& Point) const
+{
+    if (RoutePoints.Num() < 2) return Point;
+
+    const int32 Count = RoutePoints.Num();
+    float BestDistanceSq = TNumericLimits<float>::Max();
+    FVector BestProjection = Point;
+    FVector BestRight = FVector::RightVector;
+
+    for (int32 Index = 0; Index < Count; ++Index)
+    {
+        const FVector A = RoutePoints[Index];
+        const FVector B = RoutePoints[(Index + 1) % Count];
+        FVector AB = B - A;
+        AB.Z = 0.0f;
+        const float LengthSq = AB.SizeSquared();
+        if (LengthSq <= KINDA_SMALL_NUMBER) continue;
+
+        FVector AP = Point - A;
+        AP.Z = 0.0f;
+        const float Alpha = FMath::Clamp(FVector::DotProduct(AP, AB) / LengthSq, 0.0f, 1.0f);
+        const FVector Projection = A + AB * Alpha;
+        const float DistanceSq = FVector::DistSquared2D(Point, Projection);
+        if (DistanceSq < BestDistanceSq)
+        {
+            BestDistanceSq = DistanceSq;
+            BestProjection = Projection;
+            const FVector Tangent = AB.GetSafeNormal2D();
+            BestRight = FVector::CrossProduct(FVector::UpVector, Tangent).GetSafeNormal();
+        }
+    }
+
+    FVector Delta = Point - BestProjection;
+    Delta.Z = 0.0f;
+    const float Lateral = FMath::Clamp(FVector::DotProduct(Delta, BestRight), -SafeRoadHalfWidth, SafeRoadHalfWidth);
+    FVector Result = BestProjection + BestRight * Lateral;
+    Result.Z = Point.Z;
+    return Result;
 }
 
 void ARIAIController::ApplyTacticalTargeting(FVector& InOutTargetPoint, const FVector& BikeLocation, const FVector& RouteRight)
@@ -505,6 +561,7 @@ void ARIAIController::Tick(float DeltaSeconds)
         TargetPoint = FMath::Lerp(TargetPoint, CachedPickupTarget, 0.42f);
 
     ApplyTacticalTargeting(TargetPoint, BikeLocation, RouteRight);
+    TargetPoint = ClampPointToRoadCorridor(TargetPoint);
 
     if (ItemDecisionRemaining <= 0.0f)
     {
