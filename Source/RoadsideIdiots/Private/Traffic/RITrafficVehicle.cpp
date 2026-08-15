@@ -3,9 +3,9 @@
 #include "Vehicle/RIBikePawn.h"
 #include "Core/RIHealthComponent.h"
 #include "Visual/RIPrototypeVisuals.h"
+#include "Audio/RIAudioEvents.h"
 #include "Components/BoxComponent.h"
 #include "Components/StaticMeshComponent.h"
-#include "Engine/Engine.h"
 #include "Engine/StaticMesh.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialInterface.h"
@@ -39,9 +39,6 @@ ARITrafficVehicle::ARITrafficVehicle()
     PrimaryActorTick.bCanEverTick = true;
     bReplicates = false;
 
-    // Prototype traffic uses an overlap envelope instead of hard kinematic
-    // blocking. Keep the envelope close to real compact-car proportions so it
-    // creates overtaking pressure without behaving like a moving wall.
     ImpactVolume = CreateDefaultSubobject<UBoxComponent>(TEXT("ImpactVolume"));
     SetRootComponent(ImpactVolume);
     ImpactVolume->SetBoxExtent(FVector(170.0f, 82.0f, 60.0f));
@@ -274,14 +271,8 @@ void ARITrafficVehicle::HandleImpactOverlap(
         Health->ApplyImpact(6.0f);
     }
 
+    RIAudioEvents::Play(this, TEXT("Honk"), GetActorLocation(), 1.0f, FMath::FRandRange(0.94f, 1.06f));
+    RIAudioEvents::Play(this, TEXT("TrafficHit"), Bike->GetActorLocation(), 0.95f, FMath::FRandRange(0.94f, 1.04f));
     Bike->TriggerComicImpact(Side, TEXT("HONK!"), 0.85f);
     RIPrototypeVisuals::PlayReaction(Bike, Side);
-
-    if (GEngine)
-    {
-        const FString Message = TrafficLabel.IsEmpty()
-            ? TEXT("THUNK! Civilian traffic wins this argument.")
-            : FString::Printf(TEXT("THUNK! %s says: USE YOUR EYES!"), *TrafficLabel);
-        GEngine->AddOnScreenDebugMessage(-1, 1.6f, FColor(255, 185, 40), Message);
-    }
 }
