@@ -1,58 +1,65 @@
-# Next milestone — VPR-16 Track Skin + Camera Feel Gate
+# Next milestone — VPR-16.1 Instanced Track + Environment Cleanup Gate
 
-VPR-15 is visually passed from the user's screenshots. The compact HUD/minimap stayed readable, comic WHACK feedback is visible, filth status is correctly integrated into the HUD, and the reduced stink effect no longer hides the motorcycle.
+VPR-16 visually passed from the user's screenshots: the road skin, lane markings, barrier caps, start/finish gantry, minimap, three-lap race and camera presentation are all running. The screenshots also exposed two issues worth fixing before adding more world art: roadside ground still read too dark/empty, and the first presentation implementation increased PIE actor count from roughly 171 to roughly 542 because repeated road/scenery pieces were spawned as individual actors.
 
-## Immediate goal
-Improve the biggest remaining visual weakness—the empty checkerboard prototype track—without touching the proven collision road, race rules, AI, items, damage, or motorcycle movement.
+## VPR-16.1 goals
+Improve environment readability and reduce presentation overhead without touching the proven collision road, race rules, AI, items, damage, traffic or motorcycle movement.
 
-## VPR-16 changes
+## VPR-16.1 changes
+### Instanced presentation architecture
+`URITrackPresentationSubsystem` now owns one presentation root actor and groups repeated geometry into `UInstancedStaticMeshComponent`s by mesh/material color.
 
-### Visual-only track skin
-A new `URITrackPresentationSubsystem` adds a non-colliding presentation layer over the existing course:
-- dark asphalt overlay over the white checkerboard road
-- dashed centre guides for curvature/speed readability
-- yellow edge lines
-- concrete-colored barrier shells with yellow top caps
-- muted green ground outside the road
-- visible checkered start/finish strip
-- simple start/finish gantry
-- sparse stylised roadside trees
-- four colored roadside landmark/sign boards
+Repeated pieces no longer require one actor each:
+- asphalt segments
+- lane markings
+- yellow edge/cap strips
+- barrier shells
+- grass/verge pieces
+- tree trunks/leaves
+- sign boards/posts
+- start/finish tiles and gantry pieces
 
-The original 12 m course geometry and its seamless continuous collision floor remain unchanged underneath. All new track/scenery actors have collision disabled.
+Expected result: PIE actor count should fall dramatically from the ~542 seen in VPR-16, while preserving the same or richer scenery.
 
-### Camera feel
-The same presentation subsystem finds the human rider's chase camera and smoothly changes FOV with speed:
-- ~92 degrees at low speed
-- up to ~101 degrees near 100 km/h
-- smooth interpolation rather than an instant zoom
+All presentation components remain collision-disabled. The original continuous collision floor and original barrier collision remain authoritative.
 
-This changes presentation only; bike forces, steering, grip and camera impact/dizzy wobble logic remain unchanged.
+### Environment cleanup
+- brighter green base ground
+- darker-green verge bands outside both barriers
+- three broad road lanes using two dashed separators
+- cleaner asphalt/concrete/yellow palette
+- more roadside trees using instances
+- eight colored landmark boards instead of four
+- small roadside reflector posts
+- refined checkered start/finish strip
+- more deliberate gantry with alternating overhead blocks and side timing boards
 
-### Build marker
-HUD marker becomes:
+### Camera
+Speed-sensitive FOV remains presentation-only:
+- ~92 degrees low speed
+- ~101 degrees near 100 km/h
+- smooth interpolation
 
-`VPR-16 | TRACK SKIN + CAMERA FEEL`
+## Local verification gate
+After pulling/compiling latest `dev/mvp-foundation`:
+1. compile must succeed under Unreal Unity Build
+2. drive one normal lap and verify there are still no road seam bumps/jumps
+3. roadside should read green rather than a black void
+4. road should show two dashed lane separators plus yellow edges
+5. start/finish gantry should look more deliberate than VPR-16
+6. trees/signs/posts must remain outside the racing surface
+7. collision against barriers must behave exactly as before
+8. minimap, three laps, AI, traffic, F/G items, Q/E slap, Condition and recovery must still work
+9. check World Outliner actor count during PIE; it should be far below the ~542 actor VPR-16 screenshot because track/scenery repetition is now instanced
+10. verify high-speed FOV still widens smoothly
 
-## VPR-16 local gate
-After pulling and compiling latest `dev/mvp-foundation`:
-1. verify the VPR-16 HUD marker
-2. road should now be dark asphalt rather than white checkerboard
-3. grass/green ground should be visible outside the barriers
-4. center/edge road markings should follow the entire oval cleanly
-5. barriers should visually read as concrete with yellow top caps while collision still behaves exactly as before
-6. find the checkered start/finish strip and gantry
-7. roadside trees/sign boards should give visible speed reference without entering the racing surface
-8. accelerate from low speed toward top speed and confirm the camera widens smoothly, not abruptly
-9. deliberately drive normally over several old road-segment boundaries; there must be no return of the invisible-bump/jump bug
-10. reconfirm minimap, three laps, AI, traffic, F/G items, Q/E slap, Condition, poop/egg effects and recovery
-
-## If VPR-16 passes
-Proceed with a combined sound + world-quality batch:
-1. prototype engine/tire audio path or locally imported SFX
-2. reduce remaining primitive-looking filth/item visuals
-3. improve roadside set dressing and lighting
-4. start replacing placeholder car/item/environment meshes while retaining the established gameplay architecture
+## If VPR-16.1 passes
+Next work should focus on actual game feel/assets rather than more graybox systems:
+1. real/prototype motorcycle engine loop and tire/skid audio
+2. legally usable slap/honk/splat/poop/peel/crash SFX assets using the existing audio-event convention
+3. better item/hazard meshes and particles
+4. replace primitive environment/traffic models gradually while preserving the established gameplay architecture
+5. then revisit final map theme/art direction before multiplayer networking
 
 ## Still deferred
 - final environment/models/textures
