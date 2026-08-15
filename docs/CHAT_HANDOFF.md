@@ -53,7 +53,7 @@ Imported local presentation assets:
 - free `PN_tropicalGroundPlants` vegetation pack
 
 Removed / do not use:
-- SankoolArts compound/gate pack; user requested removal after license/payment concern
+- SankoolArts compound/gate pack; user removed it after license/payment concern
 
 Authoritative architecture:
 - hidden cube chassis remains authoritative physics
@@ -145,19 +145,33 @@ VPR-19 — PASSED:
 - real imported free SFX can override generated fallbacks automatically
 - generated fallbacks include countdown/GO/lap/finish, impacts, honk, eggs, peel, poop, pickups, engine pulse and tire skid
 
-## CURRENT ACTIVE GATE — VPR-20 Free Real-Art Import
-Goal: prove the first real free environment-art replacement pipeline while keeping gameplay frozen.
+## CURRENT ACTIVE GATE — VPR-20 Free Real-Art Integration
+Status: CODED, pending local compile + visual verification.
 
-Current local free assets:
-1. `PN_Banana`
-2. `PN_tropicalGroundPlants`
+Approved local free mesh paths selected from the user's Content Browser screenshots:
+- `/Game/PN_Banana/Meshes/plants/banana_01_07.banana_01_07`
+- `/Game/PN_Banana/Meshes/plants/banana_02_05.banana_02_05`
+- `/Game/PN_tropicalGroundPlants/Meshes/tropicalPlant_01_04.tropicalPlant_01_04`
+- `/Game/PN_tropicalGroundPlants/Meshes/tropicalPlant_05_04.tropicalPlant_05_04`
 
-Next local action:
-- after the compound/gate pack is deleted, inspect `PN_Banana/Meshes` and `PN_tropicalGroundPlants/Meshes`
-- record exact candidate Static Mesh names/paths
-- integrate selected vegetation with optional paths + primitive fallback
-- all replacements NoCollision and instanced where practical
-- build our own simple houses/stalls/walls/gates/signs if free assets are unavailable
+`RIRoadsideThemeSubsystem` VPR-20 behavior:
+- optionally loads the four free meshes above
+- keeps their authored materials/textures
+- creates NoCollision instanced components under the existing one roadside-theme root actor
+- normalizes instance scale using each mesh's bounds
+- replaces old primitive ball-tree rows when banana meshes are available
+- adds banana/ground-plant clusters well outside the 12 m race surface
+- retains primitive fallbacks if local assets are missing
+- does not modify road collision, bike physics, race, AI, items, traffic or health
+- expected actor count remains near ~174 because this adds components/instances, not new actors
+
+Next local gate:
+1. pull current branch
+2. compile
+3. verify real materials/scale/placement in PIE
+4. drive one lap; confirm no bumps/collision/overlap regression
+5. confirm actor count remains near baseline
+6. send screenshots only if visual scale/density needs judgment
 
 ## Demo 1 definition
 Demo 1 is a packaged Windows SOLO build. Multiplayer is not required.
@@ -175,7 +189,7 @@ Required:
 10. final bug/performance/package sweep
 
 Planned remaining gates:
-- VPR-20: free vegetation integration
+- VPR-20: free vegetation integration — current local gate
 - VPR-21: custom/free roadside-art cleanup
 - VPR-22: traffic/item/hazard visual cleanup + rider animation polish
 - VPR-23: menu/title/pause/settings + packaging flow
