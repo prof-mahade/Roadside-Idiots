@@ -1,107 +1,133 @@
-# Next milestone — VPR-24B High-Speed Racing AI Gate
+# Next milestone — Demo 1 RC Packaging Gate
 
-The user rejected the VPR-24A driving quality on 2026-08-15 because rivals still hit the barriers too often and did not look like competent racers. VPR-24B therefore treats racing control as the primary system: opponents must be able to run near the bike's available top speed on straights, plan for bends before reaching them, and dodge traffic/hazards without abandoning the racing line.
+## Current status
+The basic racing-controller crisis is no longer the active blocker.
+
+On 2026-08-15 the user verified the new low-level racing-line follower with:
+- Opponents = 6
+- Laps = 2
+- Traffic = 0
+
+Result: rivals completed the run without repeatedly hitting the barriers.
+
+A second run with Traffic = 6 was also acceptable: traffic collisions still occurred, but rivals did not resume the old left/right wall oscillation unless physically disturbed. After the VPR-25 traffic-pass/recovery pass the user reported the result was "little better than before".
+
+Treat the current racing-line follower as a frozen Demo 1 baseline. Do not retune it merely for theoretical improvement. Reopen driving only for a reproducible regression in the packaged build.
 
 ## Permanent project constraint — FREE ONLY
 Roadside Idiots must use only:
 - assets/tools/content available to the user for $0 under the applicable license, or
-- assets/models/materials/audio we create ourselves.
+- assets/models/materials/audio created by this project.
 
-Do not recommend, plan around, purchase, or retain paid packs. The removed SankoolArts content must not return; `tools/package_demo1.ps1` blocks it.
+Do not recommend, plan around, purchase, or retain paid packs.
 
-## Frozen systems
+The removed SankoolArts / CompoundWall_Kit content must never return. `tools/package_demo1.ps1` now recursively blocks it in Content and also blocks Source/Config references.
+
+## Frozen Demo 1 systems
 Do not retune unless a real regression is observed:
 - VPR-18 physical bike movement/physics baseline
 - continuous flat authoritative road floor collision
+- VPR-24E/VPR-25 low-level Pure-Pursuit racing-line follower
 - checkpoint/lap/place/finish rules
-- traffic movement itself
 - player controls and assisted egg behavior
 - race setup: 2–6 opponents, 1–5 laps, 0–6 traffic
 - title/setup/pause/settings/restart/quit flow
+- minimap/HUD layout
+- free vegetation/environment presentation baseline
 
-## Why VPR-24A driving failed
-The previous AI still used a world-space look-ahead point as the main steering command. Avoidance, pickup seeking and tactical behavior could move that point laterally or blend it toward another actor. At speed the bot therefore over-corrected toward changing targets rather than continuously tracking a stable racing path.
+## Current AI architecture
+High-level `ARIAIController` owns:
+- personality
+- throttle/brake race pace
+- pickups/items
+- grudges and chaos directives
+- recovery fallback
 
-The physical bike supports up to 155 km/h, while VPR-24A personalities were only targeting about 108–116 km/h. Despite being slow, they could still arrive at a bend before the simple angle-based speed limiter had planned enough braking.
+Low-level `ARIRacingLineFollower` owns final steering:
+- speed-scaled Pure Pursuit look-ahead
+- stable assigned race lane
+- predicted lateral-drift recovery
+- AI-only lane stabilization force
+- curvature-based safety speed veto
+- VPR-25 persistent traffic pass side selection
+- VPR-25 collision recovery priority
 
-The prototype oval was also represented by only 40 straight route/barrier segments. That coarse polygon and the old large barrier padding created unnecessarily abrupt tangent changes and wall-joint geometry for a physics motorcycle.
+The important rule is: tactical/comedy behavior must never be allowed to replace the road-following controller again.
 
-## VPR-24B controller
+## Demo 1 RC packaging work
+`tools/package_demo1.ps1` now:
+1. verifies the Unreal 5.8 project and RunUAT path
+2. recursively rejects forbidden Sankool/CompoundWall content
+3. rejects Source/Config references to that removed content
+4. reports missing approved free vegetation assets
+5. records the Git commit and dirty-working-tree state
+6. runs Win64 BuildCookRun
+7. requires a packaged `RoadsideIdiots.exe`
+8. requires cooked `.pak/.utoc/.ucas` data
+9. writes `DEMO1_BUILD_INFO.txt` into the archive
 
-### Path tracking owns steering
-The racing controller now projects the bike onto the nearest route segment and tracks a smoothed lane reference using three terms:
-- heading error toward the local racing-path heading
-- Stanley-style lateral/cross-track correction
-- preview-curvature feed-forward
+`tools/verify_demo1_package.ps1` now performs the static package check and can launch the packaged build for the manual smoke test.
 
-Speed increases the look-ahead distance. Avoidance no longer replaces the route target with an arbitrary world position.
+Project version is now `0.1.0-demo1-rc1`.
 
-### Near-top-speed straights, planned corners
-Straight-line personality targets are now roughly 142–151 km/h, below the bike's 155 km/h physical ceiling.
+## Local gate — do this next
+Close Unreal and sync the branch, then run:
 
-The controller samples several points well ahead, estimates path curvature and converts that curvature into a speed limit using a configurable lateral-acceleration budget. Therefore the AI can stay near full throttle on usable straights but starts slowing before the tight ends of the oval instead of reacting after steering error becomes large.
+```powershell
+cd C:\GameDev\Roadside-Idiots
+git pull --ff-only origin dev/mvp-foundation
 
-### Obstacle and hazard avoidance
-Traffic, poop, banana peels and other bikes are evaluated as threats using distance plus approximate time-to-collision. The strongest threat requests a bounded lane offset.
+.\tools\package_demo1.ps1
+```
 
-The dodge side is barrier-aware:
-- prefer moving away from the obstacle
-- measure usable road space on both sides
-- if the preferred side is too close to the boundary, flip to the safer side
-- clamp the requested lane inside the safe corridor
-- smooth the lane transition
+If packaging succeeds, run:
 
-Braking for obstacles is an emergency fallback. The normal goal is to change lane and preserve speed.
+```powershell
+.\tools\verify_demo1_package.ps1 -Launch
+```
 
-### Wall protection
-Three forward wall feelers (center / left / right) provide an emergency steering correction when the bike is actually pointing toward static collision geometry.
+The verifier automatically chooses the newest `RoadsideIdiots_Demo1_*` archive when `-PackagePath` is omitted.
 
-The route projection also acts as a corridor guardian. If physics pushes a bike too close to either barrier, tactical/avoidance lane requests are progressively ignored and the controller applies an inward correction until the bike is back on usable asphalt.
+## Manual packaged-build smoke test
+### Race A — clean racing baseline
+- Opponents = 6
+- Laps = 2
+- Traffic = 0
+- verify countdown/input lock
+- verify rivals complete clean laps without recurring barrier oscillation
+- verify lap/place/minimap/finish
 
-### Chaos cannot override a hard corner
-Side pressure, blocking and peel-trap lane changes are suppressed during hard turns. Egg shots may still happen because they do not require abandoning the racing line.
-
-### Smoother course reference
-The oval dimensions and road width are unchanged, but route/barrier resolution is doubled from 40 to 80 pieces. Checkpoints remain at the same eight fractional positions and pickups remain distributed around the same fractions of the lap. Barrier overhang is reduced to avoid coarse inward wall wedges.
-
-## VPR-24B local verification gate
-1. close Unreal and pull current `dev/mvp-foundation`
-2. compile `RoadsideIdiotsEditor Win64 Development`
-3. HUD must show `VPR-24B | HIGH-SPEED RACING AI`
-4. first run Opponents=6, Laps=2, Traffic=0 for a pure path-following test
-5. watch at least one full lap: ordinary AI should not touch a barrier repeatedly; a clean lap is the target
-6. on straights, fast rivals should build toward roughly 140–150 km/h when unobstructed
-7. the tight oval ends may require planned braking; slowing for physical cornering is correct, wall impact is not
-8. then run Opponents=6, Traffic=6
-9. rivals should normally dodge cars/hazards with a lane change rather than brake to a crawl or aim at a wall
-10. traps/traffic must not cause repeated left-right oscillation
-11. deliberate chaos must remain short and must not pull bots off-line through hard corners
-12. confirm player physics, checkpoint order, lap/finish flow, minimap, pickups, pause/settings and G egg still work
-
-A compile failure, repeated barrier impacts during an unobstructed lap, obvious lane oscillation, or regressions in lap/checkpoint flow block VPR-24B.
-
-## Packaging status
-Final Demo 1 packaging stays paused until VPR-24B passes. After that, run the Windows packaged smoke test and final performance/package audit.
+### Race B — full prototype stress
+- Opponents = 6
+- Laps = 2
+- Traffic = 6
+- verify traffic overtaking/slowing is at least acceptable
+- verify a collision can be recovered from
+- verify traffic contact does not cause persistent wall-to-wall oscillation
+- test Q/E slap, F peel, G egg, R recovery, P pause and Enter restart
+- verify banana/egg/poop effects, audio, HUD and free vegetation
+- finish the race, start another race, then quit normally
 
 ## Demo 1 definition
-Demo 1 is a packaged Windows solo build; multiplayer is not required.
+Demo 1 is a packaged Windows solo build. Multiplayer is not required.
 
 Required before calling Demo 1 ready:
 1. coherent configurable race course
 2. 2–6 selectable AI opponents
 3. selectable laps and traffic
-4. competent high-speed racing AI with occasional distinct chaos
-5. stable assisted egg / peel / slap / poop mechanics
+4. competent racing AI with occasional chaos
+5. stable egg / peel / slap / poop mechanics
 6. stable traffic, recovery and finish flow
 7. readable HUD/minimap/results
 8. title/setup/pause/settings/restart/quit
 9. free/custom assets only
 10. packaged Windows executable launches outside the editor
-11. final package/performance smoke audit
+11. packaged two-race smoke test passes
 
 ## Deferred beyond Demo 1
 - multiplayer networking
 - final commercial motorcycle/traffic physics
-- navmesh/Detour/Mass conversion for physics bikes
 - final-quality maps/assets/audio
+- sophisticated traffic simulation
 - additional maps/modes
+- major AI architecture rewrites unless required by a real bug
