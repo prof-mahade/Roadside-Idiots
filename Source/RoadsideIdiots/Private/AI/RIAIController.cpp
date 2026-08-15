@@ -251,7 +251,9 @@ float ARIAIController::ComputeAvoidanceShift(const FVector& BikeLocation, const 
         ConsiderObstacle(OtherBike, 720.0f, 145.0f, 165.0f, 0.75f);
     }
 
-    return FMath::Clamp(Shift * AvoidanceStrength, -340.0f, 340.0f);
+    // Racer base lanes can already be ~315 cm from center. Keeping the dynamic
+    // dodge inside +/-185 cm leaves useful barrier margin on the 12 m road.
+    return FMath::Clamp(Shift * AvoidanceStrength, -185.0f, 185.0f);
 }
 
 void ARIAIController::TryUseComedyItems()
