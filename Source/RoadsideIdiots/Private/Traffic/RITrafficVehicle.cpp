@@ -39,9 +39,12 @@ ARITrafficVehicle::ARITrafficVehicle()
     PrimaryActorTick.bCanEverTick = true;
     bReplicates = false;
 
+    // Prototype traffic uses an overlap envelope instead of hard kinematic
+    // blocking. Keep the envelope close to real compact-car proportions so it
+    // creates overtaking pressure without behaving like a moving wall.
     ImpactVolume = CreateDefaultSubobject<UBoxComponent>(TEXT("ImpactVolume"));
     SetRootComponent(ImpactVolume);
-    ImpactVolume->SetBoxExtent(FVector(190.0f, 95.0f, 72.0f));
+    ImpactVolume->SetBoxExtent(FVector(170.0f, 82.0f, 60.0f));
     ImpactVolume->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
     ImpactVolume->SetCollisionObjectType(ECC_WorldDynamic);
     ImpactVolume->SetCollisionResponseToAllChannels(ECR_Ignore);
@@ -50,30 +53,61 @@ ARITrafficVehicle::ARITrafficVehicle()
 
     static ConstructorHelpers::FObjectFinder<UStaticMesh> CubeMesh(TEXT("/Engine/BasicShapes/Cube.Cube"));
     static ConstructorHelpers::FObjectFinder<UStaticMesh> SphereMesh(TEXT("/Engine/BasicShapes/Sphere.Sphere"));
+    static ConstructorHelpers::FObjectFinder<UStaticMesh> CylinderMesh(TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
 
     BodyVisual = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("BodyVisual"));
     BodyVisual->SetupAttachment(ImpactVolume);
     BodyVisual->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-    BodyVisual->SetRelativeLocation(FVector(0.0f, 0.0f, -6.0f));
-    BodyVisual->SetRelativeScale3D(FVector(3.65f, 1.75f, 0.72f));
+    BodyVisual->SetRelativeLocation(FVector(0.0f, 0.0f, -12.0f));
+    BodyVisual->SetRelativeScale3D(FVector(3.15f, 1.50f, 0.48f));
 
     CabinVisual = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CabinVisual"));
     CabinVisual->SetupAttachment(ImpactVolume);
     CabinVisual->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-    CabinVisual->SetRelativeLocation(FVector(-28.0f, 0.0f, 68.0f));
-    CabinVisual->SetRelativeScale3D(FVector(1.85f, 1.48f, 0.72f));
+    CabinVisual->SetRelativeLocation(FVector(-24.0f, 0.0f, 38.0f));
+    CabinVisual->SetRelativeScale3D(FVector(1.50f, 1.24f, 0.52f));
 
     FrontMarkerLeft = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("FrontMarkerLeft"));
     FrontMarkerLeft->SetupAttachment(ImpactVolume);
     FrontMarkerLeft->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-    FrontMarkerLeft->SetRelativeLocation(FVector(182.0f, -48.0f, -5.0f));
-    FrontMarkerLeft->SetRelativeScale3D(FVector(0.14f));
+    FrontMarkerLeft->SetRelativeLocation(FVector(154.0f, -52.0f, -8.0f));
+    FrontMarkerLeft->SetRelativeScale3D(FVector(0.10f));
 
     FrontMarkerRight = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("FrontMarkerRight"));
     FrontMarkerRight->SetupAttachment(ImpactVolume);
     FrontMarkerRight->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-    FrontMarkerRight->SetRelativeLocation(FVector(182.0f, 48.0f, -5.0f));
-    FrontMarkerRight->SetRelativeScale3D(FVector(0.14f));
+    FrontMarkerRight->SetRelativeLocation(FVector(154.0f, 52.0f, -8.0f));
+    FrontMarkerRight->SetRelativeScale3D(FVector(0.10f));
+
+    RearMarkerLeft = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("RearMarkerLeft"));
+    RearMarkerLeft->SetupAttachment(ImpactVolume);
+    RearMarkerLeft->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    RearMarkerLeft->SetRelativeLocation(FVector(-154.0f, -52.0f, -8.0f));
+    RearMarkerLeft->SetRelativeScale3D(FVector(0.09f));
+
+    RearMarkerRight = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("RearMarkerRight"));
+    RearMarkerRight->SetupAttachment(ImpactVolume);
+    RearMarkerRight->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    RearMarkerRight->SetRelativeLocation(FVector(-154.0f, 52.0f, -8.0f));
+    RearMarkerRight->SetRelativeScale3D(FVector(0.09f));
+
+    auto SetupWheel = [this](UStaticMeshComponent* Wheel, const FVector& Location)
+    {
+        Wheel->SetupAttachment(ImpactVolume);
+        Wheel->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+        Wheel->SetRelativeLocation(Location);
+        Wheel->SetRelativeRotation(FRotator(90.0f, 0.0f, 0.0f));
+        Wheel->SetRelativeScale3D(FVector(0.54f, 0.54f, 0.18f));
+    };
+
+    FrontWheelLeft = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("FrontWheelLeft"));
+    SetupWheel(FrontWheelLeft, FVector(104.0f, -78.0f, -43.0f));
+    FrontWheelRight = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("FrontWheelRight"));
+    SetupWheel(FrontWheelRight, FVector(104.0f, 78.0f, -43.0f));
+    RearWheelLeft = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("RearWheelLeft"));
+    SetupWheel(RearWheelLeft, FVector(-104.0f, -78.0f, -43.0f));
+    RearWheelRight = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("RearWheelRight"));
+    SetupWheel(RearWheelRight, FVector(-104.0f, 78.0f, -43.0f));
 
     if (CubeMesh.Succeeded())
     {
@@ -84,6 +118,15 @@ ARITrafficVehicle::ARITrafficVehicle()
     {
         FrontMarkerLeft->SetStaticMesh(SphereMesh.Object);
         FrontMarkerRight->SetStaticMesh(SphereMesh.Object);
+        RearMarkerLeft->SetStaticMesh(SphereMesh.Object);
+        RearMarkerRight->SetStaticMesh(SphereMesh.Object);
+    }
+    if (CylinderMesh.Succeeded())
+    {
+        FrontWheelLeft->SetStaticMesh(CylinderMesh.Object);
+        FrontWheelRight->SetStaticMesh(CylinderMesh.Object);
+        RearWheelLeft->SetStaticMesh(CylinderMesh.Object);
+        RearWheelRight->SetStaticMesh(CylinderMesh.Object);
     }
 }
 
@@ -136,15 +179,31 @@ void ARITrafficVehicle::ApplyVisualMaterials()
     {
         CabinMaterial->SetVectorParameterValue(
             TEXT("Color"),
-            FLinearColor(BodyColor.R * 0.55f, BodyColor.G * 0.55f, BodyColor.B * 0.55f, 1.0f));
+            FLinearColor(BodyColor.R * 0.48f, BodyColor.G * 0.48f, BodyColor.B * 0.48f, 1.0f));
         CabinVisual->SetMaterial(0, CabinMaterial);
     }
 
     if (UMaterialInstanceDynamic* LampMaterial = UMaterialInstanceDynamic::Create(BaseMaterial, FrontMarkerLeft))
     {
-        LampMaterial->SetVectorParameterValue(TEXT("Color"), FLinearColor(1.0f, 0.88f, 0.30f, 1.0f));
+        LampMaterial->SetVectorParameterValue(TEXT("Color"), FLinearColor(1.0f, 0.90f, 0.36f, 1.0f));
         FrontMarkerLeft->SetMaterial(0, LampMaterial);
         FrontMarkerRight->SetMaterial(0, LampMaterial);
+    }
+
+    if (UMaterialInstanceDynamic* RearLampMaterial = UMaterialInstanceDynamic::Create(BaseMaterial, RearMarkerLeft))
+    {
+        RearLampMaterial->SetVectorParameterValue(TEXT("Color"), FLinearColor(0.85f, 0.025f, 0.015f, 1.0f));
+        RearMarkerLeft->SetMaterial(0, RearLampMaterial);
+        RearMarkerRight->SetMaterial(0, RearLampMaterial);
+    }
+
+    if (UMaterialInstanceDynamic* TireMaterial = UMaterialInstanceDynamic::Create(BaseMaterial, FrontWheelLeft))
+    {
+        TireMaterial->SetVectorParameterValue(TEXT("Color"), FLinearColor(0.025f, 0.028f, 0.032f, 1.0f));
+        FrontWheelLeft->SetMaterial(0, TireMaterial);
+        FrontWheelRight->SetMaterial(0, TireMaterial);
+        RearWheelLeft->SetMaterial(0, TireMaterial);
+        RearWheelRight->SetMaterial(0, TireMaterial);
     }
 }
 
