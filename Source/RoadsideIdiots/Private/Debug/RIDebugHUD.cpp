@@ -5,6 +5,7 @@
 #include "Core/RIParticipantComponent.h"
 #include "Race/RIRaceManager.h"
 #include "AI/RIAIController.h"
+#include "Items/RIRottenEggWorldSubsystem.h"
 #include "Engine/Engine.h"
 #include "Engine/Canvas.h"
 #include "EngineUtils.h"
@@ -36,7 +37,7 @@ void ARIDebugHUD::DrawHUD()
     };
 
     Line(TEXT("ROADSIDE IDIOTS - MVP"), FLinearColor(1.0f, 0.75f, 0.2f));
-    Line(TEXT("BUILD: VPR-09 | DAMAGE: BANDAGES | COMBAT: IMPACT FEEL"), FLinearColor(0.55f, 1.0f, 0.70f));
+    Line(TEXT("BUILD: VPR-10 | ROTTEN EGG: PROTOTYPE | BANDAGES: READABLE"), FLinearColor(0.55f, 1.0f, 0.70f));
     Line(FString::Printf(TEXT("Speed: %.0f km/h"), FMath::Abs(Bike->GetBikeMovement()->GetForwardSpeedKph())));
 
     const float CurrentCondition = Bike->GetHealthComponent()->GetCurrentHealth();
@@ -73,6 +74,13 @@ void ARIDebugHUD::DrawHUD()
     }
 
     Line(FString::Printf(TEXT("Banana peels: %d / 3"), Bike->GetBananaPeelCount()), FLinearColor(1.0f, 0.85f, 0.18f));
+
+    if (const URIRottenEggWorldSubsystem* EggSystem = GetWorld()->GetSubsystem<URIRottenEggWorldSubsystem>())
+    {
+        Line(
+            FString::Printf(TEXT("Rotten eggs: %d / %d | G throw"), EggSystem->GetEggCount(), EggSystem->GetMaxEggCount()),
+            FLinearColor(0.55f, 0.78f, 0.12f));
+    }
 
     if (CachedRaceManager)
     {
@@ -209,5 +217,5 @@ void ARIDebugHUD::DrawHUD()
 
     Y += 12.0f;
     Line(TEXT("W accelerate | S brake/reverse | A/D steer"), FLinearColor(0.75f, 0.85f, 1.0f));
-    Line(TEXT("Q/E slap left/right | F drop peel | R recover | ENTER restart"), FLinearColor(0.75f, 0.85f, 1.0f));
+    Line(TEXT("Q/E slap | F drop peel | G throw egg | R recover | ENTER restart"), FLinearColor(0.75f, 0.85f, 1.0f));
 }
