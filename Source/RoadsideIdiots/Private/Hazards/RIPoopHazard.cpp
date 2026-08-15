@@ -64,8 +64,8 @@ void ARIPoopHazard::ApplyPresentation()
 {
     const bool bCow = HazardType == ERIPoopHazardType::Cow;
     const FLinearColor Color = bCow
-        ? FLinearColor(0.29f, 0.16f, 0.045f, 1.0f)
-        : FLinearColor(0.18f, 0.075f, 0.02f, 1.0f);
+        ? FLinearColor(0.31f, 0.17f, 0.050f, 1.0f)
+        : FLinearColor(0.145f, 0.055f, 0.012f, 1.0f);
 
     UMaterialInterface* BaseMaterial = LoadObject<UMaterialInterface>(nullptr, TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial"));
     if (BaseMaterial)
@@ -83,23 +83,25 @@ void ARIPoopHazard::ApplyPresentation()
 
     if (bCow)
     {
+        // Cow patty: broad and unmistakably flat. Its trigger/effect are unchanged.
         TriggerVolume->SetBoxExtent(FVector(108.0f, 88.0f, 36.0f));
-        BlobA->SetRelativeLocation(FVector(-16.0f, 0.0f, -17.0f));
-        BlobA->SetRelativeScale3D(FVector(0.68f, 0.54f, 0.16f));
-        BlobB->SetRelativeLocation(FVector(42.0f, 24.0f, -12.0f));
-        BlobB->SetRelativeScale3D(FVector(0.43f, 0.35f, 0.14f));
-        BlobC->SetRelativeLocation(FVector(28.0f, -34.0f, -10.0f));
-        BlobC->SetRelativeScale3D(FVector(0.36f, 0.30f, 0.13f));
+        BlobA->SetRelativeLocation(FVector(-16.0f, 0.0f, -20.0f));
+        BlobA->SetRelativeScale3D(FVector(0.78f, 0.61f, 0.12f));
+        BlobB->SetRelativeLocation(FVector(46.0f, 24.0f, -18.0f));
+        BlobB->SetRelativeScale3D(FVector(0.44f, 0.35f, 0.10f));
+        BlobC->SetRelativeLocation(FVector(24.0f, -38.0f, -17.0f));
+        BlobC->SetRelativeScale3D(FVector(0.38f, 0.31f, 0.09f));
     }
     else
     {
+        // Dog poop: a smaller stacked pile, visually distinct from the cow patty.
         TriggerVolume->SetBoxExtent(FVector(58.0f, 48.0f, 28.0f));
-        BlobA->SetRelativeLocation(FVector(-12.0f, 0.0f, -18.0f));
-        BlobA->SetRelativeScale3D(FVector(0.31f, 0.25f, 0.13f));
-        BlobB->SetRelativeLocation(FVector(18.0f, 13.0f, -14.0f));
-        BlobB->SetRelativeScale3D(FVector(0.21f, 0.18f, 0.11f));
-        BlobC->SetRelativeLocation(FVector(12.0f, -15.0f, -12.0f));
-        BlobC->SetRelativeScale3D(FVector(0.17f, 0.15f, 0.10f));
+        BlobA->SetRelativeLocation(FVector(-8.0f, 0.0f, -11.0f));
+        BlobA->SetRelativeScale3D(FVector(0.24f, 0.21f, 0.24f));
+        BlobB->SetRelativeLocation(FVector(9.0f, 5.0f, 8.0f));
+        BlobB->SetRelativeScale3D(FVector(0.19f, 0.17f, 0.20f));
+        BlobC->SetRelativeLocation(FVector(13.0f, -2.0f, 23.0f));
+        BlobC->SetRelativeScale3D(FVector(0.13f, 0.12f, 0.15f));
     }
 }
 
