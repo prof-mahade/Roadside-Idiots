@@ -118,29 +118,22 @@ void URIRoadsideThemeSubsystem::BuildFields()
         const FVector PatchCenter = Center + Right * ((RITHRoadWidth * 0.5f + 2300.0f) * Side);
         const FRotator Rotation = Forward.Rotation();
 
-        AddInstance(
-            FieldInstances,
-            FVector(PatchCenter.X, PatchCenter.Y, 2.0f),
-            Rotation,
-            FVector(18.0f, 14.0f, 0.012f));
+        AddInstance(FieldInstances, FVector(PatchCenter.X, PatchCenter.Y, 2.0f), Rotation, FVector(18.0f, 14.0f, 0.012f));
 
         if (FieldIndex == 1 || FieldIndex == 3)
         {
             const FVector WaterCenter = PatchCenter + Right * (260.0f * Side) + Forward * 180.0f;
-            AddInstance(
-                WaterInstances,
-                FVector(WaterCenter.X, WaterCenter.Y, 3.0f),
-                Rotation,
-                FVector(8.5f, 5.4f, 0.010f));
+            AddInstance(WaterInstances, FVector(WaterCenter.X, WaterCenter.Y, 3.0f), Rotation, FVector(8.5f, 5.4f, 0.010f));
         }
     }
 }
 
 void URIRoadsideThemeSubsystem::BuildUtilityLines()
 {
-    // Sparse utility poles and visual-only overhead lines on the outer roadside.
+    // One continuous visual-only utility run avoids unsupported wire endpoints.
     constexpr int32 Step = 4;
     constexpr float PoleDistance = RITHRoadWidth * 0.5f + 1050.0f;
+    constexpr float Side = 1.0f;
 
     for (int32 RouteIndex = 0; RouteIndex < RITHRouteSegments; RouteIndex += Step)
     {
@@ -154,23 +147,13 @@ void URIRoadsideThemeSubsystem::BuildUtilityLines()
         const FVector ForwardB = RouteTangent(AngleB).GetSafeNormal2D();
         const FVector RightA = FVector::CrossProduct(FVector::UpVector, ForwardA).GetSafeNormal();
         const FVector RightB = FVector::CrossProduct(FVector::UpVector, ForwardB).GetSafeNormal();
-        const float Side = ((RouteIndex / Step) % 2 == 0) ? 1.0f : -1.0f;
 
         const FVector PoleA = RouteA + RightA * (PoleDistance * Side);
         const FVector PoleB = RouteB + RightB * (PoleDistance * Side);
         const FRotator PoleRotation = ForwardA.Rotation();
 
-        AddInstance(
-            ConcreteInstances,
-            FVector(PoleA.X, PoleA.Y, 260.0f),
-            PoleRotation,
-            FVector(0.22f, 0.22f, 5.2f));
-
-        AddInstance(
-            DarkInstances,
-            FVector(PoleA.X, PoleA.Y, 510.0f),
-            PoleRotation,
-            FVector(0.16f, 1.15f, 0.12f));
+        AddInstance(ConcreteInstances, FVector(PoleA.X, PoleA.Y, 260.0f), PoleRotation, FVector(0.22f, 0.22f, 5.2f));
+        AddInstance(DarkInstances, FVector(PoleA.X, PoleA.Y, 510.0f), PoleRotation, FVector(0.16f, 1.15f, 0.12f));
 
         FVector LineDirection = PoleB - PoleA;
         LineDirection.Z = 0.0f;
@@ -178,12 +161,7 @@ void URIRoadsideThemeSubsystem::BuildUtilityLines()
         if (LineLength > 1.0f)
         {
             const FVector LineCenter = (PoleA + PoleB) * 0.5f + FVector::UpVector * 505.0f;
-            const FRotator LineRotation = LineDirection.Rotation();
-            AddInstance(
-                DarkInstances,
-                LineCenter,
-                LineRotation,
-                FVector(LineLength / 100.0f, 0.025f, 0.025f));
+            AddInstance(DarkInstances, LineCenter, LineDirection.Rotation(), FVector(LineLength / 100.0f, 0.025f, 0.025f));
         }
     }
 }
@@ -205,16 +183,10 @@ void URIRoadsideThemeSubsystem::BuildRoadsideClusters()
         const FVector Base = RouteCenter + Right * (BaseDistance * Side);
         const FRotator Rotation = Forward.Rotation();
 
-        // Dirt shoulder/plaza under each cluster.
-        AddInstance(
-            DirtInstances,
-            FVector(Base.X, Base.Y, 2.2f),
-            Rotation,
-            FVector(11.0f, 7.5f, 0.014f));
+        AddInstance(DirtInstances, FVector(Base.X, Base.Y, 2.2f), Rotation, FVector(11.0f, 7.5f, 0.014f));
 
         if (Cluster % 3 == 0)
         {
-            // Small roadside tea/shop stall.
             AddInstance(BrickInstances, Base + FVector::UpVector * 105.0f, Rotation, FVector(4.4f, 2.9f, 2.1f));
             AddInstance(TinBlueInstances, Base + FVector::UpVector * 225.0f, FRotator(0.0f, Rotation.Yaw, 5.0f * Side), FVector(4.9f, 3.4f, 0.16f));
             AddInstance(ShopOrangeInstances, Base - Forward * 205.0f + FVector::UpVector * 115.0f, Rotation, FVector(0.12f, 2.1f, 0.55f));
@@ -223,22 +195,18 @@ void URIRoadsideThemeSubsystem::BuildRoadsideClusters()
         }
         else if (Cluster % 3 == 1)
         {
-            // Low plaster house with red tin roof.
             AddInstance(PlasterInstances, Base + FVector::UpVector * 120.0f, Rotation, FVector(5.2f, 3.6f, 2.4f));
             AddInstance(TinRedInstances, Base + FVector::UpVector * 260.0f, FRotator(0.0f, Rotation.Yaw, -6.0f * Side), FVector(5.8f, 4.1f, 0.17f));
             AddInstance(ShopGreenInstances, Base - Forward * 255.0f + FVector::UpVector * 125.0f, Rotation, FVector(0.10f, 1.15f, 1.25f));
         }
         else
         {
-            // Open roadside shelter/bus-stop silhouette.
             AddInstance(ConcreteInstances, Base + Right * 150.0f + FVector::UpVector * 115.0f, Rotation, FVector(0.18f, 0.18f, 2.3f));
             AddInstance(ConcreteInstances, Base - Right * 150.0f + FVector::UpVector * 115.0f, Rotation, FVector(0.18f, 0.18f, 2.3f));
             AddInstance(TinBlueInstances, Base + FVector::UpVector * 235.0f, Rotation, FVector(2.2f, 3.8f, 0.16f));
             AddInstance(DarkInstances, Base + FVector::UpVector * 55.0f, Rotation, FVector(2.8f, 0.35f, 0.30f));
         }
 
-        // A small vegetation cluster behind the structure gives depth without
-        // placing anything on the racing surface.
         for (int32 Tree = 0; Tree < 3; ++Tree)
         {
             const float Across = (static_cast<float>(Tree) - 1.0f) * 230.0f;
