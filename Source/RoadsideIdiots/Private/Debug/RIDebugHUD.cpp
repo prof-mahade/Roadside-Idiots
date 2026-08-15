@@ -6,6 +6,7 @@
 #include "Race/RIRaceManager.h"
 #include "AI/RIAIController.h"
 #include "Items/RIRottenEggWorldSubsystem.h"
+#include "Items/RIRottenEggStinkEffect.h"
 #include "Engine/Engine.h"
 #include "Engine/Canvas.h"
 #include "EngineUtils.h"
@@ -37,7 +38,7 @@ void ARIDebugHUD::DrawHUD()
     };
 
     Line(TEXT("ROADSIDE IDIOTS - MVP"), FLinearColor(1.0f, 0.75f, 0.2f));
-    Line(TEXT("BUILD: VPR-10 | ROTTEN EGG: PROTOTYPE | BANDAGES: READABLE"), FLinearColor(0.55f, 1.0f, 0.70f));
+    Line(TEXT("BUILD: VPR-10.1 | ROTTEN EGG: READABLE | BANDAGES: PASSED"), FLinearColor(0.55f, 1.0f, 0.70f));
     Line(FString::Printf(TEXT("Speed: %.0f km/h"), FMath::Abs(Bike->GetBikeMovement()->GetForwardSpeedKph())));
 
     const float CurrentCondition = Bike->GetHealthComponent()->GetCurrentHealth();
@@ -168,6 +169,27 @@ void ARIDebugHUD::DrawHUD()
             const FLinearColor PopColor(1.0f, 0.88f, 0.05f, RivalImpactAlpha);
             DrawText(RivalImpactText, PopColor, ScreenPosition.X - 38.0f, ScreenPosition.Y - 34.0f, Font, PopScale, false);
         }
+    }
+
+    // While an egg stink actor exists, keep a persistent marker above the affected rider.
+    for (TActorIterator<ARIRottenEggStinkEffect> It(GetWorld()); It; ++It)
+    {
+        ARIRottenEggStinkEffect* Stink = *It;
+        ARIBikePawn* EggedBike = Stink ? Cast<ARIBikePawn>(Stink->GetOwner()) : nullptr;
+        if (!EggedBike) continue;
+
+        FVector2D ScreenPosition;
+        const FVector LabelLocation = EggedBike->GetActorLocation() + FVector::UpVector * 315.0f;
+        if (!PlayerOwner->ProjectWorldLocationToScreen(LabelLocation, ScreenPosition, true)) continue;
+
+        DrawText(
+            TEXT("STINK!"),
+            FLinearColor(0.48f, 0.88f, 0.06f),
+            ScreenPosition.X - 38.0f,
+            ScreenPosition.Y - 10.0f,
+            Font,
+            1.35f,
+            false);
     }
 
     int32 AngryRivalCount = 0;
