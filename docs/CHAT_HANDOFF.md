@@ -78,6 +78,7 @@ Rotten egg:
 - human/AI share throw path
 - SPLAT + wobble + 1 Condition + stink + grudge attribution
 - repeated egg hits refresh one stink actor
+- VPR-19 pickup slowly rotates for readability
 
 Poop:
 - 3 dog piles + 3 cow patties
@@ -114,55 +115,55 @@ VPR-17:
 - UE-owned `SoundWaveProcedural.h` emits a non-fatal C4996 warning
 
 VPR-18 — PLAYABLE BASELINE:
-- `URIPresentationWorldSubsystem` caches human bike instead of scanning every presentation tick
+- presentation caches human bike instead of scanning every presentation tick
 - lightweight generated player `EnginePulse` varies with speed/throttle
 - throttled `TireSkid` cue on hard steering/braking at speed
 - banana pickup/drop readability improved
 - user accepted overall result as playable for now
 
+VPR-19 — PASSED 2026-08-15:
+- one additional collision-disabled roadside-theme root using instanced mesh groups
+- South-Asian/Bangladesh-inspired graybox scaffold: stalls/houses, tin-style roofs, shelter, fields/water, vegetation, utility poles/lines
+- PIE actor count observed at ~174, confirming theme remained lightweight
+- screenshots show theme visible outside the road while three-lap race/minimap/traffic remain stable
+- VPR-19 fulfilled its purpose as a scale/density scaffold; do not add more primitive scenery for its own sake
+
 ## Audio architecture
 `RIAudioEvents` is asset-first:
 - checks `/Game/Audio/SFX/SFX_<Event>.SFX_<Event>`
 - real imported SFX override generated fallbacks automatically
-- current generated fallbacks include countdown/GO/lap/finish, impacts, honk, eggs, peel, poop, pickups, engine pulse and tire skid
+- generated fallbacks include countdown/GO/lap/finish, impacts, honk, eggs, peel, poop, pickups, engine pulse and tire skid
 - distant fallback events receive simple player-distance volume reduction
 
-## CURRENT ACTIVE GATE — VPR-19 Roadside Identity
-VPR-19 keeps the VPR-18 gameplay baseline frozen and adds presentation only.
+## CURRENT ACTIVE GATE — VPR-20 Real Art Import
+Goal: prove the first real Fab environment-asset replacement pipeline while keeping VPR-18 gameplay and VPR-19 performance architecture frozen.
 
-New `URIRoadsideThemeSubsystem`:
-- one collision-disabled root actor with instanced mesh groups
-- reversible South-Asian/Bangladesh-inspired roadside graybox scaffold
-- low-rise stall/tea-shop silhouettes
-- plaster/brick houses with colored tin-style roofs
-- open roadside shelter/bus-stop silhouette
-- utility poles/cross-arms/visual overhead lines
-- field and water patches beyond barriers
-- dirt shoulder/plaza patches and vegetation clusters
-- all geometry placed outside the race surface and set to NoCollision
+Current selected first-pass assets are free-at-research-time Fab packs:
+1. `tropical Vegetation: Banana Plants` by Project Nature
+2. `tropical Vegetation: Ground Plants` by Project Nature
+3. `Indian Building Compound Gate - Game Ready Asset Pack (Unreal Engine Only)` by SankoolArts
 
-Additional VPR-19 readability:
-- dog poop stacked/small vs cow poop broad/flat
-- rotten-egg pickup slowly rotates
-- no item mechanics/triggers/effects changed
+Why these first:
+- all have Unreal Engine formats
+- they provide regionally useful vegetation/boundary detail without requiring a paid village purchase
+- VPR-20 only needs to prove optional real-art integration, not final-map completeness
 
-Local VPR-19 gate:
-1. pull latest `dev/mvp-foundation` and compile under UE 5.8 Unity Build
-2. actor count should rise only slightly above low-170s
-3. no theme geometry may intrude onto track or create bumps/collision
-4. roadside should feel less empty but not overcrowded
-5. dog/cow poop should be visually distinguishable before impact
-6. rotten-egg pickup should rotate and collect normally
-7. three laps/minimap/AI/items/traffic/Condition/recovery/audio remain stable
+Import protocol:
+1. user adds the three packs locally through Fab
+2. inspect Content Browser and record exact imported folder + candidate Static Mesh names
+3. code uses explicit optional asset paths, with primitive fallback if an asset is unavailable
+4. imported environment replacements remain NoCollision and should stay instanced where practical
+5. actor count should remain approximately near the current ~174 baseline plus transient gameplay actors
+6. no imported content may alter the authoritative road/barrier collision or race mechanics
 
-## After VPR-19 passes
-Do not create more primitive-code scenery for its own sake. Next priority is to choose/confirm a real map art direction and research legally usable environment/SFX assets that fit it, then replace the scaffold gradually while retaining the instanced/collision-safe architecture.
+Avoid `Megaplants: Giant Bamboo` for this first gate because its listing currently relies on Experimental Procedural Vegetation / Nanite Foliage features.
+
+Paid architecture remains optional. Regional Indian village-house Fab kits exist, but do not purchase one until the free VPR-20 art pipeline is proven and the user explicitly decides the visual benefit is worth the cost.
 
 ## Known limitations still deferred
 - bot corner/off-track recovery remains imperfect
 - motorcycle physics remain prototype physics
 - final sounds/map/traffic/item/environment art not implemented
-- many visuals still use engine primitives
 - sophisticated final traffic physics deferred
 - multiplayer networking deferred
 
