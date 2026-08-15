@@ -36,7 +36,7 @@ void ARIDebugHUD::DrawHUD()
     };
 
     Line(TEXT("ROADSIDE IDIOTS - MVP"), FLinearColor(1.0f, 0.75f, 0.2f));
-    Line(TEXT("BUILD: VPR-07 | BANANA: PROTOTYPE | RIVALS: LABELED"), FLinearColor(0.55f, 1.0f, 0.70f));
+    Line(TEXT("BUILD: VPR-08 | COMBAT: IMPACT FEEL | BANANA: WORKING"), FLinearColor(0.55f, 1.0f, 0.70f));
     Line(FString::Printf(TEXT("Speed: %.0f km/h"), FMath::Abs(Bike->GetBikeMovement()->GetForwardSpeedKph())));
     Line(FString::Printf(TEXT("Condition: %.0f / %.0f"), Bike->GetHealthComponent()->GetCurrentHealth(), Bike->GetHealthComponent()->GetMaxHealth()));
     Line(FString::Printf(TEXT("Banana peels: %d / 3"), Bike->GetBananaPeelCount()), FLinearColor(1.0f, 0.85f, 0.18f));
@@ -60,8 +60,18 @@ void ARIDebugHUD::DrawHUD()
         }
     }
 
-    // Temporary in-world readability: project personality labels above each bot
-    // so visually identical prototype riders can be identified at a glance.
+    // If the human player just got hit, put the impact word near screen center so
+    // it cannot be missed even while looking at the road.
+    FString PlayerImpactText;
+    float PlayerImpactAlpha = 0.0f;
+    if (Bike->GetActiveComicImpact(PlayerImpactText, PlayerImpactAlpha))
+    {
+        const FLinearColor ImpactColor(1.0f, 0.16f, 0.06f, PlayerImpactAlpha);
+        DrawText(PlayerImpactText, ImpactColor, Canvas->SizeX * 0.46f, Canvas->SizeY * 0.43f, Font, 2.0f, false);
+    }
+
+    // Temporary in-world readability: personality + anger + impact labels above
+    // visually identical prototype riders.
     for (TActorIterator<ARIAIController> It(GetWorld()); It; ++It)
     {
         ARIAIController* AI = *It;
@@ -112,6 +122,15 @@ void ARIDebugHUD::DrawHUD()
         }
 
         DrawText(Label, LabelColor, ScreenPosition.X - 72.0f, ScreenPosition.Y, Font, 0.88f, false);
+
+        FString RivalImpactText;
+        float RivalImpactAlpha = 0.0f;
+        if (RivalBike->GetActiveComicImpact(RivalImpactText, RivalImpactAlpha))
+        {
+            const float PopScale = 1.1f + RivalImpactAlpha * 0.55f;
+            const FLinearColor PopColor(1.0f, 0.88f, 0.05f, RivalImpactAlpha);
+            DrawText(RivalImpactText, PopColor, ScreenPosition.X - 38.0f, ScreenPosition.Y - 34.0f, Font, PopScale, false);
+        }
     }
 
     int32 AngryRivalCount = 0;
