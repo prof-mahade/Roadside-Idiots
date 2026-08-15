@@ -49,11 +49,28 @@ private:
 
     ARIBikePawn* FindBestItemVictim() const;
     bool FindUsefulPickupTarget(FVector& OutTarget) const;
-    float ComputeAvoidanceShift(const FVector& BikeLocation, const FVector& Forward, const FVector& Right) const;
-    float ComputeCrowdSpeedScale(const FVector& BikeLocation, const FVector& Forward, const FVector& Right) const;
-    FVector ComputeRaceLookAheadTarget(const FVector& BikeLocation, float SpeedKph, FVector& OutTangent, FVector& OutRight, float& OutTurnSeverity);
-    FVector ClampPointToRoadCorridor(const FVector& Point) const;
-    void ApplyTacticalTargeting(FVector& InOutTargetPoint, const FVector& BikeLocation, const FVector& RouteRight);
+
+    bool ProjectOntoRoute(
+        const FVector& WorldLocation,
+        FVector& OutProjection,
+        FVector& OutTangent,
+        FVector& OutRight,
+        float& OutLateralOffset,
+        int32& OutSegmentIndex,
+        float& OutSegmentAlpha) const;
+
+    FVector SampleRouteAhead(
+        int32 SegmentIndex,
+        float SegmentAlpha,
+        float DistanceCm,
+        float LateralOffset,
+        FVector* OutTangent = nullptr) const;
+
+    float ComputePreviewCurvature(int32 SegmentIndex, float SegmentAlpha, float PreviewDistanceCm) const;
+    float ComputeAvoidanceShift(const FVector& BikeLocation, const FVector& PathForward, const FVector& RouteRight, float CurrentLateralOffset) const;
+    float ComputeCrowdSpeedScale(const FVector& BikeLocation, const FVector& PathForward, const FVector& RouteRight) const;
+    float ComputeWallTraceSteer(const FVector& BikeLocation, const FVector& Forward, float& OutWallSpeedScale) const;
+    void ApplyTacticalLanePlan(float& InOutDesiredLaneOffset, const FVector& BikeLocation, float TurnSeverity);
 
     UPROPERTY() TObjectPtr<ARIBikePawn> Bike;
     TArray<FVector> RoutePoints;
@@ -77,32 +94,43 @@ private:
     FVector CachedPickupTarget = FVector::ZeroVector;
     bool bHasCachedPickupTarget = false;
     float CachedAvoidanceShift = 0.0f;
-    float SmoothedAvoidanceShift = 0.0f;
     float CachedCrowdSpeedScale = 1.0f;
     float SenseRefreshRemaining = 0.0f;
     float ItemDecisionRemaining = 0.0f;
     float LowMotionTime = 0.0f;
+    float SmoothedLaneOffset = 0.0f;
     float SmoothedSteering = 0.0f;
     float SmoothedThrottle = 0.0f;
     float SmoothedBrake = 0.0f;
 
-    UPROPERTY(EditAnywhere, Category="AI Tuning") float TargetSpeedKph = 112.0f;
-    UPROPERTY(EditAnywhere, Category="AI Tuning") float WaypointReachDistance = 520.0f;
-    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float MinLookAheadDistance = 620.0f;
-    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float MaxLookAheadDistance = 1550.0f;
-    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float SteeringInterpSpeed = 5.5f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Speed") float TargetSpeedKph = 146.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Speed") float MaxLateralAccelCmS2 = 2200.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Speed") float MinimumCornerSpeedKph = 72.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Speed") float CurvePreviewMinDistance = 2600.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Speed") float CurvePreviewMaxDistance = 4600.0f;
+
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float MinLookAheadDistance = 900.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float MaxLookAheadDistance = 2450.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float HeadingGain = 1.10f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float CrossTrackGain = 4.8f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float StanleySofteningSpeedCmS = 700.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float CurvatureFeedForwardDistance = 1150.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float SteeringCommandRadians = 0.58f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float SteeringInterpSpeed = 8.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float LaneChangeInterpSpeed = 5.5f;
     UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float SafeRoadHalfWidth = 455.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float WallTraceLength = 1900.0f;
 
     UPROPERTY(EditAnywhere, Category="AI Tuning|Retaliation") float GrudgeDurationSeconds = 4.5f;
-    UPROPERTY(EditAnywhere, Category="AI Tuning|Retaliation") float GrudgeCatchupSpeedKph = 121.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Retaliation") float GrudgeCatchupSpeedKph = 150.0f;
     UPROPERTY(EditAnywhere, Category="AI Tuning|Retaliation") float AttackRange = 235.0f;
     UPROPERTY(EditAnywhere, Category="AI Tuning|Retaliation") float AttackCooldownSeconds = 1.60f;
 
     UPROPERTY(EditAnywhere, Category="AI Tuning|Awareness") float PickupSeekRange = 1600.0f;
     UPROPERTY(EditAnywhere, Category="AI Tuning|Awareness") float AvoidanceStrength = 0.92f;
-    UPROPERTY(EditAnywhere, Category="AI Tuning|Awareness") float SenseRefreshIntervalSeconds = 0.16f;
-    UPROPERTY(EditAnywhere, Category="AI Tuning|Awareness") float CrowdLookAhead = 1050.0f;
-    UPROPERTY(EditAnywhere, Category="AI Tuning|Awareness") float CrowdSideClearance = 235.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Awareness") float SenseRefreshIntervalSeconds = 0.14f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Awareness") float CrowdLookAhead = 3000.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Awareness") float CrowdSideClearance = 260.0f;
 
     UPROPERTY(EditAnywhere, Category="AI Tuning|Items") float ItemDecisionIntervalSeconds = 0.28f;
     UPROPERTY(EditAnywhere, Category="AI Tuning|Items") float EggUseCooldownSeconds = 4.5f;
