@@ -19,7 +19,7 @@ Tagline: **The road is dangerous. The riders are worse.**
 - one player + three motorcycle bots
 - W accelerate, S brake/reverse, A/D steer
 - assisted balance/lean and lateral grip
-- ordered checkpoints, place/progress HUD, finish and Enter restart
+- ordered checkpoints, place/progress HUD and Enter restart
 - R safe recovery
 - 12 m oval prototype road with one continuous collision floor; invisible road-bump bug fixed
 - Q/E slap with impact wobble, SMACK/WHACK feedback and camera kick
@@ -28,14 +28,15 @@ Tagline: **The road is dangerous. The riders are worse.**
 - banana pickup/heal/peel hazard loop
 - rotten egg pickup/throw/stink/grudge loop
 - civilian traffic loop
-- dog/cow poop road hazards
+- dog/cow poop road hazards with stink presentation
+- AI item parity: bots can collect/use bananas and rotten eggs
 
 ## Important known limitations
 - bot corner/off-track recovery remains imperfect and is deferred
 - motorcycle physics are prototype physics, not final two-wheel simulation
 - final sounds/VFX, characters, vehicles and item/hazard models are not implemented
 - most prototype visuals use engine primitives
-- multiplayer networking is still deferred until the solo gameplay loop is stronger
+- multiplayer networking is deferred until the solo loop is stronger
 
 ## Imported local visuals
 Developer machine has UE Third Person Manny, Fab `MotoInteractionAnims`, `SM_Bike`, riding/mounted/punch/get-hit/dizzy/interaction animations.
@@ -62,46 +63,53 @@ Presentation architecture:
 - AI retaliation cooldown is personality-dependent
 - hard collision threshold prevents ordinary scrapes counting as damage
 - tip/crash penalty: 3
-- spawn grace: 1.25 s
 - banana heals up to 12 Condition
 - poop intentionally does not change Condition directly
+- pre-race damage grace in VPR-14 now covers the countdown so traffic cannot damage a stationary player before GO
 - old UE `GEngine not initialized / GetSimplePhysicalMaterial` startup errors were fixed by moving mass overrides into BeginPlay
 
-## Rival personalities
+## Rival personalities / AI
 - BOT_01 LEECH: long grudge, strong chase, slower attacks
-- BOT_02 HOTHEAD: short grudge, fastest chase, aggressive attacks
-- BOT_03 PETTY: medium grudge, more peel-oriented behavior in VPR-13
+- BOT_02 HOTHEAD: short grudge, fastest chase, aggressive/egg-oriented behavior
+- BOT_03 PETTY: medium grudge, peel-oriented behavior
 
-HUD shows rival personality, direction/distance when angry, and in VPR-13 also projected peel/egg inventory (`P# E#`).
+VPR-13 locally ran successfully and user feedback was that things seemed quite good.
 
-## Banana — locally verified
+AI parity/awareness:
+- all bikes own banana-peel and rotten-egg inventory
+- player and bots call the same `DropBananaPeel()` / `ThrowRottenEggAt()` actions
+- bots seek useful banana/egg pickups when not actively grudging
+- bots attempt to avoid traffic, poop, dropped peels and non-target bikes
+- HOTHEAD is deliberately more reckless during grudges
+- projected rival labels include `P# E#`
+
+VPR-14 optimization:
+- steering still ticks at 20 Hz
+- expensive pickup/obstacle scans refresh around 5 Hz and are staggered per bot
+- item decisions are throttled separately
+- old static controller->stuck-time map was removed; stuck time is now per-controller state
+- AI navigation/sensing/stuck logic is suspended during the start countdown
+
+## Items / hazards — locally proven
+### Banana
 - eight pickups
 - pickup heals and grants peel
 - carry max 3
 - F drops gravity-driven peel
 - short self-immunity prevents instant dropper hit
 - afterward any bike can slip
-- bot slipping on player peel becomes angry
-- user confirmed banana peels work fine
 
-## Combat feel — locally accepted
-- slap victim gets roll/yaw wobble
-- SMACK over victim, WHACK for player
-- brief camera kick
-- user feedback: "not bad for now"
+### Rotten egg
+- carry max 2 per bike
+- G throws player egg; AI can throw using same shared bike action
+- hit gives SPLAT, small wobble, 1 Condition damage, stink presentation and grudge attribution
 
-## Bandages — locally accepted
-- <=75% arm wrap
-- <=50% head wrap too
-- <=25% calf wrap too
-- healing removes stages again
-- enlarged wraps + red accents are readable from chase camera
-
-## Rotten egg
-- carry max 2
-- G throws projectile
-- hit gives SPLAT, small wobble, 1 Condition damage, stink presentation and NPC grudge
-- projectile already supports any source bike, not only the human player
+### Dog/cow poop
+Current map seeds 3 dog piles + 3 cow patties.
+- dog = quick sideways skid/wobble + smaller filth/stink
+- cow = speed cut to ~42% + larger/longer filth/stink
+- rising green/brown fumes and DOG/COW STINK projected label are locally visible
+- user screenshot showed VPR-13 cow stink running correctly
 
 ## Civilian traffic — locally accepted
 Traffic follows the same analytic oval:
@@ -109,61 +117,34 @@ Traffic follows the same analytic oval:
 - blue TAXI ~58 km/h with slight lane wander
 - orange DELIVERY VAN ~72 km/h
 - overlap-impact architecture avoids kinematic deadlocks
-- VPR-11.1 compact placeholder car proportions/wheels/lights were accepted from user screenshot
+- VPR-11.1 compact placeholder car proportions/wheels/lights were accepted
 
-## Dog/cow poop — mechanics locally proven, stink upgrade pending
-Current map seeds 3 dog piles + 3 cow patties.
+## VPR-14 — race readability / minimap / laps (CURRENT PENDING LOCAL GATE)
+Race architecture:
+- race is now 3 laps instead of one checkpoint loop
+- `FRIRaceProgress` tracks completed laps, next checkpoint, finish time and last checkpoint time
+- place calculation compares finished state -> completed laps -> checkpoint -> checkpoint crossing time
+- finish time is stored as elapsed race time
 
-Dog:
-- small/dark/easy to miss
-- sharp sideways skid + wobble
-- temporary brown filth
+Start flow:
+- real 3-second countdown
+- player and AI drive controls are held at zero until GO
+- slap/item actions are also gated before GO
+- HUD shows 3 / 2 / 1 / GO
 
-Cow:
-- large obvious patty
-- current horizontal speed cut to ~42%
-- larger/longer brown filth
+HUD/minimap:
+- compact top-center `LAP / POS / TIME` strip
+- circular top-right minimap
+- normalized oval route displays as a clean round course
+- player marker includes heading
+- rival markers use personality/anger colors
+- civilian traffic appears as smaller neutral markers
+- start/finish tick shown on map
+- finish panel shows place + elapsed time + Enter restart
+- left debug HUD now reads rotten-egg inventory directly from the player's bike, matching VPR-13 shared-inventory architecture
 
-User screenshots proved VPR-12 spawns and triggers both types, but requested an actual **stinky effect** instead of only brown blobs.
-
-VPR-13 adds to `ARIPoopMessEffect`:
-- four animated dirty-green/brown rising fume blobs
-- greenish stink glow
-- persistent `DOG STINK!` / `COW STINK!` projected HUD marker while filthy
-- cow stink is larger/stronger and lasts longer through the existing mess lifetime
-
-## VPR-13 — AI item parity + awareness (CURRENT PENDING GATE)
-Major architecture change: item inventory now belongs to each `ARIBikePawn` rather than keeping rotten eggs in a player-only subsystem.
-
-Shared item actions on every bike:
-- `AddBananaPeel`
-- `DropBananaPeel`
-- `AddRottenEgg`
-- `ThrowRottenEggAt`
-
-Human F/G input and AI call the same bike functions.
-
-Pickup parity:
-- banana pickups now work for AI too: heal + peel
-- rotten egg pickups now work for AI too
-- player-only debug messages remain player-only
-
-AI intelligence additions:
-- seeks nearby useful banana/egg pickups when not in an active grudge
-- simple forward awareness/avoidance for civilian traffic
-- attempts to dodge dog/cow poop and dropped banana peels
-- gives normal non-target bikes some collision clearance
-- HOTHEAD becomes more reckless about hazards during a grudge
-- uses rotten eggs at suitable riders ahead
-- drops banana peels when a suitable victim is following behind
-- item cadence is personality-specific: HOTHEAD throws eggs most aggressively; PETTY drops peels most aggressively; LEECH stays more pursuit-focused
-- item victim priority: active grudge target first, otherwise nearby human, then nearest rival
-
-Projected rival labels now include current inventory, e.g.:
-`BOT_03 [PETTY] | P1 E0`
-
-VPR-13 HUD marker:
-`BUILD: VPR-13 | AI: ITEM PARITY | FILTH: STINKY`
+HUD marker:
+`BUILD: VPR-14 | MINIMAP + 3 LAPS | AI: OPTIMIZED`
 
 ## Controls
 - W accelerate
@@ -179,15 +160,16 @@ VPR-13 HUD marker:
 1. Close Unreal.
 2. Pull latest `dev/mvp-foundation`.
 3. Compile `RoadsideIdiotsEditor`.
-4. Launch PIE and verify VPR-13 marker.
-5. Hit dog and cow poop and confirm visible rising green/brown stink fumes plus persistent DOG/COW STINK label.
-6. Watch projected AI labels for `P# E#`; a bot should be able to collect a banana or egg pickup.
-7. Follow a bot that has a peel and give it a chance to drop the peel when you are behind.
-8. Get in front of a bot carrying an egg and give it a chance to throw at you; HOTHEAD should be easiest to observe.
-9. Check basic intelligence: bots should steer around traffic/hazards more often instead of blindly driving through everything.
-10. Reconfirm race flow, traffic, slap combat, player bananas/eggs and Condition remain intact.
+4. Launch PIE and verify the VPR-14 marker.
+5. Confirm bikes remain stationary during 3/2/1 and move normally at GO.
+6. Check the top-right circular minimap: player + 3 rivals + civilian traffic should move around the ring without leaving the frame.
+7. Confirm top-center strip shows LAP 1/3, position and running time.
+8. Finish lap 1: race must continue into LAP 2/3 instead of ending.
+9. Confirm position still behaves sensibly when riders are on different laps.
+10. Finish lap 3: finish panel should show place and elapsed time; Enter restarts with a fresh countdown.
+11. Regression: player F/G, AI item use, stink, traffic, Condition and flat road should remain intact.
 
-If VPR-13 passes, next work should be **audio + crash/dizzy comedy + impact VFX/presentation**, not another item architecture refactor.
+If VPR-14 passes, next phase is presentation/feel rather than another large architecture refactor: audio layer, crash/dizzy comedy, impact/honk/splat/skid feedback and controlled VFX.
 
 ## New-chat protocol
 1. Read this file.
