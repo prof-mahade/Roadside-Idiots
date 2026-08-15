@@ -38,7 +38,7 @@ void ARIAIController::ConfigurePersonality()
         AttackCooldownSeconds = 1.85f;
         AttackRange = 245.0f;
         PickupSeekRange = 1550.0f;
-        AvoidanceStrength = 0.72f;
+        AvoidanceStrength = 0.78f;
         EggUseCooldownSeconds = 4.2f;
         PeelUseCooldownSeconds = 4.8f;
     }
@@ -50,7 +50,7 @@ void ARIAIController::ConfigurePersonality()
         AttackCooldownSeconds = 1.30f;
         AttackRange = 250.0f;
         PickupSeekRange = 1250.0f;
-        AvoidanceStrength = 0.52f;
+        AvoidanceStrength = 0.58f;
         EggUseCooldownSeconds = 2.5f;
         PeelUseCooldownSeconds = 4.4f;
     }
@@ -62,7 +62,7 @@ void ARIAIController::ConfigurePersonality()
         AttackCooldownSeconds = 2.05f;
         AttackRange = 235.0f;
         PickupSeekRange = 1750.0f;
-        AvoidanceStrength = 0.92f;
+        AvoidanceStrength = 0.98f;
         EggUseCooldownSeconds = 4.4f;
         PeelUseCooldownSeconds = 2.7f;
     }
@@ -230,7 +230,7 @@ float ARIAIController::ComputeAvoidanceShift(const FVector& BikeLocation, const 
 
     for (TActorIterator<ARITrafficVehicle> It(GetWorld()); It; ++It)
     {
-        ConsiderObstacle(*It, 1150.0f, 300.0f, 310.0f, 1.0f);
+        ConsiderObstacle(*It, 1200.0f, 315.0f, 320.0f, 1.0f);
     }
 
     const float HazardWeight = (PersonalityLabel.Equals(TEXT("HOTHEAD"), ESearchCase::IgnoreCase) && GrudgeTimeRemaining > 0.0f)
@@ -252,10 +252,45 @@ float ARIAIController::ComputeAvoidanceShift(const FVector& BikeLocation, const 
         ARIBikePawn* OtherBike = *It;
         if (!OtherBike || OtherBike == Bike) continue;
         if (GrudgeTimeRemaining > 0.0f && GrudgeTarget.IsValid() && OtherBike == GrudgeTarget.Get()) continue;
-        ConsiderObstacle(OtherBike, 720.0f, 145.0f, 165.0f, 0.75f);
+        ConsiderObstacle(OtherBike, 860.0f, 215.0f, 235.0f, 1.0f);
     }
 
-    return FMath::Clamp(Shift * AvoidanceStrength, -185.0f, 185.0f);
+    return FMath::Clamp(Shift * AvoidanceStrength, -235.0f, 235.0f);
+}
+
+float ARIAIController::ComputeCrowdSpeedScale(const FVector& BikeLocation, const FVector& Forward, const FVector& Right) const
+{
+    if (!Bike || !GetWorld()) return 1.0f;
+
+    float SpeedScale = 1.0f;
+
+    for (TActorIterator<ARIBikePawn> It(GetWorld()); It; ++It)
+    {
+        ARIBikePawn* OtherBike = *It;
+        if (!OtherBike || OtherBike == Bike) continue;
+
+        FVector ToOther = OtherBike->GetActorLocation() - BikeLocation;
+        ToOther.Z = 0.0f;
+        const float Distance = ToOther.Size();
+        if (Distance < 1.0f || Distance > CrowdLookAhead) continue;
+
+        const FVector Direction = ToOther / Distance;
+        const float ForwardDot = FVector::DotProduct(Direction, Forward);
+        if (ForwardDot < 0.45f) continue;
+
+        const float SideDistance = FMath::Abs(FVector::DotProduct(ToOther, Right));
+        if (SideDistance > CrowdSideClearance) continue;
+
+        const bool bTarget = GrudgeTimeRemaining > 0.0f && GrudgeTarget.IsValid() && OtherBike == GrudgeTarget.Get();
+        const float MinimumScale = bTarget ? 0.52f : 0.22f;
+        const float LocalScale = FMath::GetMappedRangeValueClamped(
+            FVector2D(150.0f, CrowdLookAhead),
+            FVector2D(MinimumScale, 1.0f),
+            Distance);
+        SpeedScale = FMath::Min(SpeedScale, LocalScale);
+    }
+
+    return SpeedScale;
 }
 
 void ARIAIController::TryUseComedyItems()
@@ -298,8 +333,6 @@ void ARIAIController::Tick(float DeltaSeconds)
     Super::Tick(DeltaSeconds);
     if (!Bike || RoutePoints.Num() < 3) return;
 
-    // The 3-second start freeze is intentional, not a navigation failure.
-    // Suspend stuck timers, sensing, grudges and item decisions until GO.
     if (!Bike->AreRaceControlsEnabled())
     {
         LowMotionTime = 0.0f;
@@ -377,6 +410,7 @@ void ARIAIController::Tick(float DeltaSeconds)
         SenseRefreshRemaining = FMath::Max(0.08f, SenseRefreshIntervalSeconds);
         bHasCachedPickupTarget = !bFollowingRival && FindUsefulPickupTarget(CachedPickupTarget);
         CachedAvoidanceShift = ComputeAvoidanceShift(BikeLocation, Forward, Right);
+        CachedCrowdSpeedScale = ComputeCrowdSpeedScale(BikeLocation, Forward, Right);
     }
 
     if (!bFollowingRival && bHasCachedPickupTarget)
@@ -420,6 +454,8 @@ void ARIAIController::Tick(float DeltaSeconds)
     const float Steering = FMath::Clamp(Angle / 0.55f, -1.0f, 1.0f);
 
     float DesiredSpeed = bFollowingRival ? GrudgeCatchupSpeedKph : FMath::Min(TargetSpeedKph, 108.0f);
+    DesiredSpeed *= FMath::Clamp(CachedCrowdSpeedScale, 0.18f, 1.0f);
+
     if (AbsAngle > 0.70f)
     {
         DesiredSpeed = FMath::Min(DesiredSpeed, 62.0f);
@@ -429,8 +465,17 @@ void ARIAIController::Tick(float DeltaSeconds)
         DesiredSpeed = FMath::Min(DesiredSpeed, 86.0f);
     }
 
-    const float Brake = SpeedKph > DesiredSpeed + 6.0f ? 0.65f : 0.0f;
+    float Brake = SpeedKph > DesiredSpeed + 6.0f ? 0.65f : 0.0f;
+    if (CachedCrowdSpeedScale < 0.38f && SpeedKph > 24.0f)
+    {
+        Brake = FMath::Max(Brake, 0.82f);
+    }
+
     float Throttle = Brake > 0.0f ? 0.10f : 1.0f;
+    if (CachedCrowdSpeedScale < 0.55f)
+    {
+        Throttle = FMath::Min(Throttle, 0.28f);
+    }
     if (AbsAngle > 0.90f)
     {
         Throttle = FMath::Min(Throttle, 0.40f);
