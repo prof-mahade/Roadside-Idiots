@@ -23,11 +23,19 @@ void ARIPlayerController::SetupInputComponent()
     Super::SetupInputComponent();
     if (!InputComponent) return;
 
-    InputComponent->BindKey(EKeys::Up, IE_Pressed, this, &ARIPlayerController::SetupPrevious);
-    InputComponent->BindKey(EKeys::Down, IE_Pressed, this, &ARIPlayerController::SetupNext);
-    InputComponent->BindKey(EKeys::Left, IE_Pressed, this, &ARIPlayerController::SetupDecrease);
-    InputComponent->BindKey(EKeys::Right, IE_Pressed, this, &ARIPlayerController::SetupIncrease);
-    InputComponent->BindKey(EKeys::Enter, IE_Pressed, this, &ARIPlayerController::SetupConfirm);
+    FInputKeyBinding& UpBinding = InputComponent->BindKey(EKeys::Up, IE_Pressed, this, &ARIPlayerController::SetupPrevious);
+    FInputKeyBinding& DownBinding = InputComponent->BindKey(EKeys::Down, IE_Pressed, this, &ARIPlayerController::SetupNext);
+    FInputKeyBinding& LeftBinding = InputComponent->BindKey(EKeys::Left, IE_Pressed, this, &ARIPlayerController::SetupDecrease);
+    FInputKeyBinding& RightBinding = InputComponent->BindKey(EKeys::Right, IE_Pressed, this, &ARIPlayerController::SetupIncrease);
+    FInputKeyBinding& EnterBinding = InputComponent->BindKey(EKeys::Enter, IE_Pressed, this, &ARIPlayerController::SetupConfirm);
+
+    // Once the setup screen closes, pawn/action bindings must still receive keys
+    // such as Enter for restart. These bindings only act while the menu is open.
+    UpBinding.bConsumeInput = false;
+    DownBinding.bConsumeInput = false;
+    LeftBinding.bConsumeInput = false;
+    RightBinding.bConsumeInput = false;
+    EnterBinding.bConsumeInput = false;
 }
 
 void ARIPlayerController::SetupPrevious()
