@@ -3,6 +3,7 @@
 #include "Audio/RIAudioEvents.h"
 #include "Core/RIParticipantComponent.h"
 #include "Race/RIRaceManager.h"
+#include "Vehicle/RIBikeMovementComponent.h"
 #include "Vehicle/RIBikePawn.h"
 #include "EngineUtils.h"
 
@@ -19,6 +20,11 @@ TStatId URIPresentationWorldSubsystem::GetStatId() const
 
 ARIBikePawn* URIPresentationWorldSubsystem::FindHumanBike() const
 {
+    if (CachedHumanBike.IsValid())
+    {
+        return CachedHumanBike.Get();
+    }
+
     UWorld* World = GetWorld();
     if (!World) return nullptr;
 
@@ -28,6 +34,7 @@ ARIBikePawn* URIPresentationWorldSubsystem::FindHumanBike() const
         const URIParticipantComponent* Participant = Bike ? Bike->GetParticipantComponent() : nullptr;
         if (Bike && Participant && Participant->IsHumanControlled())
         {
+            CachedHumanBike = Bike;
             return Bike;
         }
     }
@@ -135,9 +142,63 @@ void URIPresentationWorldSubsystem::UpdateCrashCues()
     }
 }
 
+void URIPresentationWorldSubsystem::UpdateVehicleAudio(const float DeltaTime)
+{
+    ARIBikePawn* HumanBike = FindHumanBike();
+    if (!HumanBike || !HumanBike->AreRaceControlsEnabled())
+    {
+        EnginePulseAccumulator = 0.0f;
+        SkidCueCooldown = FMath::Max(0.0f, SkidCueCooldown - DeltaTime);
+        return;
+    }
+
+    URIBikeMovementComponent* Movement = HumanBike->GetBikeMovement();
+    if (!Movement)
+    {
+        return;
+    }
+
+    const float SpeedKph = FMath::Abs(Movement->GetForwardSpeedKph());
+    const float SpeedAlpha = FMath::Clamp(SpeedKph / 140.0f, 0.0f, 1.0f);
+    const float Throttle = FMath::Abs(Movement->GetThrottleInput());
+    const float Steering = FMath::Abs(Movement->GetSteeringInput());
+    const float Brake = Movement->GetBrakeInput();
+
+    // Asset-free prototype engine note. A real looping motorcycle asset can later
+    // replace SFX_EnginePulse without changing this gameplay/presentation code.
+    EnginePulseAccumulator += DeltaTime;
+    const float PulseInterval = FMath::Lerp(0.18f, 0.095f, SpeedAlpha);
+    if (EnginePulseAccumulator >= PulseInterval)
+    {
+        EnginePulseAccumulator = FMath::Fmod(EnginePulseAccumulator, PulseInterval);
+        const float Volume = 0.16f + 0.20f * SpeedAlpha + 0.05f * Throttle;
+        const float Pitch = 0.78f + 0.68f * SpeedAlpha + 0.08f * Throttle;
+        RIAudioEvents::Play(this, TEXT("EnginePulse"), HumanBike->GetActorLocation(), Volume, Pitch);
+    }
+
+    SkidCueCooldown = FMath::Max(0.0f, SkidCueCooldown - DeltaTime);
+    const bool bHardTurn = SpeedKph > 38.0f && Steering > 0.76f;
+    const bool bHardBrake = SpeedKph > 32.0f && Brake > 0.72f;
+    if ((bHardTurn || bHardBrake) && SkidCueCooldown <= 0.0f)
+    {
+        const float Severity = FMath::Clamp(
+            FMath::Max(Steering, Brake) * (0.45f + SpeedAlpha * 0.55f),
+            0.0f,
+            1.0f);
+        RIAudioEvents::Play(
+            this,
+            TEXT("TireSkid"),
+            HumanBike->GetActorLocation(),
+            0.10f + Severity * 0.18f,
+            FMath::Lerp(0.92f, 1.12f, Severity));
+        SkidCueCooldown = 0.19f;
+    }
+}
+
 void URIPresentationWorldSubsystem::Tick(const float DeltaTime)
 {
     UpdateRaceCues();
+    UpdateVehicleAudio(DeltaTime);
 
     CrashScanAccumulator += DeltaTime;
     if (CrashScanAccumulator >= 0.08f)
