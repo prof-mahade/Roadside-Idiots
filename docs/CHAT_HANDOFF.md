@@ -36,8 +36,8 @@ Working tagline: **The road is dangerous. The riders are worse.**
 - bot corner/off-track recovery is still imperfect and deferred to a later motorcycle/AI mechanics pass
 - current motorcycle physics are prototype physics, not final two-wheel simulation
 - final slap/kick sound, particles and final character/bike art are not implemented
-- current banana visuals are engine-primitive placeholders
-- VPR-09 bandages are intentionally simple engine-cube placeholders and need a local visual alignment check
+- banana, bandage and rotten-egg visuals are engine-primitive placeholders
+- rotten-egg system is pending its first local compile/playtest
 
 ## Imported local visual assets
 The developer locally imported:
@@ -118,21 +118,32 @@ HUD shows angry-rival direction/distance:
 - damage values were not changed in this pass
 - user feedback: "not bad for now"; do not keep polishing this slice unless later systems expose a problem
 
-## VPR-09 visible damage/bandage slice — pending local visual gate
-Current `dev/mvp-foundation` adds three health-driven prototype bandages attached to Manny bones:
-- Condition <= 75%: upper-left-arm bandage visible
+## VPR-09 visible damage progression — concept verified, presentation being improved
+Health-driven prototype bandages are attached to Manny bones:
+- Condition <= 75%: upper-left-arm bandage
 - Condition <= 50%: head bandage also visible
 - Condition <= 25%: right-calf bandage also visible
-- healing automatically hides bandages again when thresholds are crossed upward
-- HUD Condition color and damage text use the same thresholds:
-  - `DAMAGE: BANGED UP`
-  - `DAMAGE: ROUGH SHAPE`
-  - `DAMAGE: HELD TOGETHER BY BANDAGES`
+- healing hides bandages again when thresholds are crossed upward
+- HUD Condition color and damage text use the same thresholds
+
+The user locally verified the threshold logic at 11/100 Condition, but the first bandage visuals were too subtle against Manny's white/gray body from the chase camera. A new damage-presentation subsystem now enlarges the wraps and adds dark-red accent strips while preserving the existing health architecture.
+
+## VPR-10 rotten egg + readable bandage slice — pending local compile/playtest
+Current `dev/mvp-foundation` adds:
+- larger/readable bandage presentation with red accents
+- `URIRottenEggWorldSubsystem` as an auto-instanced tickable world system
+- three ugly green rotten-egg pickups placed near existing banana-route anchors
+- player can carry up to 2 rotten eggs
+- direct prototype input polling: `G` throws a rotten egg; this deliberately avoids another `DefaultInput.ini` edit
+- rotten egg projectile launches forward with gravity and limited range
+- rider hit receives `SPLAT!`, a small wobble, tiny Condition loss and a reaction animation
+- NPC hit by the player's egg becomes angry at the player
+- temporary green stink puffs/light attach to the victim for about 4.5 seconds
+- prototype comedy messages include `SPLAT! <BOT> now smells like regret.` and a self-hit message
+- HUD shows rotten egg inventory and `G throw`
 
 HUD marker:
-`BUILD: VPR-09 | DAMAGE: BANDAGES | COMBAT: IMPACT FEEL`
-
-These are placeholder cube strips using engine materials. Their purpose is to verify the progression concept and bone attachment before final art.
+`BUILD: VPR-10 | ROTTEN EGG: PROTOTYPE | BANDAGES: READABLE`
 
 ## Recovery
 Checkpoint recovery stores a predefined road-center location based on checkpoint transform rather than the exact wall-hugging crossing position.
@@ -143,6 +154,7 @@ Checkpoint recovery stores a predefined road-center location based on checkpoint
 - A/D: steer
 - Q/E: slap left/right
 - F: drop one carried banana peel
+- G: throw one carried rotten egg
 - R: recover to latest safe checkpoint
 - Enter: restart race
 
@@ -150,13 +162,15 @@ Checkpoint recovery stores a predefined road-center location based on checkpoint
 1. Close Unreal Editor.
 2. Pull latest `dev/mvp-foundation`.
 3. Compile `RoadsideIdiotsEditor`.
-4. Launch PIE and verify HUD shows VPR-09.
-5. Take damage through combat/crashes until Condition passes 75, 50 and 25.
-6. Verify bandages appear progressively and remain attached to the rider during normal riding/animations.
-7. Collect bananas/heal and verify bandages disappear again when Condition rises above thresholds.
-8. If bandages float, intersect badly or attach to wrong body areas, adjust only their bone/relative transforms; do not redesign the health architecture.
+4. Launch PIE and verify HUD shows VPR-10.
+5. Damage the rider below 75/50/25 and confirm the larger bandages/red accents are visible from normal chase-camera distance and remain attached.
+6. Find an ugly green rotten-egg pickup; inventory should increase to 1/2.
+7. Press G while facing an NPC; projectile should visibly arc forward.
+8. On rider hit: verify `SPLAT!`, green stink effect, small reaction/wobble, and NPC grudge.
+9. Verify missing an egg against road/wall simply consumes the egg and does not destabilize the motorcycle.
+10. Reconfirm banana system, flat road and Condition governor remain normal.
 
-If this gate passes, proceed to sound/VFX and the next comedy item/hazard. Rotten egg is a strong next candidate because it can test projectile throwing, temporary visual obstruction, smell/comedy feedback and NPC provocation without replacing the banana system.
+If this gate passes, continue with audio/VFX polish and then additional map-dependent hazards (dog/cow poop) or traffic, depending on which produces the most gameplay value next.
 
 ## New-chat protocol
 1. Read this file.
