@@ -12,9 +12,14 @@ class ROADSIDEIDIOTS_API ARIGameMode : public AGameModeBase
     GENERATED_BODY()
 public:
     ARIGameMode();
+
+    void StartConfiguredRace();
+
 protected:
     virtual void BeginPlay() override;
+
 private:
     UPROPERTY() TObjectPtr<ARIRaceManager> RaceManager;
     UPROPERTY() TObjectPtr<ARIDemoWorldBuilder> DemoWorldBuilder;
+    bool bConfiguredRaceStarted = false;
 };
