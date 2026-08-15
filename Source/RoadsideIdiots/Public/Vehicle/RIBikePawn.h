@@ -11,6 +11,7 @@ class URIBikeMovementComponent;
 class URIHealthComponent;
 class URIParticipantComponent;
 class URIInteractionComponent;
+class ARIRaceManager;
 
 UCLASS()
 class ROADSIDEIDIOTS_API ARIBikePawn : public APawn
@@ -82,6 +83,7 @@ private:
     void UseItem();
     void RestartRace();
     void RecoverUprightHere();
+    bool IsRaceInputEnabled() const;
 
     UFUNCTION()
     void HandleChassisHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
@@ -118,6 +120,9 @@ private:
 
     UPROPERTY(VisibleAnywhere, Category="Components")
     TObjectPtr<URIInteractionComponent> Interaction;
+
+    UPROPERTY()
+    TObjectPtr<ARIRaceManager> CachedRaceManager;
 
     UPROPERTY(VisibleAnywhere, Category="Items")
     int32 BananaPeelCount = 0;
