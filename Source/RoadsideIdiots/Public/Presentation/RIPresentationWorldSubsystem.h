@@ -20,13 +20,19 @@ public:
 private:
     void UpdateRaceCues();
     void UpdateCrashCues();
+    void UpdateVehicleAudio(float DeltaTime);
     ARIBikePawn* FindHumanBike() const;
 
     UPROPERTY()
     TObjectPtr<ARIRaceManager> CachedRaceManager;
 
+    // Avoid a full actor scan every presentation tick once the player bike is found.
+    mutable TWeakObjectPtr<ARIBikePawn> CachedHumanBike;
+
     TMap<TWeakObjectPtr<ARIBikePawn>, bool> LastTippedState;
     float CrashScanAccumulator = 0.0f;
+    float EnginePulseAccumulator = 0.0f;
+    float SkidCueCooldown = 0.0f;
     int32 LastCountdownNumber = INDEX_NONE;
     int32 LastHumanCompletedLaps = 0;
     bool bLapStateInitialized = false;
