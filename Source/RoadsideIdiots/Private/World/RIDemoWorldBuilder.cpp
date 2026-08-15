@@ -149,7 +149,7 @@ void ARIDemoWorldBuilder::BuildCheckpoints(ARIRaceManager* RaceManager)
     if (!GetWorld() || RoutePoints.Num() < 10 || !RaceManager) return;
 
     TArray<int32> CheckpointRouteIndices = {5, 10, 15, 20, 25, 30, 35, 0};
-    RaceManager->ConfigureCheckpoints(CheckpointRouteIndices.Num());
+    RaceManager->ConfigureRace(CheckpointRouteIndices.Num(), 3);
 
     for (int32 CheckpointIndex = 0; CheckpointIndex < CheckpointRouteIndices.Num(); ++CheckpointIndex)
     {
