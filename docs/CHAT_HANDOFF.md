@@ -21,7 +21,7 @@ Tagline: **The road is dangerous. The riders are worse.**
 - assisted balance/lean and lateral grip
 - R safe recovery
 - 12 m oval prototype road with one continuous collision floor; invisible road-bump bug fixed
-- Q/E slap with wobble, reaction animation and comic impact text
+- Q/E slap with wobble/reaction/comic impact
 - LEECH / HOTHEAD / PETTY rival personalities and grudges
 - Condition/damage governor and visible bandage stages
 - banana pickup/heal/peel loop
@@ -34,7 +34,7 @@ Tagline: **The road is dangerous. The riders are worse.**
 ## Important known limitations
 - bot corner/off-track recovery remains imperfect and is deferred
 - motorcycle physics are prototype physics, not final two-wheel simulation
-- final sounds/VFX, characters, vehicles and item/hazard models are not implemented
+- final sounds, characters, vehicles, map art and item/hazard models are not implemented
 - many prototype visuals still use engine primitives
 - multiplayer networking is deferred until the solo loop is stronger
 
@@ -79,19 +79,13 @@ Shared item architecture:
 - bots avoid traffic, poop, peels and non-target bikes
 - HOTHEAD is deliberately more reckless during grudges
 
-Optimization architecture from VPR-14:
+Optimization architecture:
 - steering/control loop = 20 Hz
 - expensive world-awareness scans ~= 5 Hz, staggered by bot
 - item decisions throttled separately
 - stuck time is per AI controller
 - AI sensing/stuck logic is suspended during countdown
-
-VPR-14.1 anti-bunching upgrade:
-- non-target bike avoidance is wider/stronger
-- cached sense pass calculates crowd speed scaling
-- rider directly ahead makes bot slow instead of driving into the pack
-- very close blocked lane adds stronger braking
-- grudge targets retain a more aggressive minimum following speed
+- anti-bunching pass slows/brakes bots when another bike directly blocks their lane
 
 ## Items / hazards
 ### Banana
@@ -100,24 +94,21 @@ VPR-14.1 anti-bunching upgrade:
 - max 3
 - F drops gravity-driven peel
 - short self-immunity prevents instant self-hit
+- peel slip now uses comic `SLIP!` / `OWN GOAL!` feedback and shared audio event hook
 
 ### Rotten egg
 - max 2 per bike
 - G throws player egg; AI uses the same shared throw action
 - SPLAT + wobble + 1 Condition damage + stink + grudge attribution
+- repeated egg hits now refresh one stink actor instead of stacking multiple stink actors
 
 ### Dog/cow poop
 Map seeds 3 dog piles + 3 cow patties.
 - dog: quick sideways skid/wobble + shorter filth/stink
 - cow: horizontal speed cut to ~42% + longer filth/stink
-
-VPR-14.1 visual cleanup:
-- at most one active poop-mess effect per bike
-- additional poop hits refresh/upgrade existing mess instead of stacking another set of blobs
-- road piles are smaller
-- rider splats are smaller
-- stink fumes are smaller/tighter and light intensity is reduced
-- poop no longer emits redundant `GEngine` screen spam
+- at most one poop mess effect per bike; repeated hits refresh/upgrade it
+- VPR-15 fumes are now three narrow rising wisps rather than large solid green spheres
+- rider splats/glow were reduced again to keep the motorcycle readable
 
 ## Civilian traffic
 Traffic follows the analytic oval:
@@ -126,35 +117,60 @@ Traffic follows the analytic oval:
 - orange DELIVERY VAN ~72 km/h
 - overlap-impact architecture avoids hard kinematic deadlocks
 - pre-GO traffic contact is ignored for racers
+- traffic contact now fires separate `Honk` + `TrafficHit` audio events and no longer emits redundant GEngine screen spam
 
-## VPR-14 — locally visually passed
-The user screenshot proved:
-- circular minimap is visible and tracking racers/traffic
+## VPR-14 — locally passed
+User screenshots proved:
+- circular minimap tracks racers/traffic
 - top strip shows LAP/POS/time
-- race successfully reached LAP 2/3 instead of finishing after one loop
-- VPR-14 race/minimap architecture is good enough to keep
+- race advances through multiple laps instead of ending after one circuit
 
-The screenshot also exposed clutter: repeated debug messages, oversized/stacked stink/filth, and a multi-bike bunch around hazards. Those observations triggered VPR-14.1.
+## VPR-14.1 — locally visually passed
+Latest user screenshot proved:
+- dark-backed HUD/minimap layout is much cleaner
+- stink no longer completely hides the bike
+- riders are more separated instead of sitting in one obvious pile
+- minimap/race loop remains intact
 
-## VPR-14.1 — CURRENT PENDING LOCAL GATE
-HUD cleanup:
-- top-left is now a compact dark-backed gameplay panel
-- build marker: `VPR-14.1 | HUD CLEANUP | PACK SPACING`
-- top-center race strip has dark backing
-- minimap has subtle dark backing and a small `MAP` label
-- rival labels only appear when close or actively MAD
-- stink labels are smaller/range-limited
-- only one concise MAD warning is shown
-- controls are fixed to a bottom-left strip
-- slap/poop/item-action debug spam was removed where redundant
-
-Crash/dizzy first pass:
+Crash/dizzy pass retained:
 - tipping triggers `DIZZY!`
 - existing get-hit reaction animation is reused
-- human camera gets a short decaying sinusoidal wobble
-- crash penalty remains 3 Condition
+- human camera gets a short decaying wobble
 - auto upright remains 2.4 s
 - R/auto recovery clears dizzy state
+
+## VPR-15 — CURRENT PENDING LOCAL GATE
+### HUD / VFX cleanup
+- build marker: `VPR-15 | PRESENTATION + AUDIO HOOKS`
+- player filth/egg stink is shown in the compact left status panel instead of repeated world-space stink labels
+- rival labels are closer-range and suppressed if they would overlap the left HUD, top race strip or minimap
+- active player comic impacts now draw an 8-ray comic burst plus a brief red edge vignette
+- poop fumes are narrower wisps
+- rotten-egg stink was reduced from five large puffs to three small wisps; glow is much weaker
+- repeated rotten-egg stink refreshes existing effect instead of stacking
+
+### Optional audio foundation
+`RIAudioEvents` resolves optional assets from `/Game/Audio/SFX/SFX_<Event>` and stays silent if an asset is missing. Missing assets are cached for the editor run so absent local content does not cause repeated load attempts.
+
+Currently wired events:
+- Countdown
+- RaceGo
+- LapComplete
+- Finish
+- SlapHit
+- PeelSlip
+- EggThrow
+- EggSplat
+- EggMiss
+- DogPoop
+- CowPoop
+- Honk
+- TrafficHit
+- Crash
+
+See `docs/AUDIO_ASSET_CONVENTION.md` for exact names.
+
+`URIPresentationWorldSubsystem` handles race/countdown/lap/finish/crash presentation cues without changing race mechanics.
 
 ## Controls
 - W accelerate
@@ -170,15 +186,15 @@ Crash/dizzy first pass:
 1. Close Unreal.
 2. Pull latest `dev/mvp-foundation`.
 3. Compile `RoadsideIdiotsEditor`.
-4. Launch PIE and verify `VPR-14.1 | HUD CLEANUP | PACK SPACING`.
-5. Confirm the top-left HUD is significantly cleaner and repeated COW PATTY/SMACK messages no longer cover it.
-6. Hit dog/cow poop; stink must remain readable but should no longer hide the bike.
-7. Hit multiple poop hazards before the effect expires; effect should refresh rather than stack into a wall of spheres.
-8. Watch bots converge around riders/hazards; spacing/braking should reduce stationary pile-ups.
-9. Deliberately tip the player bike and confirm `DIZZY!` plus a short camera wobble, followed by normal recovery.
-10. Reconfirm minimap, three laps, countdown, items, traffic, Condition and flat road.
+4. Launch PIE and verify `VPR-15 | PRESENTATION + AUDIO HOOKS`.
+5. Hit cow/dog poop: the status belongs in the left HUD; the green visual should be much thinner than VPR-14.1.
+6. Get egged more than once: there should still be only one compact egg-stink effect, not stacked clouds.
+7. Slap/hit traffic/peel/egg/poop and confirm comic feedback still works; audio is expected to remain silent until SFX assets are imported.
+8. Deliberately tip the player: DIZZY/camera wobble still works and the new presentation subsystem must not interfere with recovery.
+9. Reconfirm minimap, 3 laps, countdown, F/G items, AI item use, traffic, Condition and flat road.
+10. Watch rival labels near the minimap/top strip; they should disappear instead of drawing over HUD panels.
 
-If VPR-14.1 passes, move to the first audio/presentation package rather than another gameplay architecture refactor.
+After VPR-15 compiles/looks good, next work can add actual sound assets/engine loop and then move into environment/map art replacement without another core gameplay refactor.
 
 ## New-chat protocol
 1. Read this file.
