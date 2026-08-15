@@ -3,6 +3,7 @@
 #include "Hazards/RIPoopMessEffect.h"
 #include "Vehicle/RIBikePawn.h"
 #include "Visual/RIPrototypeVisuals.h"
+#include "Audio/RIAudioEvents.h"
 #include "Components/BoxComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
@@ -152,6 +153,7 @@ void ARIPoopHazard::ApplyDogPoop(ARIBikePawn* Bike)
 
     Bike->TriggerComicImpact(Side, TEXT("SKID! DOG POOP!"), 1.0f);
     RIPrototypeVisuals::PlayReaction(Bike, Side);
+    RIAudioEvents::Play(this, TEXT("DogPoop"), Bike->GetActorLocation(), 0.95f, FMath::FRandRange(0.95f, 1.05f));
     SpawnMessEffect(Bike, false, 4.0f);
 }
 
@@ -175,6 +177,7 @@ void ARIPoopHazard::ApplyCowPoop(ARIBikePawn* Bike)
 
     Bike->TriggerComicImpact(0.0f, TEXT("SPLORCH! COW PATTY!"), 1.2f);
     RIPrototypeVisuals::PlayReaction(Bike, 1.0f);
+    RIAudioEvents::Play(this, TEXT("CowPoop"), Bike->GetActorLocation(), 1.05f, FMath::FRandRange(0.90f, 1.00f));
     SpawnMessEffect(Bike, true, 6.5f);
 }
 
@@ -182,8 +185,6 @@ void ARIPoopHazard::SpawnMessEffect(ARIBikePawn* Bike, const bool bCowMess, cons
 {
     if (!Bike || !GetWorld()) return;
 
-    // Keep at most one poop mess actor per bike. Repeated hazards refresh or
-    // upgrade the existing effect instead of building an opaque stack of blobs.
     for (TActorIterator<ARIPoopMessEffect> It(GetWorld()); It; ++It)
     {
         ARIPoopMessEffect* Existing = *It;
