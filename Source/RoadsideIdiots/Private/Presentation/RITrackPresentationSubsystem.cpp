@@ -14,19 +14,19 @@
 
 namespace
 {
-    constexpr float RouteRadiusX = 9000.0f;
-    constexpr float RouteRadiusY = 5000.0f;
-    constexpr float RoadWidth = 1200.0f;
-    constexpr int32 RouteSegments = 40;
+    constexpr float TPRouteRadiusX = 9000.0f;
+    constexpr float TPRouteRadiusY = 5000.0f;
+    constexpr float TPRoadWidth = 1200.0f;
+    constexpr int32 TPRouteSegments = 40;
 
-    const FLinearColor GrassColor(0.075f, 0.135f, 0.055f, 1.0f);
-    const FLinearColor AsphaltColor(0.055f, 0.060f, 0.068f, 1.0f);
-    const FLinearColor ConcreteColor(0.24f, 0.27f, 0.30f, 1.0f);
-    const FLinearColor EdgeYellow(0.95f, 0.62f, 0.06f, 1.0f);
-    const FLinearColor LaneWhite(0.88f, 0.90f, 0.92f, 1.0f);
-    const FLinearColor TreeTrunk(0.22f, 0.10f, 0.035f, 1.0f);
-    const FLinearColor TreeLeafA(0.07f, 0.24f, 0.065f, 1.0f);
-    const FLinearColor TreeLeafB(0.11f, 0.31f, 0.085f, 1.0f);
+    const FLinearColor TPGrassColor(0.075f, 0.135f, 0.055f, 1.0f);
+    const FLinearColor TPAsphaltColor(0.055f, 0.060f, 0.068f, 1.0f);
+    const FLinearColor TPConcreteColor(0.24f, 0.27f, 0.30f, 1.0f);
+    const FLinearColor TPEdgeYellow(0.95f, 0.62f, 0.06f, 1.0f);
+    const FLinearColor TPLaneWhite(0.88f, 0.90f, 0.92f, 1.0f);
+    const FLinearColor TPTreeTrunk(0.22f, 0.10f, 0.035f, 1.0f);
+    const FLinearColor TPTreeLeafA(0.07f, 0.24f, 0.065f, 1.0f);
+    const FLinearColor TPTreeLeafB(0.11f, 0.31f, 0.085f, 1.0f);
 }
 
 bool URITrackPresentationSubsystem::IsTickable() const
@@ -43,16 +43,16 @@ TStatId URITrackPresentationSubsystem::GetStatId() const
 FVector URITrackPresentationSubsystem::RoutePoint(const float AngleRadians, const float Height) const
 {
     return FVector(
-        FMath::Cos(AngleRadians) * RouteRadiusX,
-        FMath::Sin(AngleRadians) * RouteRadiusY,
+        FMath::Cos(AngleRadians) * TPRouteRadiusX,
+        FMath::Sin(AngleRadians) * TPRouteRadiusY,
         Height);
 }
 
 FVector URITrackPresentationSubsystem::RouteTangent(const float AngleRadians) const
 {
     return FVector(
-        -FMath::Sin(AngleRadians) * RouteRadiusX,
-        FMath::Cos(AngleRadians) * RouteRadiusY,
+        -FMath::Sin(AngleRadians) * TPRouteRadiusX,
+        FMath::Cos(AngleRadians) * TPRouteRadiusY,
         0.0f);
 }
 
@@ -110,7 +110,7 @@ void URITrackPresentationSubsystem::TryBuildPresentation()
         FVector(0.0f, 0.0f, 0.35f),
         FRotator::ZeroRotator,
         FVector(300.0f, 300.0f, 0.006f),
-        GrassColor);
+        TPGrassColor);
 
     BuildTrackSkin();
     BuildStartFinish();
@@ -120,10 +120,10 @@ void URITrackPresentationSubsystem::TryBuildPresentation()
 
 void URITrackPresentationSubsystem::BuildTrackSkin()
 {
-    for (int32 Index = 0; Index < RouteSegments; ++Index)
+    for (int32 Index = 0; Index < TPRouteSegments; ++Index)
     {
-        const float AngleA = 2.0f * PI * static_cast<float>(Index) / static_cast<float>(RouteSegments);
-        const float AngleB = 2.0f * PI * static_cast<float>(Index + 1) / static_cast<float>(RouteSegments);
+        const float AngleA = 2.0f * PI * static_cast<float>(Index) / static_cast<float>(TPRouteSegments);
+        const float AngleB = 2.0f * PI * static_cast<float>(Index + 1) / static_cast<float>(TPRouteSegments);
         const FVector A = RoutePoint(AngleA, 0.0f);
         const FVector B = RoutePoint(AngleB, 0.0f);
 
@@ -142,8 +142,8 @@ void URITrackPresentationSubsystem::BuildTrackSkin()
             CubeMesh,
             FVector(Center.X, Center.Y, 1.85f),
             Rotation,
-            FVector((Length + 120.0f) / 100.0f, RoadWidth / 100.0f, 0.012f),
-            AsphaltColor);
+            FVector((Length + 120.0f) / 100.0f, TPRoadWidth / 100.0f, 0.012f),
+            TPAsphaltColor);
 
         // One dashed centre guide per route segment. This gives speed/curvature
         // information without pretending the prototype is a strict road-lane sim.
@@ -152,9 +152,9 @@ void URITrackPresentationSubsystem::BuildTrackSkin()
             FVector(Center.X, Center.Y, 3.15f),
             Rotation,
             FVector((Length * 0.42f) / 100.0f, 0.075f, 0.012f),
-            LaneWhite);
+            TPLaneWhite);
 
-        const float EdgeOffset = RoadWidth * 0.5f - 48.0f;
+        const float EdgeOffset = TPRoadWidth * 0.5f - 48.0f;
         for (const float Side : {-1.0f, 1.0f})
         {
             const FVector EdgeCenter = Center + Right * (EdgeOffset * Side);
@@ -163,12 +163,12 @@ void URITrackPresentationSubsystem::BuildTrackSkin()
                 FVector(EdgeCenter.X, EdgeCenter.Y, 3.20f),
                 Rotation,
                 FVector((Length + 100.0f) / 100.0f, 0.055f, 0.012f),
-                EdgeYellow);
+                TPEdgeYellow);
         }
 
         // Cover the old black barrier blocks with a cleaner concrete shell and
         // a yellow top cap. Underlying collision remains the original proven wall.
-        const float BarrierOffset = RoadWidth * 0.5f + 28.0f;
+        const float BarrierOffset = TPRoadWidth * 0.5f + 28.0f;
         for (const float Side : {-1.0f, 1.0f})
         {
             const FVector BarrierCenter = Center + Right * (BarrierOffset * Side);
@@ -177,14 +177,14 @@ void URITrackPresentationSubsystem::BuildTrackSkin()
                 FVector(BarrierCenter.X, BarrierCenter.Y, 60.0f),
                 Rotation,
                 FVector((Length + 242.0f) / 100.0f, 0.68f, 1.22f),
-                ConcreteColor);
+                TPConcreteColor);
 
             SpawnVisual(
                 CubeMesh,
                 FVector(BarrierCenter.X, BarrierCenter.Y, 123.0f),
                 Rotation,
                 FVector((Length + 245.0f) / 100.0f, 0.76f, 0.045f),
-                EdgeYellow);
+                TPEdgeYellow);
         }
     }
 }
@@ -198,10 +198,10 @@ void URITrackPresentationSubsystem::BuildStartFinish()
     const FRotator Rotation = Forward.Rotation();
 
     constexpr int32 TileCount = 10;
-    const float TileWidth = RoadWidth / static_cast<float>(TileCount);
+    const float TileWidth = TPRoadWidth / static_cast<float>(TileCount);
     for (int32 TileIndex = 0; TileIndex < TileCount; ++TileIndex)
     {
-        const float Across = -RoadWidth * 0.5f + TileWidth * (static_cast<float>(TileIndex) + 0.5f);
+        const float Across = -TPRoadWidth * 0.5f + TileWidth * (static_cast<float>(TileIndex) + 0.5f);
         const FVector TileLocation = Center + Right * Across;
         const FLinearColor TileColor = (TileIndex % 2 == 0)
             ? FLinearColor(0.93f, 0.94f, 0.95f, 1.0f)
@@ -215,7 +215,7 @@ void URITrackPresentationSubsystem::BuildStartFinish()
             TileColor);
     }
 
-    const float PostOffset = RoadWidth * 0.5f + 135.0f;
+    const float PostOffset = TPRoadWidth * 0.5f + 135.0f;
     for (const float Side : {-1.0f, 1.0f})
     {
         const FVector PostBase = Center + Right * (PostOffset * Side);
@@ -224,14 +224,14 @@ void URITrackPresentationSubsystem::BuildStartFinish()
             FVector(PostBase.X, PostBase.Y, 225.0f),
             Rotation,
             FVector(0.24f, 0.24f, 4.5f),
-            EdgeYellow);
+            TPEdgeYellow);
     }
 
     SpawnVisual(
         CubeMesh,
         Center + FVector::UpVector * 442.0f,
         Rotation,
-        FVector(0.26f, (RoadWidth + 380.0f) / 100.0f, 0.28f),
+        FVector(0.26f, (TPRoadWidth + 380.0f) / 100.0f, 0.28f),
         FLinearColor(0.08f, 0.09f, 0.10f, 1.0f));
 
     SpawnVisual(
@@ -239,21 +239,21 @@ void URITrackPresentationSubsystem::BuildStartFinish()
         Center + FVector::UpVector * 472.0f,
         Rotation,
         FVector(0.30f, 4.8f, 0.24f),
-        EdgeYellow);
+        TPEdgeYellow);
 }
 
 void URITrackPresentationSubsystem::BuildRoadsideScenery()
 {
     // Sparse stylised scenery gives the player visual speed references without
     // adding collision or affecting the analytical racing line.
-    for (int32 Index = 0; Index < RouteSegments; Index += 3)
+    for (int32 Index = 0; Index < TPRouteSegments; Index += 3)
     {
-        const float Angle = 2.0f * PI * static_cast<float>(Index) / static_cast<float>(RouteSegments);
+        const float Angle = 2.0f * PI * static_cast<float>(Index) / static_cast<float>(TPRouteSegments);
         const FVector RouteCenter = RoutePoint(Angle, 0.0f);
         const FVector Forward = RouteTangent(Angle).GetSafeNormal2D();
         const FVector Right = FVector::CrossProduct(FVector::UpVector, Forward).GetSafeNormal();
         const float Side = (Index / 3) % 2 == 0 ? 1.0f : -1.0f;
-        const float Distance = RoadWidth * 0.5f + 850.0f + 90.0f * static_cast<float>(Index % 5);
+        const float Distance = TPRoadWidth * 0.5f + 850.0f + 90.0f * static_cast<float>(Index % 5);
         const FVector TreeBase = RouteCenter + Right * (Distance * Side);
         const float HeightVariation = 0.90f + 0.08f * static_cast<float>(Index % 4);
 
@@ -262,14 +262,14 @@ void URITrackPresentationSubsystem::BuildRoadsideScenery()
             FVector(TreeBase.X, TreeBase.Y, 135.0f),
             FRotator::ZeroRotator,
             FVector(0.28f, 0.28f, 2.7f * HeightVariation),
-            TreeTrunk);
+            TPTreeTrunk);
 
         SpawnVisual(
             SphereMesh,
             FVector(TreeBase.X, TreeBase.Y, 350.0f * HeightVariation),
             FRotator::ZeroRotator,
             FVector(1.25f, 1.15f, 1.55f) * HeightVariation,
-            (Index % 2 == 0) ? TreeLeafA : TreeLeafB);
+            (Index % 2 == 0) ? TPTreeLeafA : TPTreeLeafB);
     }
 
     // Four simple roadside boards break up the empty horizon and act as corner
@@ -285,12 +285,12 @@ void URITrackPresentationSubsystem::BuildRoadsideScenery()
     for (int32 SignIndex = 0; SignIndex < 4; ++SignIndex)
     {
         const int32 RouteIndex = 4 + SignIndex * 10;
-        const float Angle = 2.0f * PI * static_cast<float>(RouteIndex) / static_cast<float>(RouteSegments);
+        const float Angle = 2.0f * PI * static_cast<float>(RouteIndex) / static_cast<float>(TPRouteSegments);
         const FVector RouteCenter = RoutePoint(Angle, 0.0f);
         const FVector Forward = RouteTangent(Angle).GetSafeNormal2D();
         const FVector Right = FVector::CrossProduct(FVector::UpVector, Forward).GetSafeNormal();
         const float Side = SignIndex % 2 == 0 ? -1.0f : 1.0f;
-        const FVector Base = RouteCenter + Right * ((RoadWidth * 0.5f + 640.0f) * Side);
+        const FVector Base = RouteCenter + Right * ((TPRoadWidth * 0.5f + 640.0f) * Side);
         const FRotator Rotation = Forward.Rotation();
 
         SpawnVisual(
