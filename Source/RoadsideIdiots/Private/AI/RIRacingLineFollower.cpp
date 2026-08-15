@@ -2,7 +2,9 @@
 
 #include "Vehicle/RIBikePawn.h"
 #include "Vehicle/RIBikeMovementComponent.h"
+#include "Traffic/RITrafficVehicle.h"
 #include "Components/StaticMeshComponent.h"
+#include "EngineUtils.h"
 
 ARIRacingLineFollower::ARIRacingLineFollower()
 {
@@ -22,6 +24,10 @@ void ARIRacingLineFollower::Configure(
     BaseLaneOffset = FMath::Clamp(InLaneOffset, -300.0f, 300.0f);
     SmoothedLaneOffset = BaseLaneOffset;
     SmoothedSteering = 0.0f;
+    ActiveTrafficTarget.Reset();
+    TrafficPassLaneOffset = BaseLaneOffset;
+    TrafficPassHoldRemaining = 0.0f;
+    TrafficPassCooldownRemaining = 0.0f;
 }
 
 bool ARIRacingLineFollower::ProjectOntoRoute(
@@ -124,6 +130,174 @@ FVector ARIRacingLineFollower::SampleRouteAhead(
     return Current;
 }
 
+void ARIRacingLineFollower::UpdateTrafficPassPlan(
+    const float DeltaSeconds,
+    const FVector& BikeLocation,
+    const FVector& RouteTangent,
+    const float CurrentLateralOffset,
+    const float SpeedCms,
+    float& InOutDesiredLaneOffset,
+    float& OutTrafficSpeedScale)
+{
+    OutTrafficSpeedScale = 1.0f;
+    if (!Bike || !GetWorld()) return;
+
+    TrafficPassHoldRemaining = FMath::Max(0.0f, TrafficPassHoldRemaining - DeltaSeconds);
+    TrafficPassCooldownRemaining = FMath::Max(0.0f, TrafficPassCooldownRemaining - DeltaSeconds);
+
+    auto GetTrafficFrame = [&](ARITrafficVehicle* Traffic, float& OutAlong, float& OutLateral, float& OutRelativeSpeed)
+    {
+        if (!Traffic) return false;
+
+        FVector TrafficProjection;
+        FVector TrafficTangent;
+        FVector TrafficRight;
+        int32 TrafficSegment = 0;
+        float TrafficAlpha = 0.0f;
+        if (!ProjectOntoRoute(
+            Traffic->GetActorLocation(),
+            TrafficProjection,
+            TrafficTangent,
+            TrafficRight,
+            OutLateral,
+            TrafficSegment,
+            TrafficAlpha))
+        {
+            return false;
+        }
+
+        FVector ToTraffic = Traffic->GetActorLocation() - BikeLocation;
+        ToTraffic.Z = 0.0f;
+        OutAlong = FVector::DotProduct(ToTraffic, RouteTangent);
+        const float TrafficForwardSpeed = FVector::DotProduct(Traffic->GetTrafficVelocityEstimate(), RouteTangent);
+        OutRelativeSpeed = SpeedCms - TrafficForwardSpeed;
+        return true;
+    };
+
+    // Keep a selected car until it has actually been passed. This hysteresis is
+    // the important bit: we do not recalculate "left or right?" every frame.
+    if (ActiveTrafficTarget.IsValid())
+    {
+        float Along = 0.0f;
+        float Lateral = 0.0f;
+        float RelativeSpeed = 0.0f;
+        if (!GetTrafficFrame(ActiveTrafficTarget.Get(), Along, Lateral, RelativeSpeed) ||
+            Along < -360.0f || Along > TrafficDetectionDistanceCm * 1.35f)
+        {
+            if (TrafficPassHoldRemaining <= 0.0f)
+            {
+                ActiveTrafficTarget.Reset();
+                TrafficPassCooldownRemaining = TrafficPassCooldownSeconds;
+            }
+        }
+    }
+
+    ARITrafficVehicle* BestThreat = nullptr;
+    float BestThreatScore = 0.0f;
+    float BestThreatLateral = 0.0f;
+
+    // Only acquire a new vehicle when the previous pass decision has settled.
+    if (!ActiveTrafficTarget.IsValid() && TrafficPassCooldownRemaining <= 0.0f)
+    {
+        for (TActorIterator<ARITrafficVehicle> It(GetWorld()); It; ++It)
+        {
+            ARITrafficVehicle* Traffic = *It;
+            if (!Traffic) continue;
+
+            float Along = 0.0f;
+            float TrafficLateral = 0.0f;
+            float RelativeSpeed = 0.0f;
+            if (!GetTrafficFrame(Traffic, Along, TrafficLateral, RelativeSpeed)) continue;
+            if (Along < 140.0f || Along > TrafficDetectionDistanceCm) continue;
+
+            const float LaneGap = FMath::Abs(TrafficLateral - SmoothedLaneOffset);
+            if (LaneGap > TrafficLaneConflictCm * 1.55f) continue;
+
+            const float LaneThreat = 1.0f - FMath::Clamp(
+                (LaneGap - TrafficLaneConflictCm * 0.45f) /
+                FMath::Max(1.0f, TrafficLaneConflictCm * 1.10f),
+                0.0f,
+                1.0f);
+            const float DistanceThreat = 1.0f - FMath::Clamp(Along / TrafficDetectionDistanceCm, 0.0f, 1.0f);
+            const float TTC = Along / FMath::Max(RelativeSpeed, 220.0f);
+            const float TTCThreat = 1.0f - FMath::Clamp(TTC / 2.4f, 0.0f, 1.0f);
+            const float ThreatScore = LaneThreat * FMath::Max(DistanceThreat * 0.70f, TTCThreat);
+
+            if (ThreatScore > BestThreatScore)
+            {
+                BestThreatScore = ThreatScore;
+                BestThreat = Traffic;
+                BestThreatLateral = TrafficLateral;
+            }
+        }
+
+        if (BestThreat && BestThreatScore > 0.16f)
+        {
+            const float LaneLimit = SafeCorridorHalfWidthCm - 42.0f;
+            const float LeftCandidate = FMath::Clamp(
+                BestThreatLateral - TrafficPassClearanceCm,
+                -LaneLimit,
+                LaneLimit);
+            const float RightCandidate = FMath::Clamp(
+                BestThreatLateral + TrafficPassClearanceCm,
+                -LaneLimit,
+                LaneLimit);
+
+            auto CandidateScore = [&](const float Candidate)
+            {
+                const float Separation = FMath::Abs(Candidate - BestThreatLateral);
+                if (Separation < TrafficLaneConflictCm * 0.82f)
+                {
+                    return TNumericLimits<float>::Max();
+                }
+
+                const float MoveCost = FMath::Abs(Candidate - CurrentLateralOffset);
+                const float EdgeCost = FMath::Square(FMath::Abs(Candidate) / FMath::Max(1.0f, LaneLimit)) * 210.0f;
+                const float HomeLaneCost = FMath::Abs(Candidate - BaseLaneOffset) * 0.10f;
+                return MoveCost + EdgeCost + HomeLaneCost;
+            };
+
+            const float LeftScore = CandidateScore(LeftCandidate);
+            const float RightScore = CandidateScore(RightCandidate);
+            TrafficPassLaneOffset = LeftScore <= RightScore ? LeftCandidate : RightCandidate;
+            ActiveTrafficTarget = BestThreat;
+            TrafficPassHoldRemaining = TrafficPassHoldSeconds;
+        }
+    }
+
+    if (!ActiveTrafficTarget.IsValid()) return;
+
+    float Along = 0.0f;
+    float TrafficLateral = 0.0f;
+    float RelativeSpeed = 0.0f;
+    if (!GetTrafficFrame(ActiveTrafficTarget.Get(), Along, TrafficLateral, RelativeSpeed)) return;
+
+    if (Along > -360.0f && Along < TrafficDetectionDistanceCm * 1.35f)
+    {
+        const float LaneCommitStrength = Along > 2500.0f ? 0.52f : 0.88f;
+        InOutDesiredLaneOffset = FMath::Lerp(
+            InOutDesiredLaneOffset,
+            TrafficPassLaneOffset,
+            LaneCommitStrength);
+
+        // Passing is preferred over braking. Brakes only become aggressive when
+        // the bike has not yet achieved enough lateral separation from the car.
+        const float CurrentSeparation = FMath::Abs(CurrentLateralOffset - TrafficLateral);
+        if (Along < 1550.0f && CurrentSeparation < TrafficLaneConflictCm * 1.18f)
+        {
+            OutTrafficSpeedScale = FMath::Min(OutTrafficSpeedScale, 0.84f);
+        }
+        if (Along < 980.0f && CurrentSeparation < TrafficLaneConflictCm)
+        {
+            OutTrafficSpeedScale = FMath::Min(OutTrafficSpeedScale, 0.64f);
+        }
+        if (Along < 520.0f && CurrentSeparation < TrafficLaneConflictCm * 0.82f)
+        {
+            OutTrafficSpeedScale = FMath::Min(OutTrafficSpeedScale, 0.40f);
+        }
+    }
+}
+
 void ARIRacingLineFollower::Tick(const float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
@@ -178,14 +352,42 @@ void ARIRacingLineFollower::Tick(const float DeltaSeconds)
 
     const float SoftLimit = SafeCorridorHalfWidthCm * 0.68f;
     const float HardLimit = SafeCorridorHalfWidthCm * 1.08f;
-    const float StabilityRisk = FMath::GetMappedRangeValueClamped(
+    const float LateralRisk = FMath::GetMappedRangeValueClamped(
         FVector2D(SoftLimit, HardLimit),
         FVector2D(0.0f, 1.0f),
         FMath::Abs(PredictedLateralOffset));
 
+    // Collision recovery also watches heading. A bike knocked mostly sideways
+    // should temporarily forget overtaking and get itself aligned with the road.
+    const float RouteHeadingDot = FVector::DotProduct(Forward, RouteTangent);
+    const float HeadingRisk = 1.0f - FMath::GetMappedRangeValueClamped(
+        FVector2D(0.18f, 0.76f),
+        FVector2D(0.0f, 1.0f),
+        RouteHeadingDot);
+    const float StabilityRisk = FMath::Max(LateralRisk, HeadingRisk);
+
     // Normal state: follow the assigned race lane. Recovery state: progressively
     // abandon the lane and aim toward the road centre. No threshold toggling.
-    const float DesiredLaneOffset = FMath::Lerp(BaseLaneOffset, 0.0f, StabilityRisk);
+    float DesiredLaneOffset = FMath::Lerp(BaseLaneOffset, 0.0f, StabilityRisk);
+
+    float TrafficSpeedScale = 1.0f;
+    UpdateTrafficPassPlan(
+        DeltaSeconds,
+        BikeLocation,
+        RouteTangent,
+        CurrentLateralOffset,
+        SpeedCms,
+        DesiredLaneOffset,
+        TrafficSpeedScale);
+
+    // Recovery always wins over a pass plan. Traffic planning remains alive so
+    // its timers do not freeze, but a bike that has been hit first returns to a
+    // stable road-centre trajectory.
+    if (StabilityRisk > 0.0f)
+    {
+        DesiredLaneOffset = FMath::Lerp(DesiredLaneOffset, 0.0f, StabilityRisk);
+    }
+
     const float LaneResponse = FMath::Lerp(
         LaneInterpSpeed,
         EmergencyLaneInterpSpeed,
@@ -248,15 +450,19 @@ void ARIRacingLineFollower::Tick(const float DeltaSeconds)
     Movement->SetSteeringInput(SmoothedSteering);
 
     // Small AI-only lateral spring. This is intentionally much weaker than the
-    // player's steering forces. It damps collision drift without teleporting or
-    // setting transforms, so opponents can still be shoved and can still crash.
+    // player's steering forces. During genuine collision recovery it may become
+    // somewhat stronger, but it remains force-based rather than teleporting.
     if (Movement->IsGrounded())
     {
         const float LaneError = SmoothedLaneOffset - CurrentLateralOffset;
+        const float MaxAssist = FMath::Lerp(
+            MaxLaneAssistAccelCmS2,
+            MaxRecoveryLaneAssistAccelCmS2,
+            StabilityRisk);
         const float AssistAccel = FMath::Clamp(
             LaneError * LaneAssistPositionGain - LateralSpeed * LaneAssistVelocityGain,
-            -MaxLaneAssistAccelCmS2,
-            MaxLaneAssistAccelCmS2);
+            -MaxAssist,
+            MaxAssist);
         Chassis->AddForce(RouteRight * AssistAccel, NAME_None, true);
     }
 
@@ -273,22 +479,24 @@ void ARIRacingLineFollower::Tick(const float DeltaSeconds)
             155.0f);
     }
 
+    TrackingSpeedLimitKph *= FMath::Clamp(TrafficSpeedScale, 0.38f, 1.0f);
+
     if (StabilityRisk > 0.0f)
     {
         TrackingSpeedLimitKph = FMath::Min(
             TrackingSpeedLimitKph,
-            FMath::Lerp(100.0f, 42.0f, StabilityRisk));
+            FMath::Lerp(100.0f, 36.0f, StabilityRisk));
     }
 
     if (LocalForward < 250.0f)
     {
-        TrackingSpeedLimitKph = FMath::Min(TrackingSpeedLimitKph, 38.0f);
+        TrackingSpeedLimitKph = FMath::Min(TrackingSpeedLimitKph, 34.0f);
     }
 
     const float SpeedExcess = SpeedKph - TrackingSpeedLimitKph;
     if (SpeedExcess > 2.0f)
     {
-        const float BrakeRequest = FMath::Clamp(SpeedExcess / 32.0f, 0.12f, 0.78f);
+        const float BrakeRequest = FMath::Clamp(SpeedExcess / 32.0f, 0.12f, 0.82f);
         Movement->SetThrottleInput(FMath::Min(Movement->GetThrottleInput(), 0.08f));
         Movement->SetBrakeInput(FMath::Max(Movement->GetBrakeInput(), BrakeRequest));
     }
