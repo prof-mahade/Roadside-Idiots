@@ -1,12 +1,12 @@
 #include "Items/RIBananaPickup.h"
 
+#include "Audio/RIAudioEvents.h"
 #include "Vehicle/RIBikePawn.h"
 #include "Core/RIHealthComponent.h"
 #include "Core/RIParticipantComponent.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/PointLightComponent.h"
-#include "Engine/Engine.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialInterface.h"
 #include "UObject/ConstructorHelpers.h"
@@ -84,18 +84,12 @@ void ARIBananaPickup::HandlePickupOverlap(
 
     bConsumed = true;
 
-    const float Before = Bike->GetHealthComponent()->GetCurrentHealth();
-    const float After = Bike->GetHealthComponent()->Heal(HealAmount);
+    Bike->GetHealthComponent()->Heal(HealAmount);
     Bike->AddBananaPeel(1);
 
-    if (GEngine && Participant->IsHumanControlled())
+    if (Participant->IsHumanControlled())
     {
-        const float Recovered = FMath::Max(0.0f, After - Before);
-        GEngine->AddOnScreenDebugMessage(
-            -1,
-            2.0f,
-            FColor::Yellow,
-            FString::Printf(TEXT("NOM! Banana +%.0f Condition | Peel ready [F]"), Recovered));
+        RIAudioEvents::Play(this, FName(TEXT("PickupBanana")), GetActorLocation(), 0.72f, 1.08f);
     }
 
     Destroy();
