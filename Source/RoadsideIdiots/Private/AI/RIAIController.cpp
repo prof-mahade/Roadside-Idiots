@@ -28,88 +28,43 @@ void ARIAIController::OnPossess(APawn* InPawn)
 void ARIAIController::ConfigurePersonality()
 {
     if (!Bike || !Bike->GetParticipantComponent()) return;
-
     const FString Id = Bike->GetParticipantComponent()->GetParticipantId().ToString();
 
-    // VPR-24 AI pass: retaliation is deliberately short. Chaos should create a
-    // story beat, then release the rider back to racing instead of becoming the race.
     if (Id.Equals(TEXT("BOT_01"), ESearchCase::IgnoreCase))
     {
-        PersonalityLabel = TEXT("LEECH");
-        TargetSpeedKph = 111.0f;
-        GrudgeDurationSeconds = 5.2f;
-        GrudgeCatchupSpeedKph = 120.0f;
-        AttackCooldownSeconds = 1.90f;
-        AttackRange = 240.0f;
-        PickupSeekRange = 1450.0f;
-        AvoidanceStrength = 0.95f;
-        EggUseCooldownSeconds = 5.2f;
-        PeelUseCooldownSeconds = 5.8f;
+        PersonalityLabel = TEXT("LEECH"); TargetSpeedKph = 111.0f; GrudgeDurationSeconds = 5.2f;
+        GrudgeCatchupSpeedKph = 120.0f; AttackCooldownSeconds = 1.90f; AttackRange = 240.0f;
+        PickupSeekRange = 1450.0f; AvoidanceStrength = 0.95f; EggUseCooldownSeconds = 5.2f; PeelUseCooldownSeconds = 5.8f;
     }
     else if (Id.Equals(TEXT("BOT_02"), ESearchCase::IgnoreCase))
     {
-        PersonalityLabel = TEXT("HOTHEAD");
-        TargetSpeedKph = 114.0f;
-        GrudgeDurationSeconds = 4.0f;
-        GrudgeCatchupSpeedKph = 123.0f;
-        AttackCooldownSeconds = 1.45f;
-        AttackRange = 245.0f;
-        PickupSeekRange = 1200.0f;
-        AvoidanceStrength = 0.88f;
-        EggUseCooldownSeconds = 4.2f;
-        PeelUseCooldownSeconds = 5.0f;
+        PersonalityLabel = TEXT("HOTHEAD"); TargetSpeedKph = 114.0f; GrudgeDurationSeconds = 4.0f;
+        GrudgeCatchupSpeedKph = 123.0f; AttackCooldownSeconds = 1.45f; AttackRange = 245.0f;
+        PickupSeekRange = 1200.0f; AvoidanceStrength = 0.88f; EggUseCooldownSeconds = 4.2f; PeelUseCooldownSeconds = 5.0f;
     }
     else if (Id.Equals(TEXT("BOT_03"), ESearchCase::IgnoreCase))
     {
-        PersonalityLabel = TEXT("PETTY");
-        TargetSpeedKph = 109.0f;
-        GrudgeDurationSeconds = 4.6f;
-        GrudgeCatchupSpeedKph = 118.0f;
-        AttackCooldownSeconds = 2.10f;
-        AttackRange = 235.0f;
-        PickupSeekRange = 1650.0f;
-        AvoidanceStrength = 1.02f;
-        EggUseCooldownSeconds = 4.8f;
-        PeelUseCooldownSeconds = 4.3f;
+        PersonalityLabel = TEXT("PETTY"); TargetSpeedKph = 109.0f; GrudgeDurationSeconds = 4.6f;
+        GrudgeCatchupSpeedKph = 118.0f; AttackCooldownSeconds = 2.10f; AttackRange = 235.0f;
+        PickupSeekRange = 1650.0f; AvoidanceStrength = 1.02f; EggUseCooldownSeconds = 4.8f; PeelUseCooldownSeconds = 4.3f;
     }
     else if (Id.Equals(TEXT("BOT_04"), ESearchCase::IgnoreCase))
     {
-        PersonalityLabel = TEXT("GREMLIN");
-        TargetSpeedKph = 108.0f;
-        GrudgeDurationSeconds = 4.2f;
-        GrudgeCatchupSpeedKph = 119.0f;
-        AttackCooldownSeconds = 1.85f;
-        AttackRange = 235.0f;
-        PickupSeekRange = 1700.0f;
-        AvoidanceStrength = 1.00f;
-        EggUseCooldownSeconds = 5.0f;
-        PeelUseCooldownSeconds = 3.8f;
+        PersonalityLabel = TEXT("GREMLIN"); TargetSpeedKph = 108.0f; GrudgeDurationSeconds = 4.2f;
+        GrudgeCatchupSpeedKph = 119.0f; AttackCooldownSeconds = 1.85f; AttackRange = 235.0f;
+        PickupSeekRange = 1700.0f; AvoidanceStrength = 1.00f; EggUseCooldownSeconds = 5.0f; PeelUseCooldownSeconds = 3.8f;
     }
     else if (Id.Equals(TEXT("BOT_05"), ESearchCase::IgnoreCase))
     {
-        PersonalityLabel = TEXT("BRAWLER");
-        TargetSpeedKph = 112.0f;
-        GrudgeDurationSeconds = 3.8f;
-        GrudgeCatchupSpeedKph = 121.0f;
-        AttackCooldownSeconds = 1.35f;
-        AttackRange = 250.0f;
-        PickupSeekRange = 1200.0f;
-        AvoidanceStrength = 0.90f;
-        EggUseCooldownSeconds = 5.4f;
-        PeelUseCooldownSeconds = 5.5f;
+        PersonalityLabel = TEXT("BRAWLER"); TargetSpeedKph = 112.0f; GrudgeDurationSeconds = 3.8f;
+        GrudgeCatchupSpeedKph = 121.0f; AttackCooldownSeconds = 1.35f; AttackRange = 250.0f;
+        PickupSeekRange = 1200.0f; AvoidanceStrength = 0.90f; EggUseCooldownSeconds = 5.4f; PeelUseCooldownSeconds = 5.5f;
     }
     else if (Id.Equals(TEXT("BOT_06"), ESearchCase::IgnoreCase))
     {
-        PersonalityLabel = TEXT("TRYHARD");
-        TargetSpeedKph = 116.0f;
-        GrudgeDurationSeconds = 3.0f;
-        GrudgeCatchupSpeedKph = 122.0f;
-        AttackCooldownSeconds = 2.20f;
-        AttackRange = 230.0f;
-        PickupSeekRange = 1450.0f;
-        AvoidanceStrength = 1.10f;
-        EggUseCooldownSeconds = 6.0f;
-        PeelUseCooldownSeconds = 6.2f;
+        PersonalityLabel = TEXT("TRYHARD"); TargetSpeedKph = 116.0f; GrudgeDurationSeconds = 3.0f;
+        GrudgeCatchupSpeedKph = 122.0f; AttackCooldownSeconds = 2.20f; AttackRange = 230.0f;
+        PickupSeekRange = 1450.0f; AvoidanceStrength = 1.10f; EggUseCooldownSeconds = 6.0f; PeelUseCooldownSeconds = 6.2f;
     }
 
     const uint32 StableHash = GetTypeHash(Id);
@@ -140,11 +95,7 @@ void ARIAIController::SetRoute(const TArray<FVector>& InRoutePoints, int32 Start
 
 bool ARIAIController::AssignTacticalIntent(ARIBikePawn* Target, const ERITacticalIntent Intent, const float DurationSeconds)
 {
-    if (!Target || Target == Bike || Intent == ERITacticalIntent::None || TacticalCooldownRemaining > 0.0f)
-    {
-        return false;
-    }
-
+    if (!Target || Target == Bike || Intent == ERITacticalIntent::None || TacticalCooldownRemaining > 0.0f) return false;
     TacticalTarget = Target;
     TacticalIntent = Intent;
     TacticalTimeRemaining = FMath::Clamp(DurationSeconds, 1.2f, 4.5f);
@@ -178,23 +129,24 @@ void ARIAIController::NotifyProvokedBy(ARIBikePawn* InstigatorBike)
     const bool bSameTargetAlready = GrudgeTarget.IsValid() && GrudgeTarget.Get() == InstigatorBike && GrudgeTimeRemaining > 0.0f;
     GrudgeTarget = InstigatorBike;
     GrudgeTimeRemaining = bSameTargetAlready
-        ? FMath::Min(GrudgeTimeRemaining + 1.0f, GrudgeDurationSeconds * 1.15f)
+        ? FMath::Min(GrudgeTimeRemaining + 0.75f, GrudgeDurationSeconds * 1.10f)
         : GrudgeDurationSeconds;
-    AttackCooldownRemaining = 0.25f;
 
-    // Retaliation is a short side-pressure response. It deliberately bypasses
-    // the director cooldown, but still expires quickly and returns to racing.
+    // Fight fatigue: an impact can still create a short grudge and opportunistic
+    // item response, but it cannot keep resetting a chase while an intent is
+    // already active or while the rider is in its post-fight cooldown.
+    if (IsTacticalIntentActive() || TacticalCooldownRemaining > 0.0f) return;
+
+    AttackCooldownRemaining = 0.25f;
     TacticalTarget = InstigatorBike;
     TacticalIntent = ERITacticalIntent::SidePressure;
-    TacticalTimeRemaining = FMath::Min(3.0f, GrudgeDurationSeconds);
-    TacticalCooldownRemaining = 0.0f;
+    TacticalTimeRemaining = FMath::Min(2.8f, GrudgeDurationSeconds);
     bTacticalItemCommitted = false;
 }
 
 ARIBikePawn* ARIAIController::FindBestItemVictim() const
 {
     if (!Bike || !GetWorld()) return nullptr;
-
     if (IsTacticalIntentActive()) return TacticalTarget.Get();
     if (GrudgeTimeRemaining > 0.0f && GrudgeTarget.IsValid()) return GrudgeTarget.Get();
 
@@ -204,7 +156,6 @@ ARIBikePawn* ARIAIController::FindBestItemVictim() const
     {
         ARIBikePawn* Candidate = *It;
         if (!Candidate || Candidate == Bike || !Candidate->AreRaceControlsEnabled()) continue;
-
         const float DistanceSq = FVector::DistSquared2D(Bike->GetActorLocation(), Candidate->GetActorLocation());
         if (DistanceSq < NearestDistanceSq)
         {
@@ -233,16 +184,13 @@ bool ARIAIController::FindUsefulPickupTarget(FVector& OutTarget) const
     auto ConsiderPickup = [&](const AActor* Pickup, const bool bUseful)
     {
         if (!Pickup || !bUseful) return;
-
         FVector ToPickup = Pickup->GetActorLocation() - BikeLocation;
         ToPickup.Z = 0.0f;
         const float DistanceSq = ToPickup.SizeSquared();
         if (DistanceSq > MaxDistanceSq || DistanceSq < FMath::Square(140.0f)) return;
-
         const FVector Direction = ToPickup.GetSafeNormal();
         const float ForwardDot = FVector::DotProduct(Direction, Forward);
         if (ForwardDot < 0.25f) return;
-
         const float Score = DistanceSq * FMath::Lerp(1.12f, 0.84f, FMath::Clamp(ForwardDot, 0.0f, 1.0f));
         if (Score < BestScore)
         {
@@ -253,41 +201,31 @@ bool ARIAIController::FindUsefulPickupTarget(FVector& OutTarget) const
     };
 
     for (TActorIterator<ARIBananaPickup> It(GetWorld()); It; ++It)
-    {
         ConsiderPickup(*It, HealthFraction < 0.82f || Bike->GetBananaPeelCount() < 1);
-    }
     for (TActorIterator<ARIRottenEggPickup> It(GetWorld()); It; ++It)
-    {
         ConsiderPickup(*It, Bike->GetRottenEggCount() < Bike->GetMaxRottenEggs());
-    }
     return bFound;
 }
 
 float ARIAIController::ComputeAvoidanceShift(const FVector& BikeLocation, const FVector& Forward, const FVector& Right) const
 {
     if (!Bike || !GetWorld()) return 0.0f;
-
     float Shift = 0.0f;
     const FVector SelfVelocity = Bike->GetChassis() ? Bike->GetChassis()->GetPhysicsLinearVelocity() : FVector::ZeroVector;
 
     auto ConsiderObstacle = [&](const AActor* Obstacle, const FVector& ObstacleVelocity, const float LookAhead, const float SideClearance, const float MaxShift, const float Weight)
     {
         if (!Obstacle || Obstacle == Bike) return;
-
         FVector ToObstacle = Obstacle->GetActorLocation() - BikeLocation;
         ToObstacle.Z = 0.0f;
         const float Distance = ToObstacle.Size();
         if (Distance < 75.0f || Distance > LookAhead) return;
-
         const FVector Direction = ToObstacle / Distance;
         const float ForwardDot = FVector::DotProduct(Direction, Forward);
         if (ForwardDot < 0.20f) return;
-
         const float Side = FVector::DotProduct(ToObstacle, Right);
         if (FMath::Abs(Side) > SideClearance) return;
-
-        const FVector RelativeVelocity = SelfVelocity - ObstacleVelocity;
-        const float ClosingSpeed = FMath::Max(0.0f, FVector::DotProduct(RelativeVelocity, Direction));
+        const float ClosingSpeed = FMath::Max(0.0f, FVector::DotProduct(SelfVelocity - ObstacleVelocity, Direction));
         const float PredictedDistance = FMath::Max(60.0f, Distance - ClosingSpeed * 0.75f);
         const float Urgency = 1.0f - FMath::Clamp(PredictedDistance / LookAhead, 0.0f, 1.0f);
         const float DodgeSign = Side >= 0.0f ? -1.0f : 1.0f;
@@ -295,27 +233,17 @@ float ARIAIController::ComputeAvoidanceShift(const FVector& BikeLocation, const 
     };
 
     for (TActorIterator<ARITrafficVehicle> It(GetWorld()); It; ++It)
-    {
         ConsiderObstacle(*It, FVector::ZeroVector, 1450.0f, 340.0f, 330.0f, 1.0f);
-    }
-
     for (TActorIterator<ARIPoopHazard> It(GetWorld()); It; ++It)
-    {
         ConsiderObstacle(*It, FVector::ZeroVector, 900.0f, 205.0f, 260.0f, 1.0f);
-    }
     for (TActorIterator<ARIBananaPeelHazard> It(GetWorld()); It; ++It)
-    {
         ConsiderObstacle(*It, FVector::ZeroVector, 850.0f, 190.0f, 250.0f, 1.0f);
-    }
 
     for (TActorIterator<ARIBikePawn> It(GetWorld()); It; ++It)
     {
         ARIBikePawn* OtherBike = *It;
         if (!OtherBike || OtherBike == Bike) continue;
-
-        FVector OtherVelocity = FVector::ZeroVector;
-        if (OtherBike->GetChassis()) OtherVelocity = OtherBike->GetChassis()->GetPhysicsLinearVelocity();
-
+        const FVector OtherVelocity = OtherBike->GetChassis() ? OtherBike->GetChassis()->GetPhysicsLinearVelocity() : FVector::ZeroVector;
         const bool bIntentTarget = IsTacticalIntentActive() && TacticalTarget.Get() == OtherBike;
         const float Weight = bIntentTarget && TacticalIntent == ERITacticalIntent::SidePressure ? 0.48f : 1.0f;
         ConsiderObstacle(OtherBike, OtherVelocity, 1100.0f, 250.0f, 255.0f, Weight);
@@ -327,7 +255,6 @@ float ARIAIController::ComputeAvoidanceShift(const FVector& BikeLocation, const 
 float ARIAIController::ComputeCrowdSpeedScale(const FVector& BikeLocation, const FVector& Forward, const FVector& Right) const
 {
     if (!Bike || !GetWorld()) return 1.0f;
-
     float SpeedScale = 1.0f;
     const FVector SelfVelocity = Bike->GetChassis() ? Bike->GetChassis()->GetPhysicsLinearVelocity() : FVector::ZeroVector;
 
@@ -335,24 +262,17 @@ float ARIAIController::ComputeCrowdSpeedScale(const FVector& BikeLocation, const
     {
         ARIBikePawn* OtherBike = *It;
         if (!OtherBike || OtherBike == Bike) continue;
-
         FVector ToOther = OtherBike->GetActorLocation() - BikeLocation;
         ToOther.Z = 0.0f;
         const float Distance = ToOther.Size();
         if (Distance < 1.0f || Distance > CrowdLookAhead) continue;
-
         const FVector Direction = ToOther / Distance;
-        const float ForwardDot = FVector::DotProduct(Direction, Forward);
-        if (ForwardDot < 0.35f) continue;
+        if (FVector::DotProduct(Direction, Forward) < 0.35f) continue;
+        if (FMath::Abs(FVector::DotProduct(ToOther, Right)) > CrowdSideClearance) continue;
 
-        const float SideDistance = FMath::Abs(FVector::DotProduct(ToOther, Right));
-        if (SideDistance > CrowdSideClearance) continue;
-
-        FVector OtherVelocity = FVector::ZeroVector;
-        if (OtherBike->GetChassis()) OtherVelocity = OtherBike->GetChassis()->GetPhysicsLinearVelocity();
+        const FVector OtherVelocity = OtherBike->GetChassis() ? OtherBike->GetChassis()->GetPhysicsLinearVelocity() : FVector::ZeroVector;
         const float ClosingSpeed = FMath::Max(0.0f, FVector::DotProduct(SelfVelocity - OtherVelocity, Direction));
         const float PredictedDistance = FMath::Max(100.0f, Distance - ClosingSpeed * 0.85f);
-
         const bool bIntentTarget = IsTacticalIntentActive() && TacticalTarget.Get() == OtherBike;
         const float MinimumScale = bIntentTarget ? 0.55f : 0.34f;
         const float LocalScale = FMath::GetMappedRangeValueClamped(
@@ -362,12 +282,7 @@ float ARIAIController::ComputeCrowdSpeedScale(const FVector& BikeLocation, const
     return SpeedScale;
 }
 
-FVector ARIAIController::ComputeRaceLookAheadTarget(
-    const FVector& BikeLocation,
-    const float SpeedKph,
-    FVector& OutTangent,
-    FVector& OutRight,
-    float& OutTurnSeverity)
+FVector ARIAIController::ComputeRaceLookAheadTarget(const FVector& BikeLocation, const float SpeedKph, FVector& OutTangent, FVector& OutRight, float& OutTurnSeverity)
 {
     OutTangent = Bike ? Bike->GetActorForwardVector().GetSafeNormal2D() : FVector::ForwardVector;
     OutRight = FVector::CrossProduct(FVector::UpVector, OutTangent).GetSafeNormal();
@@ -391,7 +306,6 @@ FVector ARIAIController::ComputeRaceLookAheadTarget(
 
     const float SpeedAlpha = FMath::Clamp(SpeedKph / 120.0f, 0.0f, 1.0f);
     const float LookAhead = FMath::Lerp(MinLookAheadDistance, MaxLookAheadDistance, SpeedAlpha);
-
     int32 SegmentStartIndex = NearestIndex;
     FVector SegmentStart = RoutePoints[SegmentStartIndex];
     float Accumulated = 0.0f;
@@ -402,16 +316,13 @@ FVector ARIAIController::ComputeRaceLookAheadTarget(
         const int32 SegmentEndIndex = (SegmentStartIndex + 1) % Count;
         const FVector SegmentEnd = RoutePoints[SegmentEndIndex];
         const float SegmentLength = FVector::Dist2D(SegmentStart, SegmentEnd);
-
         if (SegmentLength > KINDA_SMALL_NUMBER && Accumulated + SegmentLength >= LookAhead)
         {
-            const float Remaining = LookAhead - Accumulated;
-            const float Alpha = FMath::Clamp(Remaining / SegmentLength, 0.0f, 1.0f);
+            const float Alpha = FMath::Clamp((LookAhead - Accumulated) / SegmentLength, 0.0f, 1.0f);
             Target = FMath::Lerp(SegmentStart, SegmentEnd, Alpha);
             TargetIndex = SegmentEndIndex;
             break;
         }
-
         Accumulated += SegmentLength;
         SegmentStartIndex = SegmentEndIndex;
         SegmentStart = SegmentEnd;
@@ -424,24 +335,17 @@ FVector ARIAIController::ComputeRaceLookAheadTarget(
     const int32 Next2Index = (TargetIndex + 2) % Count;
     OutTangent = (RoutePoints[NextIndex] - RoutePoints[PrevIndex]).GetSafeNormal2D();
     OutRight = FVector::CrossProduct(FVector::UpVector, OutTangent).GetSafeNormal();
-
     const FVector FutureTangent = (RoutePoints[Next2Index] - RoutePoints[TargetIndex]).GetSafeNormal2D();
     const float TurnDot = FMath::Clamp(FVector::DotProduct(OutTangent, FutureTangent), -1.0f, 1.0f);
     OutTurnSeverity = FMath::Clamp(FMath::Acos(TurnDot) / 0.80f, 0.0f, 1.0f);
-
     return Target + OutRight * LaneOffset;
 }
 
 void ARIAIController::ApplyTacticalTargeting(FVector& InOutTargetPoint, const FVector& BikeLocation, const FVector& RouteRight)
 {
     if (!IsTacticalIntentActive()) return;
-
     ARIBikePawn* Target = TacticalTarget.Get();
-    if (!Target)
-    {
-        EndTacticalIntent();
-        return;
-    }
+    if (!Target) { EndTacticalIntent(); return; }
 
     FVector ToTarget = Target->GetActorLocation() - BikeLocation;
     ToTarget.Z = 0.0f;
@@ -457,7 +361,6 @@ void ARIAIController::ApplyTacticalTargeting(FVector& InOutTargetPoint, const FV
     {
         const FVector PressurePoint = PredictedTarget + TargetForward * 230.0f + TargetRight * (TacticalSideSign * 125.0f);
         InOutTargetPoint = FMath::Lerp(InOutTargetPoint, PressurePoint, 0.58f);
-
         if (Distance < AttackRange && AttackCooldownRemaining <= 0.0f)
         {
             if (URIInteractionComponent* Interaction = Bike->GetInteractionComponent())
@@ -470,23 +373,20 @@ void ARIAIController::ApplyTacticalTargeting(FVector& InOutTargetPoint, const FV
         }
         break;
     }
-
     case ERITacticalIntent::Block:
     {
         FVector TargetToSelf = BikeLocation - Target->GetActorLocation();
         TargetToSelf.Z = 0.0f;
         const float AheadDistance = FVector::DotProduct(TargetToSelf, TargetForward);
         const float LeadDistance = AheadDistance > 180.0f ? 230.0f : 520.0f;
-        const FVector BlockPoint = PredictedTarget + TargetForward * LeadDistance + TargetRight * (TacticalSideSign * 85.0f);
-        InOutTargetPoint = FMath::Lerp(InOutTargetPoint, BlockPoint, 0.46f);
+        InOutTargetPoint = FMath::Lerp(InOutTargetPoint,
+            PredictedTarget + TargetForward * LeadDistance + TargetRight * (TacticalSideSign * 85.0f), 0.46f);
         break;
     }
-
     case ERITacticalIntent::PeelTrap:
     {
-        const FVector TrapPoint = PredictedTarget + TargetForward * 520.0f + RouteRight * (TacticalSideSign * 55.0f);
-        InOutTargetPoint = FMath::Lerp(InOutTargetPoint, TrapPoint, 0.42f);
-
+        InOutTargetPoint = FMath::Lerp(InOutTargetPoint,
+            PredictedTarget + TargetForward * 520.0f + RouteRight * (TacticalSideSign * 55.0f), 0.42f);
         FVector TargetToSelf = BikeLocation - Target->GetActorLocation();
         TargetToSelf.Z = 0.0f;
         const float AheadDistance = FVector::DotProduct(TargetToSelf, TargetForward);
@@ -503,11 +403,10 @@ void ARIAIController::ApplyTacticalTargeting(FVector& InOutTargetPoint, const FV
         }
         break;
     }
-
     case ERITacticalIntent::EggShot:
     {
-        // Keep mostly on the racing line; only nudge into a clean firing lane.
-        InOutTargetPoint = FMath::Lerp(InOutTargetPoint, PredictedTarget + TargetRight * (TacticalSideSign * 70.0f), 0.16f);
+        InOutTargetPoint = FMath::Lerp(InOutTargetPoint,
+            PredictedTarget + TargetRight * (TacticalSideSign * 70.0f), 0.16f);
         if (!bTacticalItemCommitted && Bike->GetRottenEggCount() > 0 && EggUseCooldownRemaining <= 0.0f && Distance <= 1000.0f)
         {
             if (Bike->ThrowRottenEggAt(Target))
@@ -519,16 +418,13 @@ void ARIAIController::ApplyTacticalTargeting(FVector& InOutTargetPoint, const FV
         }
         break;
     }
-
-    default:
-        break;
+    default: break;
     }
 }
 
 void ARIAIController::TryUseComedyItems()
 {
     if (!Bike || IsTacticalIntentActive()) return;
-
     ARIBikePawn* Victim = FindBestItemVictim();
     if (!Victim) return;
 
@@ -536,12 +432,9 @@ void ARIAIController::TryUseComedyItems()
     ToVictim.Z = 0.0f;
     const float Distance = ToVictim.Size();
     if (Distance < 1.0f) return;
-
     const FVector Direction = ToVictim / Distance;
     const float ForwardDot = FVector::DotProduct(Direction, Bike->GetActorForwardVector().GetSafeNormal2D());
 
-    // Opportunistic items are intentionally infrequent. Purposeful item use is
-    // handled by the tactical director; this only creates occasional surprises.
     if (Bike->GetRottenEggCount() > 0 && EggUseCooldownRemaining <= 0.0f &&
         Distance < 1000.0f && ForwardDot > 0.10f && FMath::FRand() < 0.10f)
     {
@@ -551,7 +444,6 @@ void ARIAIController::TryUseComedyItems()
             return;
         }
     }
-
     if (Bike->GetBananaPeelCount() > 0 && PeelUseCooldownRemaining <= 0.0f &&
         Distance > 250.0f && Distance < 850.0f && ForwardDot < -0.15f && FMath::FRand() < 0.12f)
     {
@@ -581,14 +473,8 @@ void ARIAIController::Tick(float DeltaSeconds)
     ItemDecisionRemaining = FMath::Max(0.0f, ItemDecisionRemaining - DeltaSeconds);
     TacticalCooldownRemaining = FMath::Max(0.0f, TacticalCooldownRemaining - DeltaSeconds);
 
-    if (GrudgeTimeRemaining > 0.0f)
-    {
-        GrudgeTimeRemaining = FMath::Max(0.0f, GrudgeTimeRemaining - DeltaSeconds);
-    }
-    else
-    {
-        GrudgeTarget.Reset();
-    }
+    if (GrudgeTimeRemaining > 0.0f) GrudgeTimeRemaining = FMath::Max(0.0f, GrudgeTimeRemaining - DeltaSeconds);
+    else GrudgeTarget.Reset();
 
     if (TacticalTimeRemaining > 0.0f)
     {
@@ -598,7 +484,6 @@ void ARIAIController::Tick(float DeltaSeconds)
 
     const FVector BikeLocation = Bike->GetActorLocation();
     const float SpeedKph = FMath::Abs(Bike->GetBikeMovement()->GetForwardSpeedKph());
-
     FVector RouteTangent;
     FVector RouteRight;
     float TurnSeverity = 0.0f;
@@ -617,9 +502,7 @@ void ARIAIController::Tick(float DeltaSeconds)
     TargetPoint += RouteRight * SmoothedAvoidanceShift;
 
     if (!IsTacticalIntentActive() && GrudgeTimeRemaining <= 0.0f && bHasCachedPickupTarget)
-    {
         TargetPoint = FMath::Lerp(TargetPoint, CachedPickupTarget, 0.42f);
-    }
 
     ApplyTacticalTargeting(TargetPoint, BikeLocation, RouteRight);
 
@@ -633,19 +516,14 @@ void ARIAIController::Tick(float DeltaSeconds)
     ToTarget.Z = 0.0f;
     const FVector Desired = ToTarget.GetSafeNormal();
     const float Dot = FMath::Clamp(FVector::DotProduct(Forward, Desired), -1.0f, 1.0f);
-    const float CrossZ = FVector::CrossProduct(Forward, Desired).Z;
-    const float Angle = FMath::Atan2(CrossZ, Dot);
+    const float Angle = FMath::Atan2(FVector::CrossProduct(Forward, Desired).Z, Dot);
     const float AbsAngle = FMath::Abs(Angle);
     const float RawSteering = FMath::Clamp(Angle / 0.62f, -1.0f, 1.0f);
     SmoothedSteering = FMath::FInterpTo(SmoothedSteering, RawSteering, DeltaSeconds, SteeringInterpSpeed);
 
-    if (SpeedKph < 6.0f && ToTarget.SizeSquared() > FMath::Square(WaypointReachDistance * 0.45f))
-        LowMotionTime += DeltaSeconds;
-    else
-        LowMotionTime = 0.0f;
+    if (SpeedKph < 6.0f && ToTarget.SizeSquared() > FMath::Square(WaypointReachDistance * 0.45f)) LowMotionTime += DeltaSeconds;
+    else LowMotionTime = 0.0f;
 
-    // First try a brief reverse-and-steer escape. Teleport recovery is the last
-    // resort, so an AI that noses into a bike/barrier gets a chance to back out.
     if (LowMotionTime > 1.10f && LowMotionTime < 2.25f)
     {
         const float ReverseSteer = FMath::Abs(SmoothedSteering) > 0.12f ? -SmoothedSteering : (LaneOffset >= 0.0f ? -0.55f : 0.55f);
@@ -661,18 +539,16 @@ void ARIAIController::Tick(float DeltaSeconds)
     }
 
     float DesiredSpeed = TargetSpeedKph;
-    if (GrudgeTimeRemaining > 0.0f || IsTacticalIntentActive()) DesiredSpeed = FMath::Min(GrudgeCatchupSpeedKph, TargetSpeedKph + 8.0f);
+    if (GrudgeTimeRemaining > 0.0f || IsTacticalIntentActive())
+        DesiredSpeed = FMath::Min(GrudgeCatchupSpeedKph, TargetSpeedKph + 8.0f);
 
-    // Slow before the turn rather than after steering has already saturated.
     DesiredSpeed *= FMath::Lerp(1.0f, 0.68f, TurnSeverity);
     DesiredSpeed *= FMath::Clamp(CachedCrowdSpeedScale, 0.30f, 1.0f);
-
     if (AbsAngle > 0.72f) DesiredSpeed = FMath::Min(DesiredSpeed, 60.0f);
     else if (AbsAngle > 0.38f) DesiredSpeed = FMath::Min(DesiredSpeed, 82.0f);
 
     float DesiredBrake = SpeedKph > DesiredSpeed + 7.0f ? 0.60f : 0.0f;
     if (CachedCrowdSpeedScale < 0.48f && SpeedKph > 28.0f) DesiredBrake = FMath::Max(DesiredBrake, 0.72f);
-
     float DesiredThrottle = DesiredBrake > 0.0f ? 0.08f : 1.0f;
     if (CachedCrowdSpeedScale < 0.62f) DesiredThrottle = FMath::Min(DesiredThrottle, 0.38f);
     if (AbsAngle > 0.90f) DesiredThrottle = FMath::Min(DesiredThrottle, 0.36f);
