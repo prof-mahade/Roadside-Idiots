@@ -28,5 +28,8 @@ private:
     TMap<TWeakObjectPtr<ARIBikePawn>, bool> LastTippedState;
     float CrashScanAccumulator = 0.0f;
     int32 LastCountdownNumber = INDEX_NONE;
+    int32 LastHumanCompletedLaps = 0;
+    bool bLapStateInitialized = false;
     bool bPlayedGoCue = false;
+    bool bPlayedFinishCue = false;
 };
