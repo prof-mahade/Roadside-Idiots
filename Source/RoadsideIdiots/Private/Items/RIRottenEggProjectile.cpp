@@ -9,6 +9,7 @@
 #include "Audio/RIAudioEvents.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "EngineUtils.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialInterface.h"
@@ -148,13 +149,28 @@ void ARIRottenEggProjectile::SplatterBike(ARIBikePawn* Victim)
 
     if (UWorld* World = GetWorld())
     {
-        if (ARIRottenEggStinkEffect* Stink = World->SpawnActor<ARIRottenEggStinkEffect>(
-            ARIRottenEggStinkEffect::StaticClass(),
-            Victim->GetActorLocation(),
-            Victim->GetActorRotation()))
+        bool bRefreshedExistingStink = false;
+        for (TActorIterator<ARIRottenEggStinkEffect> It(World); It; ++It)
         {
-            Stink->SetOwner(Victim);
-            Stink->AttachToActor(Victim, FAttachmentTransformRules::KeepWorldTransform);
+            ARIRottenEggStinkEffect* Existing = *It;
+            if (Existing && Cast<ARIBikePawn>(Existing->GetOwner()) == Victim)
+            {
+                Existing->SetLifeSpan(6.0f);
+                bRefreshedExistingStink = true;
+                break;
+            }
+        }
+
+        if (!bRefreshedExistingStink)
+        {
+            if (ARIRottenEggStinkEffect* Stink = World->SpawnActor<ARIRottenEggStinkEffect>(
+                ARIRottenEggStinkEffect::StaticClass(),
+                Victim->GetActorLocation(),
+                Victim->GetActorRotation()))
+            {
+                Stink->SetOwner(Victim);
+                Stink->AttachToActor(Victim, FAttachmentTransformRules::KeepWorldTransform);
+            }
         }
     }
 
