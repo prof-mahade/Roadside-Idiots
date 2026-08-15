@@ -15,7 +15,10 @@ Tagline: **The road is dangerous. The riders are worse.**
 - Visual Studio Community 2026, Game Development with C++
 - imported local binary assets are intentionally not stored in Git
 
-## Proven playable foundation
+## Frozen playable baseline (through VPR-18)
+User accepted VPR-18 on 2026-08-15 as **"not bad, playable for now"**. Do not retune the proven core unless a real regression is observed.
+
+Foundation:
 - one player + three motorcycle bots
 - W accelerate, S brake/reverse, A/D steer
 - Q/E slap, F banana peel, G rotten egg, R recovery, Enter restart
@@ -34,22 +37,20 @@ Tagline: **The road is dangerous. The riders are worse.**
 - anti-bunching AI spacing/braking
 - comic impact bursts and crash/dizzy camera response
 
-## Imported local visuals
-Developer machine has UE Third Person Manny, Fab `MotoInteractionAnims`, `SM_Bike`, riding/mounted/punch/get-hit/dizzy/interaction animations.
+Imported local presentation assets:
+- UE Third Person Manny
+- Fab `MotoInteractionAnims`
+- `SM_Bike`
+- riding/mounted/punch/get-hit/dizzy/interaction animations
 
-Presentation architecture:
+Authoritative architecture:
 - hidden cube chassis remains authoritative physics
 - motorcycle + Manny are presentation-only meshes
-- final character/vehicle art remains deferred
-
-## Road / camera
-- analytic route: 40-point ellipse, radii 9000 cm × 5000 cm
-- road width: 1200 cm
-- barrier height: ~120 cm
+- analytic route = 40-point ellipse, radii 9000 cm × 5000 cm
+- road width = 1200 cm
 - continuous flat collision floor remains authoritative
-- segmented presentation road pieces have collision disabled
-- chase camera base arm ~550, height ~185, pitch ~-12.5
-- speed-sensitive FOV smoothly widens ~92 -> ~101 degrees
+- segmented road/environment presentation pieces are collision-disabled
+- speed-sensitive FOV roughly 92 -> 101 degrees
 
 ## Rival AI / optimization
 - BOT_01 LEECH: pursuit/grudge focused
@@ -63,26 +64,27 @@ Presentation architecture:
 - direct rider blockage causes spacing steer + slowing/braking
 
 ## Items / hazards
-### Banana
+Banana:
 - eight pickups
 - heals up to 12 Condition and grants peel
 - max 3 peels
-- F drops a gravity-driven peel
+- F drops gravity-driven peel
 - short owner immunity prevents instant self-hit
 - owner can still circle back and slip later
+- VPR-18 pickup uses a two-segment banana-like silhouette; dropped peel uses three visual lobes
 
-### Rotten egg
+Rotten egg:
 - max 2 per bike
-- human and AI share the same throw path
+- human/AI share throw path
 - SPLAT + wobble + 1 Condition + stink + grudge attribution
-- repeated egg hits refresh one stink actor rather than stacking many
+- repeated egg hits refresh one stink actor
 
-### Dog/cow poop
-- map seeds 3 dog piles + 3 cow patties
+Poop:
+- 3 dog piles + 3 cow patties
 - dog: short sideways skid/wobble + shorter filth
 - cow: speed cut to roughly 42% + longer filth
-- one poop mess actor max per bike; repeated hits refresh/upgrade
-- stink/splat visuals were reduced so riders remain readable
+- one poop mess actor max per bike
+- VPR-19 presentation makes dog poop stacked/small and cow poop broad/flat
 
 ## Civilian traffic
 - yellow SUNDAY DRIVER ~42 km/h
@@ -91,85 +93,70 @@ Presentation architecture:
 - overlap-impact architecture avoids hard kinematic deadlocks
 - pre-GO racer/traffic contact ignored
 
-## Proven presentation milestones
-### VPR-14 / 14.1
-- minimap, LAP/POS/time and three-lap flow proven
-- HUD cleanup, anti-bunching and DIZZY/camera wobble proven
+## Proven presentation history
+VPR-14/14.1:
+- minimap, LAP/POS/time, three-lap flow, HUD cleanup, anti-bunching and DIZZY/camera wobble proven
 
-### VPR-15
+VPR-15:
 - comic WHACK/impact presentation proven
-- compact HUD/minimap remains readable
-- FILTH status integrated into HUD
-- reduced stink no longer hides rider
+- compact HUD/minimap readable
+- FILTH status integrated
 
-### VPR-16 / 16.1
-- asphalt/lane/barrier/green-roadside/start-finish presentation works without changing collision
-- instanced environment reduced PIE actor count from ~542 to ~172
-- camera FOV presentation remained stable
+VPR-16/16.1:
+- asphalt/lane/barrier/green-roadside/start-finish presentation works without collision changes
+- instancing reduced PIE actor count from ~542 to ~172
 
-### VPR-17 — PASSED 2026-08-15
-Local build result:
+VPR-17:
 - UE 5.8 Unity Build succeeded
-- actor count remained ~173 after the small polish root
-- three-lap finish screen/minimap/race flow still work
-- user judged the overall result "not that bad for now"
+- actor count ~173
+- collision-disabled road-join/barrier polish retained
+- generated asset-first fallback one-shot audio accepted for prototype use
+- UE-owned `SoundWaveProcedural.h` emits a non-fatal C4996 warning
 
-VPR-17 track polish:
-- collision-disabled asphalt join patches reduce green road-corner wedges
-- dark inset barrier caps reduce broad yellow slabs
-- sparse instanced curve markers
+VPR-18 — PLAYABLE BASELINE:
+- `URIPresentationWorldSubsystem` caches human bike instead of scanning every presentation tick
+- lightweight generated player `EnginePulse` varies with speed/throttle
+- throttled `TireSkid` cue on hard steering/braking at speed
+- banana pickup/drop readability improved
+- user accepted overall result as playable for now
 
-VPR-17 audio:
-`RIAudioEvents` is asset-first and checks `/Game/Audio/SFX/SFX_<Event>.SFX_<Event>`.
-When no asset exists, it creates short `USoundWaveProcedural` PCM fallback cues.
+## Audio architecture
+`RIAudioEvents` is asset-first:
+- checks `/Game/Audio/SFX/SFX_<Event>.SFX_<Event>`
+- real imported SFX override generated fallbacks automatically
+- current generated fallbacks include countdown/GO/lap/finish, impacts, honk, eggs, peel, poop, pickups, engine pulse and tire skid
+- distant fallback events receive simple player-distance volume reduction
 
-Fallback event families include:
-- Countdown / RaceGo / LapComplete / Finish
-- SlapHit / Crash / TrafficHit / Honk
-- EggThrow / EggSplat / EggMiss
-- PeelSlip
-- DogPoop / CowPoop
-- PickupBanana / PickupEgg
+## CURRENT ACTIVE GATE — VPR-19 Roadside Identity
+VPR-19 keeps the VPR-18 gameplay baseline frozen and adds presentation only.
 
-Distant fallback events receive simple player-distance volume reduction. Real imported SFX override fallbacks automatically later.
+New `URIRoadsideThemeSubsystem`:
+- one collision-disabled root actor with instanced mesh groups
+- reversible South-Asian/Bangladesh-inspired roadside graybox scaffold
+- low-rise stall/tea-shop silhouettes
+- plaster/brick houses with colored tin-style roofs
+- open roadside shelter/bus-stop silhouette
+- utility poles/cross-arms/visual overhead lines
+- field and water patches beyond barriers
+- dirt shoulder/plaza patches and vegetation clusters
+- all geometry placed outside the race surface and set to NoCollision
 
-Known build note:
-- UE 5.8 currently prints C4996 for `USoundWave::GetAssetRegistryTags` from its own `SoundWaveProcedural.h` while compiling our procedural fallback include.
-- this is a warning, not a RoadsideIdiots build failure; local build succeeded.
+Additional VPR-19 readability:
+- dog poop stacked/small vs cow poop broad/flat
+- rotten-egg pickup slowly rotates
+- no item mechanics/triggers/effects changed
 
-## CURRENT ACTIVE GATE — VPR-18
-VPR-18 does not change bike physics, collision, AI logic, race rules or damage tuning.
+Local VPR-19 gate:
+1. pull latest `dev/mvp-foundation` and compile under UE 5.8 Unity Build
+2. actor count should rise only slightly above low-170s
+3. no theme geometry may intrude onto track or create bumps/collision
+4. roadside should feel less empty but not overcrowded
+5. dog/cow poop should be visually distinguishable before impact
+6. rotten-egg pickup should rotate and collect normally
+7. three laps/minimap/AI/items/traffic/Condition/recovery/audio remain stable
 
-Changes:
-- `URIPresentationWorldSubsystem` caches the human bike instead of scanning all bike actors every presentation tick
-- movement component exposes read-only throttle/steering/brake values for presentation only
-- generated `EnginePulse` sound follows player speed/throttle
-- generated `TireSkid` cue triggers on hard steering/braking at speed with cooldown
-- only the human bike receives the continuous prototype engine layer
-- banana pickup uses two rotated yellow visual segments rather than one flattened sphere
-- dropped banana peel keeps the same proven physics/trigger but uses three thin visual lobes
-
-Local gate:
-1. close Unreal, pull latest `dev/mvp-foundation`, compile
-2. project must still build under UE 5.8 Unity Build
-3. the engine-header C4996 warning may remain
-4. actor count should remain in the low-170s plus transient gameplay actors
-5. countdown/GO and older generated cues must still work
-6. after GO, player should hear a low prototype engine rhythm whose rate/pitch rises with speed
-7. hard turn/brake at speed should produce a short skid cue without constant spam
-8. banana pickup should look more banana-like
-9. F-dropped peel should look three-lobed and still fall/trigger exactly as before
-10. no invisible road bumps/jumps may return
-11. minimap, 3 laps, AI items, traffic, Condition, slap, egg and recovery must remain stable
-
-## After VPR-18 passes
-Prioritize identity/art rather than feature count:
-1. improve egg/poop/hazard visuals
-2. choose first real environment/map theme and references
-3. replace primitive roadside/traffic art gradually while preserving instancing
-4. import legally usable real SFX to override generated placeholders
-5. revisit bike/rider animation polish after environment direction is clearer
-6. multiplayer networking remains deferred until solo presentation is stronger
+## After VPR-19 passes
+Do not create more primitive-code scenery for its own sake. Next priority is to choose/confirm a real map art direction and research legally usable environment/SFX assets that fit it, then replace the scaffold gradually while retaining the instanced/collision-safe architecture.
 
 ## Known limitations still deferred
 - bot corner/off-track recovery remains imperfect
