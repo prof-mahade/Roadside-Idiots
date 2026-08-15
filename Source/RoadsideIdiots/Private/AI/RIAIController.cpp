@@ -67,8 +67,6 @@ void ARIAIController::ConfigurePersonality()
         PeelUseCooldownSeconds = 2.7f;
     }
 
-    // Stagger expensive awareness passes so all bots do not scan the world on
-    // the same frame. The offset is stable for a given participant ID.
     const uint32 StableHash = GetTypeHash(Id);
     SenseRefreshRemaining = static_cast<float>(StableHash % 5u) * 0.025f;
     ItemDecisionRemaining = static_cast<float>((StableHash >> 3u) % 5u) * 0.035f;
@@ -257,8 +255,6 @@ float ARIAIController::ComputeAvoidanceShift(const FVector& BikeLocation, const 
         ConsiderObstacle(OtherBike, 720.0f, 145.0f, 165.0f, 0.75f);
     }
 
-    // Racer base lanes can already be ~315 cm from center. Keeping the dynamic
-    // dodge inside +/-185 cm leaves useful barrier margin on the 12 m road.
     return FMath::Clamp(Shift * AvoidanceStrength, -185.0f, 185.0f);
 }
 
@@ -301,6 +297,15 @@ void ARIAIController::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
     if (!Bike || RoutePoints.Num() < 3) return;
+
+    // The 3-second start freeze is intentional, not a navigation failure.
+    // Suspend stuck timers, sensing, grudges and item decisions until GO.
+    if (!Bike->AreRaceControlsEnabled())
+    {
+        LowMotionTime = 0.0f;
+        Bike->SetControlInputs(0.0f, 0.0f, 0.0f);
+        return;
+    }
 
     AttackCooldownRemaining = FMath::Max(0.0f, AttackCooldownRemaining - DeltaSeconds);
     EggUseCooldownRemaining = FMath::Max(0.0f, EggUseCooldownRemaining - DeltaSeconds);
@@ -367,8 +372,6 @@ void ARIAIController::Tick(float DeltaSeconds)
         }
     }
 
-    // Expensive world awareness is refreshed at ~5 Hz instead of every 20 Hz
-    // steering tick. The cached result is plenty responsive for road hazards.
     if (SenseRefreshRemaining <= 0.0f)
     {
         SenseRefreshRemaining = FMath::Max(0.08f, SenseRefreshIntervalSeconds);
