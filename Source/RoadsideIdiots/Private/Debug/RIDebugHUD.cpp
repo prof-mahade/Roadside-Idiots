@@ -39,7 +39,7 @@ void ARIDebugHUD::DrawHUD()
     };
 
     Line(TEXT("ROADSIDE IDIOTS - MVP"), FLinearColor(1.0f, 0.75f, 0.2f));
-    Line(TEXT("BUILD: VPR-11 | TRAFFIC: CIVILIAN IDIOTS | ITEMS: WORKING"), FLinearColor(0.55f, 1.0f, 0.70f));
+    Line(TEXT("BUILD: VPR-11.1 | TRAFFIC: SHAPED CARS | ITEMS: WORKING"), FLinearColor(0.55f, 1.0f, 0.70f));
     Line(FString::Printf(TEXT("Speed: %.0f km/h"), FMath::Abs(Bike->GetBikeMovement()->GetForwardSpeedKph())));
 
     const float CurrentCondition = Bike->GetHealthComponent()->GetCurrentHealth();
