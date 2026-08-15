@@ -2,7 +2,9 @@
 
 #include "Core/RIGameMode.h"
 #include "Core/RIRaceSettingsSubsystem.h"
+#include "Components/InputComponent.h"
 #include "Engine/GameInstance.h"
+#include "Engine/World.h"
 #include "InputCoreTypes.h"
 
 ARIPlayerController::ARIPlayerController()
