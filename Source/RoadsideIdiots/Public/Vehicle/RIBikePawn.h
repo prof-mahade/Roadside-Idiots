@@ -39,6 +39,10 @@ public:
     UFUNCTION(BlueprintPure, Category="Roadside Idiots|Items")
     int32 GetBananaPeelCount() const { return BananaPeelCount; }
 
+    // Short-lived prototype feedback used by the HUD and local camera.
+    void TriggerComicImpact(float Side, const FString& Text, float Duration = 0.70f);
+    bool GetActiveComicImpact(FString& OutText, float& OutAlpha) const;
+
     UFUNCTION(BlueprintPure, Category="Roadside Idiots|Bike")
     UStaticMeshComponent* GetChassis() const { return Chassis; }
 
@@ -115,4 +119,11 @@ private:
     bool bCrashLatched = false;
     double LastImpactTime = -100.0;
     double DamageEnabledAfterTime = 0.0;
+
+    FString ComicImpactText;
+    double ComicImpactStartedAt = -100.0;
+    double ComicImpactExpiresAt = -100.0;
+    float ComicImpactDuration = 0.70f;
+    float CameraKickYaw = 0.0f;
+    float CameraKickRoll = 0.0f;
 };
