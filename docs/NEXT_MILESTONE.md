@@ -1,6 +1,6 @@
-# Next milestone — VPR-22B / VPR-23A Configurable Chaos Race Gate
+# Next milestone — VPR-23B Demo Flow + Packaging Gate
 
-VPR-21 and VPR-22A were visually accepted on the user's machine on 2026-08-15.
+VPR-21 and VPR-22A were visually accepted on the user's machine on 2026-08-15. VPR-22B/VPR-23A configurable chaos race was subsequently tested by the user and accepted as **"NOT BAD"**, so it is frozen for now unless a real regression appears.
 
 ## Permanent project constraint — FREE ONLY
 Roadside Idiots must use only:
@@ -9,104 +9,143 @@ Roadside Idiots must use only:
 
 Do not recommend, plan around, purchase, or retain paid packs as a future dependency. If a suitable free asset does not exist, build a lightweight custom replacement.
 
+The removed SankoolArts compound/gate pack must not return. `tools/package_demo1.ps1` now refuses to package if a top-level `Content` folder containing `Sankool` is detected.
+
 ## Frozen playable baseline
-- VPR-18 bike physics/race/audio baseline remains frozen unless a real regression appears
-- continuous flat collision road remains authoritative
-- VPR-19 roadside theme, VPR-20 vegetation and VPR-21 roadside-art layers remain accepted
-- VPR-22A civilian traffic silhouettes are accepted for the current demo phase
-- banana/egg/poop/slap mechanics, recovery, checkpoints and minimap are not being retuned in this gate
+Do not retune these unless a real regression is observed:
+- VPR-18 bike movement/physics/recovery/audio baseline
+- continuous flat authoritative road collision
+- checkpoint/lap/place/finish logic
+- banana, rotten-egg, poop and slap mechanics
+- VPR-19/20/21 environment presentation
+- VPR-22A traffic silhouettes
+- VPR-22B chaos-director behavior
+- VPR-23A 2–6 opponents / 1–5 laps / 0–6 traffic setup
 
-## VPR-22A — PASSED
-User screenshots confirmed:
-- civilian vehicles are visibly more differentiated than the old identical block cars
-- presentation-only additions did not change the baseline actor count (175)
-- race, rivals, traffic and environment remained playable
+## VPR-22B / VPR-23A — PASSED FOR NOW
+Current configurable race behavior:
+- Opponents hard-clamped to 2–6
+- Laps 1–5
+- Traffic 0–6
+- defaults remain 3 / 3 / 3
+- scalable staggered start grid supports player + six AI
+- BOT_01 LEECH, BOT_02 HOTHEAD, BOT_03 PETTY
+- BOT_04 GREMLIN, BOT_05 BRAWLER, BOT_06 TRYHARD
+- chaos personalities can deliberately choose other AI as sabotage/grudge targets rather than tunneling exclusively on the human
+- TRYHARD remains race-focused so every rider does not share the same objective
 
-## VPR-22B — CODED, LOCAL GATE PENDING
-A new `URIRivalChaosSubsystem` sits above the existing AI rather than rewriting stable steering/physics.
+## VPR-23B — CODED, LOCAL COMPILE/UI GATE PENDING
+VPR-23B adds the remaining basic Demo 1 flow without touching accepted movement or race mechanics.
 
-It intentionally reuses systems that already work:
-- `ARIAIController::NotifyProvokedBy`
-- grudge pursuit
-- side slap interaction
-- rotten-egg targeting
-- banana-peel use
-- retaliation after being hit
+### Title / race setup
+The pre-race screen now acts as the Demo 1 title/setup screen:
+- Roadside Idiots title + tagline
+- Opponents
+- Laps
+- Traffic
+- START RACE
+- SETTINGS
+- QUIT GAME
 
-Chaos roles:
-- BOT_01 — LEECH: mostly races but periodically stalks a nearby rival
-- BOT_02 — HOTHEAD: actively starts fights and strongly prefers reachable AI-vs-AI trouble
-- BOT_03 — PETTY: periodically chooses another rider to annoy
-- BOT_04 — GREMLIN: disruption is a major objective
-- BOT_05 — BRAWLER: prefers close/side-by-side confrontation
-- BOT_06 — TRYHARD: intentionally remains race-first so not every opponent behaves the same
+Navigation:
+- UP/DOWN select
+- LEFT/RIGHT adjust
+- ENTER confirm
 
-The director only assigns nearby sabotage targets and does not alter bike physics. Existing AI hazard avoidance, pickup seeking, crowd braking, recovery and route following remain authoritative between chaos objectives.
+### Pause flow
+During a race:
+- `P` opens/closes pause reliably in PIE
+- `Esc` is also bound for packaged builds; PIE itself may reserve Escape
 
-## VPR-23A — CODED, LOCAL GATE PENDING
-A real C++ pre-race setup screen now controls the race before the world is built.
+Pause menu:
+1. RESUME
+2. RESTART RACE
+3. CHANGE RACE SETUP
+4. SETTINGS
+5. QUIT GAME
 
-Backed by `URIRaceSettingsSubsystem`:
-- Opponents: hard-clamped to 2–6
-- Laps: 1–5
-- Traffic: 0–6
-- Defaults remain 3 opponents / 3 laps / 3 traffic
+`RESTART RACE` uses a one-shot flag in `URIRaceSettingsSubsystem`, which lives in the GameInstance and therefore survives the level reload. It should restart directly with the same opponents/laps/traffic rather than forcing setup again.
 
-The menu uses:
-- UP/DOWN — select row
-- LEFT/RIGHT — change value
-- ENTER on START RACE — build the configured race
+`CHANGE RACE SETUP` reloads without that flag and returns to the title/setup menu.
 
-Implementation notes:
-- `ARIPlayerController` owns setup input
-- `ARIRaceSetupHUD` draws the setup menu and falls back to the existing gameplay HUD after launch
-- `ARIGameMode` delays `ARIDemoWorldBuilder` until START RACE is confirmed
-- race restart still uses the existing level reload; setup values live in the GameInstance subsystem and therefore can remain available when the menu returns
-- controller menu key bindings are non-consuming after launch so pawn controls/restart keep working
-- traffic spawning waits for the race manager, so changing traffic in the menu actually affects the spawned count
-- traffic styling also waits for confirmed race start and cleanly stops when traffic is set to zero
+### Graphics settings
+A deliberately small settings menu uses Unreal's native `UGameUserSettings`:
+- Graphics Quality: LOW / MEDIUM / HIGH / EPIC
+- VSync: ON / OFF
+- values are applied/saved through `ApplySettings`
+- settings can be opened from title/setup or pause
 
-## Scalable start grid
-The original fixed 4-rider array was replaced with a three-wide staggered grid:
-- player + 2 through player + 6 rivals are supported
-- up to 7 total racers use multiple rows
-- lane offsets remain comfortably inside the 12 m road
-- participant IDs remain PLAYER, BOT_01 ... BOT_06
+No external UI/plugin dependency was introduced.
 
-## Local verification gate
-1. pull current `dev/mvp-foundation`
+### Quit
+`UKismetSystemLibrary::QuitGame` is used for the packaged game. In PIE the editor may stop PIE rather than closing Unreal Editor, which is expected.
+
+### Packaging path
+Project metadata now reports:
+- version `0.1.0-demo1`
+
+New script:
+- `tools/package_demo1.ps1`
+
+It runs UE 5.8 `RunUAT BuildCookRun` for Win64 Development with build/cook/stage/pak/compression/prerequisites/archive.
+
+It also:
+- warns if expected approved free vegetation assets are missing locally
+- blocks packaging if removed SankoolArts content is detected
+- creates timestamped package directories so previous packages are not overwritten
+
+## VPR-23B local verification gate
+1. close Unreal and pull current `dev/mvp-foundation`
 2. compile `RoadsideIdiotsEditor Win64 Development`
-3. launch PIE: the race setup menu must appear before the player bike spawns
-4. verify Opponents cannot go below 2 or above 6
-5. set Opponents = 6, Laps = 1, Traffic = 6 and start once
-6. confirm seven total racers spawn without overlap/barrier trapping
-7. confirm HUD shows POS x/7 and LAP 1/1
-8. confirm roughly six civilian traffic vehicles appear over the lap
-9. watch rivals for at least 30–60 seconds and confirm some AI riders chase/slap/use items against other AI riders, not only the player
-10. confirm BOT_04/BOT_05/BOT_06 can appear with GREMLIN/BRAWLER/TRYHARD role labels when near the player
-11. confirm road collision, recovery, pickups, hazards, finish flow and minimap remain normal
-12. press Enter after/restart as before and confirm the level returns to the setup menu
+3. launch PIE
+4. confirm title/setup now contains START RACE, SETTINGS and QUIT GAME
+5. enter SETTINGS from setup; change Quality once and toggle VSync; BACK returns to setup
+6. start a normal 3-opponent race
+7. press `P` and confirm the world actually pauses and PAUSED menu appears
+8. RESUME and confirm movement/AI continues normally
+9. pause again -> SETTINGS -> BACK and confirm it returns to PAUSED, not gameplay
+10. pause -> RESTART RACE and confirm the same configured race starts directly after reload
+11. pause -> CHANGE RACE SETUP and confirm title/setup returns
+12. verify Enter/banana/egg/slap/recover controls still work when no menu is open
+13. verify AI, traffic, minimap, hazards, road and finish flow did not regress
 
-A compile failure or obvious race regression blocks VPR-23A. Minor menu styling does not.
+Do not run final packaging until this gate passes.
+
+## After VPR-23B passes
+Run the first packaged Windows smoke build:
+
+```powershell
+cd C:\GameDev\Roadside-Idiots
+powershell -ExecutionPolicy Bypass -File .\tools\package_demo1.ps1
+```
+
+Then launch the packaged `.exe` outside Unreal Editor and verify:
+- title/setup appears
+- race starts
+- Esc pause works
+- restart/setup/settings work
+- Quit Game closes the executable
+- local free/imported assets appear
+- no missing/cook errors cause visible fallbacks
 
 ## Demo 1 definition
 Demo 1 is a packaged Windows solo build; multiplayer is not required.
 
 Required before calling Demo 1 ready:
-1. one visually coherent configurable race course
+1. one coherent configurable race course
 2. 2–6 selectable AI opponents
 3. selectable laps and traffic density
-4. AI personalities that include both race-focused and chaos-focused objectives
-5. stable items, traffic, hazards, recovery and finish flow
-6. minimap/HUD/countdown/results readable
-7. simple title/setup/pause/restart/quit flow
-8. free/custom coherent environment dressing
-9. packaged Windows build launches outside the editor
-10. final bug/performance/packaging sweep
+4. race-focused and chaos-focused AI personalities
+5. stable items, hazards, traffic, recovery and finish flow
+6. readable minimap/HUD/countdown/results
+7. title/setup/pause/settings/restart/quit flow
+8. free/custom environment only
+9. packaged Windows executable launches outside the editor
+10. final VPR-24 bug/performance/package audit
 
 ## Remaining demo milestones
-- VPR-22B / VPR-23A: configurable chaos race + setup menu — current local gate
-- VPR-23B: pause/settings/restart/quit/title polish + packaging flow
+- VPR-23B: demo flow + packaging preparation — **current local gate**
+- packaged Windows smoke test — immediately after VPR-23B passes
 - VPR-24: final demo bug/performance/package audit
 
 ## Deferred beyond Demo 1
