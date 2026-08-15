@@ -19,23 +19,23 @@ Tagline: **The road is dangerous. The riders are worse.**
 - one player + three motorcycle bots
 - W accelerate, S brake/reverse, A/D steer
 - assisted balance/lean and lateral grip
-- ordered checkpoints, place/progress HUD and Enter restart
 - R safe recovery
 - 12 m oval prototype road with one continuous collision floor; invisible road-bump bug fixed
-- Q/E slap with impact wobble, SMACK/WHACK feedback and camera kick
-- deterministic grudge personalities: LEECH, HOTHEAD, PETTY
+- Q/E slap with wobble, reaction animation and comic impact text
+- LEECH / HOTHEAD / PETTY rival personalities and grudges
 - Condition/damage governor and visible bandage stages
-- banana pickup/heal/peel hazard loop
+- banana pickup/heal/peel loop
 - rotten egg pickup/throw/stink/grudge loop
 - civilian traffic loop
-- dog/cow poop road hazards with stink presentation
-- AI item parity: bots can collect/use bananas and rotten eggs
+- dog/cow poop hazards
+- AI item parity: bots collect/use banana peels and rotten eggs
+- 3-lap race, countdown, running time, place and circular minimap
 
 ## Important known limitations
 - bot corner/off-track recovery remains imperfect and is deferred
 - motorcycle physics are prototype physics, not final two-wheel simulation
 - final sounds/VFX, characters, vehicles and item/hazard models are not implemented
-- most prototype visuals use engine primitives
+- many prototype visuals still use engine primitives
 - multiplayer networking is deferred until the solo loop is stronger
 
 ## Imported local visuals
@@ -56,95 +56,105 @@ Presentation architecture:
 - chase camera: arm 550, height 185, pitch -12.5, FOV 95
 - user confirmed random invisible road bumps are gone
 
-## Condition / damage behavior
+## Condition / damage
 - side hit damage: 4
 - recipient impact immunity: 0.65 s
 - Q/E cooldown: 0.70 s
-- AI retaliation cooldown is personality-dependent
 - hard collision threshold prevents ordinary scrapes counting as damage
 - tip/crash penalty: 3
 - banana heals up to 12 Condition
-- poop intentionally does not change Condition directly
-- pre-race damage grace in VPR-14 now covers the countdown so traffic cannot damage a stationary player before GO
+- poop intentionally does not directly change Condition
+- countdown damage grace prevents unfair pre-GO traffic damage
 - old UE `GEngine not initialized / GetSimplePhysicalMaterial` startup errors were fixed by moving mass overrides into BeginPlay
 
-## Rival personalities / AI
-- BOT_01 LEECH: long grudge, strong chase, slower attacks
-- BOT_02 HOTHEAD: short grudge, fastest chase, aggressive/egg-oriented behavior
-- BOT_03 PETTY: medium grudge, peel-oriented behavior
+## Rival AI
+- BOT_01 LEECH: long grudge, pursuit-focused
+- BOT_02 HOTHEAD: fast/aggressive, strongest egg pressure
+- BOT_03 PETTY: peel-oriented
 
-VPR-13 locally ran successfully and user feedback was that things seemed quite good.
-
-AI parity/awareness:
-- all bikes own banana-peel and rotten-egg inventory
-- player and bots call the same `DropBananaPeel()` / `ThrowRottenEggAt()` actions
-- bots seek useful banana/egg pickups when not actively grudging
-- bots attempt to avoid traffic, poop, dropped peels and non-target bikes
+Shared item architecture:
+- every bike owns peel and rotten-egg inventory
+- human and AI call the same `DropBananaPeel()` / `ThrowRottenEggAt()` functions
+- bots seek useful nearby pickups
+- bots avoid traffic, poop, peels and non-target bikes
 - HOTHEAD is deliberately more reckless during grudges
-- projected rival labels include `P# E#`
 
-VPR-14 optimization:
-- steering still ticks at 20 Hz
-- expensive pickup/obstacle scans refresh around 5 Hz and are staggered per bot
-- item decisions are throttled separately
-- old static controller->stuck-time map was removed; stuck time is now per-controller state
-- AI navigation/sensing/stuck logic is suspended during the start countdown
+Optimization architecture from VPR-14:
+- steering/control loop = 20 Hz
+- expensive world-awareness scans ~= 5 Hz, staggered by bot
+- item decisions throttled separately
+- stuck time is per AI controller
+- AI sensing/stuck logic is suspended during countdown
 
-## Items / hazards — locally proven
+VPR-14.1 anti-bunching upgrade:
+- non-target bike avoidance is wider/stronger
+- cached sense pass calculates crowd speed scaling
+- rider directly ahead makes bot slow instead of driving into the pack
+- very close blocked lane adds stronger braking
+- grudge targets retain a more aggressive minimum following speed
+
+## Items / hazards
 ### Banana
 - eight pickups
-- pickup heals and grants peel
-- carry max 3
+- heals and grants peel
+- max 3
 - F drops gravity-driven peel
-- short self-immunity prevents instant dropper hit
-- afterward any bike can slip
+- short self-immunity prevents instant self-hit
 
 ### Rotten egg
-- carry max 2 per bike
-- G throws player egg; AI can throw using same shared bike action
-- hit gives SPLAT, small wobble, 1 Condition damage, stink presentation and grudge attribution
+- max 2 per bike
+- G throws player egg; AI uses the same shared throw action
+- SPLAT + wobble + 1 Condition damage + stink + grudge attribution
 
 ### Dog/cow poop
-Current map seeds 3 dog piles + 3 cow patties.
-- dog = quick sideways skid/wobble + smaller filth/stink
-- cow = speed cut to ~42% + larger/longer filth/stink
-- rising green/brown fumes and DOG/COW STINK projected label are locally visible
-- user screenshot showed VPR-13 cow stink running correctly
+Map seeds 3 dog piles + 3 cow patties.
+- dog: quick sideways skid/wobble + shorter filth/stink
+- cow: horizontal speed cut to ~42% + longer filth/stink
 
-## Civilian traffic — locally accepted
-Traffic follows the same analytic oval:
+VPR-14.1 visual cleanup:
+- at most one active poop-mess effect per bike
+- additional poop hits refresh/upgrade existing mess instead of stacking another set of blobs
+- road piles are smaller
+- rider splats are smaller
+- stink fumes are smaller/tighter and light intensity is reduced
+- poop no longer emits redundant `GEngine` screen spam
+
+## Civilian traffic
+Traffic follows the analytic oval:
 - yellow SUNDAY DRIVER ~42 km/h
-- blue TAXI ~58 km/h with slight lane wander
+- blue TAXI ~58 km/h with slight wander
 - orange DELIVERY VAN ~72 km/h
-- overlap-impact architecture avoids kinematic deadlocks
-- VPR-11.1 compact placeholder car proportions/wheels/lights were accepted
+- overlap-impact architecture avoids hard kinematic deadlocks
+- pre-GO traffic contact is ignored for racers
 
-## VPR-14 — race readability / minimap / laps (CURRENT PENDING LOCAL GATE)
-Race architecture:
-- race is now 3 laps instead of one checkpoint loop
-- `FRIRaceProgress` tracks completed laps, next checkpoint, finish time and last checkpoint time
-- place calculation compares finished state -> completed laps -> checkpoint -> checkpoint crossing time
-- finish time is stored as elapsed race time
+## VPR-14 — locally visually passed
+The user screenshot proved:
+- circular minimap is visible and tracking racers/traffic
+- top strip shows LAP/POS/time
+- race successfully reached LAP 2/3 instead of finishing after one loop
+- VPR-14 race/minimap architecture is good enough to keep
 
-Start flow:
-- real 3-second countdown
-- player and AI drive controls are held at zero until GO
-- slap/item actions are also gated before GO
-- HUD shows 3 / 2 / 1 / GO
+The screenshot also exposed clutter: repeated debug messages, oversized/stacked stink/filth, and a multi-bike bunch around hazards. Those observations triggered VPR-14.1.
 
-HUD/minimap:
-- compact top-center `LAP / POS / TIME` strip
-- circular top-right minimap
-- normalized oval route displays as a clean round course
-- player marker includes heading
-- rival markers use personality/anger colors
-- civilian traffic appears as smaller neutral markers
-- start/finish tick shown on map
-- finish panel shows place + elapsed time + Enter restart
-- left debug HUD now reads rotten-egg inventory directly from the player's bike, matching VPR-13 shared-inventory architecture
+## VPR-14.1 — CURRENT PENDING LOCAL GATE
+HUD cleanup:
+- top-left is now a compact dark-backed gameplay panel
+- build marker: `VPR-14.1 | HUD CLEANUP | PACK SPACING`
+- top-center race strip has dark backing
+- minimap has subtle dark backing and a small `MAP` label
+- rival labels only appear when close or actively MAD
+- stink labels are smaller/range-limited
+- only one concise MAD warning is shown
+- controls are fixed to a bottom-left strip
+- slap/poop/item-action debug spam was removed where redundant
 
-HUD marker:
-`BUILD: VPR-14 | MINIMAP + 3 LAPS | AI: OPTIMIZED`
+Crash/dizzy first pass:
+- tipping triggers `DIZZY!`
+- existing get-hit reaction animation is reused
+- human camera gets a short decaying sinusoidal wobble
+- crash penalty remains 3 Condition
+- auto upright remains 2.4 s
+- R/auto recovery clears dizzy state
 
 ## Controls
 - W accelerate
@@ -160,16 +170,15 @@ HUD marker:
 1. Close Unreal.
 2. Pull latest `dev/mvp-foundation`.
 3. Compile `RoadsideIdiotsEditor`.
-4. Launch PIE and verify the VPR-14 marker.
-5. Confirm bikes remain stationary during 3/2/1 and move normally at GO.
-6. Check the top-right circular minimap: player + 3 rivals + civilian traffic should move around the ring without leaving the frame.
-7. Confirm top-center strip shows LAP 1/3, position and running time.
-8. Finish lap 1: race must continue into LAP 2/3 instead of ending.
-9. Confirm position still behaves sensibly when riders are on different laps.
-10. Finish lap 3: finish panel should show place and elapsed time; Enter restarts with a fresh countdown.
-11. Regression: player F/G, AI item use, stink, traffic, Condition and flat road should remain intact.
+4. Launch PIE and verify `VPR-14.1 | HUD CLEANUP | PACK SPACING`.
+5. Confirm the top-left HUD is significantly cleaner and repeated COW PATTY/SMACK messages no longer cover it.
+6. Hit dog/cow poop; stink must remain readable but should no longer hide the bike.
+7. Hit multiple poop hazards before the effect expires; effect should refresh rather than stack into a wall of spheres.
+8. Watch bots converge around riders/hazards; spacing/braking should reduce stationary pile-ups.
+9. Deliberately tip the player bike and confirm `DIZZY!` plus a short camera wobble, followed by normal recovery.
+10. Reconfirm minimap, three laps, countdown, items, traffic, Condition and flat road.
 
-If VPR-14 passes, next phase is presentation/feel rather than another large architecture refactor: audio layer, crash/dizzy comedy, impact/honk/splat/skid feedback and controlled VFX.
+If VPR-14.1 passes, move to the first audio/presentation package rather than another gameplay architecture refactor.
 
 ## New-chat protocol
 1. Read this file.
