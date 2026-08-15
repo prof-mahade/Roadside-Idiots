@@ -66,6 +66,8 @@ namespace
         const bool bCowPoop = EventName == FName(TEXT("CowPoop"));
         const bool bPickupBanana = EventName == FName(TEXT("PickupBanana"));
         const bool bPickupEgg = EventName == FName(TEXT("PickupEgg"));
+        const bool bEnginePulse = EventName == FName(TEXT("EnginePulse"));
+        const bool bTireSkid = EventName == FName(TEXT("TireSkid"));
 
         if (bCountdown)
         {
@@ -139,6 +141,18 @@ namespace
             BaseFrequency = bPickupBanana ? 760.0f : 430.0f;
             Amplitude = 0.20f;
         }
+        else if (bEnginePulse)
+        {
+            Duration = 0.135f;
+            BaseFrequency = 92.0f;
+            Amplitude = 0.26f;
+        }
+        else if (bTireSkid)
+        {
+            Duration = 0.18f;
+            BaseFrequency = 980.0f;
+            Amplitude = 0.16f;
+        }
 
         const int32 SampleCount = FMath::Max(1, FMath::RoundToInt(Duration * static_cast<float>(RIFallbackSampleRate)));
         TArray<int16> PCM;
@@ -151,8 +165,9 @@ namespace
         {
             const float Time = static_cast<float>(SampleIndex) / static_cast<float>(RIFallbackSampleRate);
             const float Alpha = static_cast<float>(SampleIndex) / static_cast<float>(FMath::Max(1, SampleCount - 1));
-            const float Attack = FMath::Clamp(Time / 0.012f, 0.0f, 1.0f);
-            const float Release = FMath::Pow(FMath::Clamp(1.0f - Alpha, 0.0f, 1.0f), 1.45f);
+            const float Attack = FMath::Clamp(Time / (bEnginePulse ? 0.006f : 0.012f), 0.0f, 1.0f);
+            const float ReleasePower = bEnginePulse ? 0.55f : 1.45f;
+            const float Release = FMath::Pow(FMath::Clamp(1.0f - Alpha, 0.0f, 1.0f), ReleasePower);
             const float Envelope = Attack * Release;
 
             float Frequency = BaseFrequency;
@@ -167,6 +182,10 @@ namespace
             else if (bPeelSlip)
             {
                 Frequency *= 1.0f + 0.15f * FMath::Sin(Alpha * PI * 7.0f);
+            }
+            else if (bEnginePulse)
+            {
+                Frequency *= 0.96f + 0.05f * FMath::Sin(Alpha * PI * 4.0f);
             }
 
             Phase += 2.0f * PI * Frequency / static_cast<float>(RIFallbackSampleRate);
@@ -199,6 +218,21 @@ namespace
             else if (bEggMiss)
             {
                 Value = 0.65f * FMath::Sin(Phase) + 0.35f * NextNoise(NoiseState);
+            }
+            else if (bEnginePulse)
+            {
+                const float Noise = NextNoise(NoiseState);
+                Value =
+                    0.50f * FMath::Sin(Phase) +
+                    0.25f * FMath::Sin(Phase * 2.0f) +
+                    0.13f * FMath::Sin(Phase * 3.0f) +
+                    0.12f * Noise;
+            }
+            else if (bTireSkid)
+            {
+                const float Noise = NextNoise(NoiseState);
+                const float Whine = FMath::Sin(Phase) * (0.55f + 0.45f * FMath::Sin(Alpha * PI * 9.0f));
+                Value = 0.24f * Whine + 0.76f * Noise;
             }
 
             const float Scaled = FMath::Clamp(Value * Envelope * Amplitude, -0.96f, 0.96f);
