@@ -2,12 +2,10 @@
 
 #include "Kismet/GameplayStatics.h"
 #include "Sound/SoundBase.h"
+#include "UObject/UObjectGlobals.h"
 
 namespace
 {
-    // Local binary audio is intentionally optional and not stored in Git. Cache
-    // misses so a missing prototype sound does not cause repeated asset lookups
-    // every time a gameplay event fires.
     TSet<FName> MissingAudioEvents;
 }
 
