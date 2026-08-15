@@ -1,13 +1,17 @@
 #include "Visual/RIPrototypeVisuals.h"
 
 #include "Vehicle/RIBikePawn.h"
+#include "Core/RIHealthComponent.h"
 #include "Animation/AnimSequence.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "AssetRegistry/IAssetRegistry.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/SkeletalMesh.h"
+#include "Engine/StaticMesh.h"
 #include "Engine/World.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "Materials/MaterialInterface.h"
 #include "Modules/ModuleManager.h"
 #include "TimerManager.h"
 
@@ -15,6 +19,9 @@ namespace
 {
     const FName MotorcycleComponentName(TEXT("PrototypeMotorcycleVisual"));
     const FName RiderComponentName(TEXT("PrototypeRiderVisual"));
+    const FName BandageArmComponentName(TEXT("PrototypeBandageArm"));
+    const FName BandageHeadComponentName(TEXT("PrototypeBandageHead"));
+    const FName BandageLegComponentName(TEXT("PrototypeBandageLeg"));
     constexpr float VisualYawOffsetDegrees = -90.0f;
     constexpr float VisualHeightOffset = -10.0f;
     constexpr float RiderRearwardOffset = 14.0f;
@@ -48,6 +55,22 @@ namespace
         TArray<USkeletalMeshComponent*> Components;
         Bike->GetComponents<USkeletalMeshComponent>(Components);
         for (USkeletalMeshComponent* Component : Components)
+        {
+            if (Component && Component->GetFName() == ComponentName)
+            {
+                return Component;
+            }
+        }
+        return nullptr;
+    }
+
+    UStaticMeshComponent* FindStaticVisualComponent(ARIBikePawn* Bike, const FName ComponentName)
+    {
+        if (!Bike) return nullptr;
+
+        TArray<UStaticMeshComponent*> Components;
+        Bike->GetComponents<UStaticMeshComponent>(Components);
+        for (UStaticMeshComponent* Component : Components)
         {
             if (Component && Component->GetFName() == ComponentName)
             {
@@ -168,6 +191,71 @@ namespace
         Component->SetAbsolute(true, true, true);
         Component->SetWorldScale3D(FVector::OneVector);
     }
+
+    UStaticMeshComponent* EnsureBandage(
+        ARIBikePawn* Bike,
+        USkeletalMeshComponent* Rider,
+        UStaticMesh* CubeMesh,
+        const FName ComponentName,
+        const FName BoneName,
+        const FVector RelativeLocation,
+        const FRotator RelativeRotation,
+        const FVector RelativeScale)
+    {
+        if (!Bike || !Rider || !CubeMesh) return nullptr;
+
+        UStaticMeshComponent* Bandage = FindStaticVisualComponent(Bike, ComponentName);
+        if (!Bandage)
+        {
+            Bandage = NewObject<UStaticMeshComponent>(Bike, ComponentName);
+            Bike->AddInstanceComponent(Bandage);
+            Bandage->SetupAttachment(Rider, BoneName);
+            Bandage->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+            Bandage->SetGenerateOverlapEvents(false);
+            Bandage->RegisterComponent();
+        }
+
+        Bandage->SetStaticMesh(CubeMesh);
+        Bandage->SetRelativeLocation(RelativeLocation);
+        Bandage->SetRelativeRotation(RelativeRotation);
+        Bandage->SetRelativeScale3D(RelativeScale);
+        Bandage->SetVisibility(false, true);
+
+        if (UMaterialInterface* BaseMaterial = LoadObject<UMaterialInterface>(nullptr, TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial")))
+        {
+            if (UMaterialInstanceDynamic* Material = UMaterialInstanceDynamic::Create(BaseMaterial, Bandage))
+            {
+                Material->SetVectorParameterValue(TEXT("Color"), FLinearColor(0.93f, 0.86f, 0.70f, 1.0f));
+                Bandage->SetMaterial(0, Material);
+            }
+        }
+
+        return Bandage;
+    }
+
+    void UpdateBandages(ARIBikePawn* Bike)
+    {
+        if (!Bike) return;
+
+        URIHealthComponent* Health = Bike->GetHealthComponent();
+        if (!Health) return;
+
+        const float MaxHealth = FMath::Max(1.0f, Health->GetMaxHealth());
+        const float HealthFraction = Health->GetCurrentHealth() / MaxHealth;
+
+        if (UStaticMeshComponent* ArmBandage = FindStaticVisualComponent(Bike, BandageArmComponentName))
+        {
+            ArmBandage->SetVisibility(HealthFraction <= 0.75f, true);
+        }
+        if (UStaticMeshComponent* HeadBandage = FindStaticVisualComponent(Bike, BandageHeadComponentName))
+        {
+            HeadBandage->SetVisibility(HealthFraction <= 0.50f, true);
+        }
+        if (UStaticMeshComponent* LegBandage = FindStaticVisualComponent(Bike, BandageLegComponentName))
+        {
+            LegBandage->SetVisibility(HealthFraction <= 0.25f, true);
+        }
+    }
 }
 
 void RIPrototypeVisuals::Setup(ARIBikePawn* Bike)
@@ -211,6 +299,35 @@ void RIPrototypeVisuals::Setup(ARIBikePawn* Bike)
         if (Part) Part->SetVisibility(false, false);
     }
 
+    UStaticMesh* CubeMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
+    EnsureBandage(
+        Bike,
+        Rider,
+        CubeMesh,
+        BandageArmComponentName,
+        FName(TEXT("upperarm_l")),
+        FVector(12.0f, 0.0f, 0.0f),
+        FRotator(0.0f, 0.0f, 8.0f),
+        FVector(0.16f, 0.105f, 0.105f));
+    EnsureBandage(
+        Bike,
+        Rider,
+        CubeMesh,
+        BandageHeadComponentName,
+        FName(TEXT("head")),
+        FVector(0.0f, 0.0f, 8.0f),
+        FRotator(5.0f, 18.0f, 0.0f),
+        FVector(0.19f, 0.27f, 0.045f));
+    EnsureBandage(
+        Bike,
+        Rider,
+        CubeMesh,
+        BandageLegComponentName,
+        FName(TEXT("calf_r")),
+        FVector(13.0f, 0.0f, 0.0f),
+        FRotator(0.0f, 0.0f, -6.0f),
+        FVector(0.17f, 0.10f, 0.10f));
+
     ApplyNeutralPose(Bike);
     Update(Bike);
 }
@@ -237,6 +354,8 @@ void RIPrototypeVisuals::Update(ARIBikePawn* Bike)
     Rider->SetWorldLocationAndRotation(RiderLocation, VisualRotation);
     Motorcycle->SetWorldScale3D(FVector::OneVector);
     Rider->SetWorldScale3D(FVector::OneVector);
+
+    UpdateBandages(Bike);
 }
 
 void RIPrototypeVisuals::PlaySideAction(ARIBikePawn* Bike, float Side)
