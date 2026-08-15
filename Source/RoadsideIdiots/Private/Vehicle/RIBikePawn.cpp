@@ -5,10 +5,12 @@
 #include "Interaction/RIInteractionComponent.h"
 #include "Items/RIBananaPeelHazard.h"
 #include "Items/RIRottenEggProjectile.h"
+#include "Race/RIRaceManager.h"
 #include "Visual/RIPrototypeVisuals.h"
 #include "Camera/CameraComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/Engine.h"
+#include "EngineUtils.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "UObject/ConstructorHelpers.h"
@@ -111,7 +113,15 @@ void ARIBikePawn::BeginPlay()
 
     if (GetWorld())
     {
-        DamageEnabledAfterTime = GetWorld()->GetTimeSeconds() + 1.25;
+        for (TActorIterator<ARIRaceManager> It(GetWorld()); It; ++It)
+        {
+            CachedRaceManager = *It;
+            break;
+        }
+
+        const double Now = GetWorld()->GetTimeSeconds();
+        const float PreRaceGrace = CachedRaceManager ? CachedRaceManager->GetSecondsUntilStart() + 0.75f : 1.25f;
+        DamageEnabledAfterTime = Now + FMath::Max(1.25f, PreRaceGrace);
     }
 
     Chassis->OnComponentHit.AddDynamic(this, &ARIBikePawn::HandleChassisHit);
@@ -120,6 +130,11 @@ void ARIBikePawn::BeginPlay()
         SetRecoveryTransform(GetActorTransform());
     }
     RIPrototypeVisuals::Setup(this);
+}
+
+bool ARIBikePawn::IsRaceInputEnabled() const
+{
+    return !CachedRaceManager || CachedRaceManager->IsRaceStarted();
 }
 
 void ARIBikePawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -144,7 +159,8 @@ void ARIBikePawn::InputThrottle(float Value)
 
 void ARIBikePawn::InputSteering(float Value)
 {
-    BikeMovement->SetSteeringInput(Value);
+    if (!BikeMovement) return;
+    BikeMovement->SetSteeringInput(IsRaceInputEnabled() ? Value : 0.0f);
 }
 
 void ARIBikePawn::InputBrake(float Value)
@@ -156,6 +172,14 @@ void ARIBikePawn::InputBrake(float Value)
 void ARIBikePawn::UpdatePlayerDriveInputs()
 {
     if (!BikeMovement) return;
+
+    if (!IsRaceInputEnabled())
+    {
+        BikeMovement->SetThrottleInput(0.0f);
+        BikeMovement->SetBrakeInput(0.0f);
+        BikeMovement->SetSteeringInput(0.0f);
+        return;
+    }
 
     if (PlayerBrakeInput > KINDA_SMALL_NUMBER)
     {
@@ -179,6 +203,16 @@ void ARIBikePawn::UpdatePlayerDriveInputs()
 
 void ARIBikePawn::SetControlInputs(float Throttle, float Steering, float Brake)
 {
+    if (!BikeMovement) return;
+
+    if (!IsRaceInputEnabled())
+    {
+        BikeMovement->SetThrottleInput(0.0f);
+        BikeMovement->SetSteeringInput(0.0f);
+        BikeMovement->SetBrakeInput(0.0f);
+        return;
+    }
+
     BikeMovement->SetThrottleInput(Throttle);
     BikeMovement->SetSteeringInput(Steering);
     BikeMovement->SetBrakeInput(Brake);
@@ -186,12 +220,18 @@ void ARIBikePawn::SetControlInputs(float Throttle, float Steering, float Brake)
 
 void ARIBikePawn::InteractLeft()
 {
-    Interaction->TrySideInteraction(-1.0f);
+    if (IsRaceInputEnabled() && Interaction)
+    {
+        Interaction->TrySideInteraction(-1.0f);
+    }
 }
 
 void ARIBikePawn::InteractRight()
 {
-    Interaction->TrySideInteraction(1.0f);
+    if (IsRaceInputEnabled() && Interaction)
+    {
+        Interaction->TrySideInteraction(1.0f);
+    }
 }
 
 void ARIBikePawn::AddBananaPeel(int32 Amount)
@@ -244,7 +284,7 @@ bool ARIBikePawn::GetActiveComicImpact(FString& OutText, float& OutAlpha) const
 
 bool ARIBikePawn::DropBananaPeel()
 {
-    if (!HasAuthority() || !GetWorld() || BananaPeelCount <= 0) return false;
+    if (!HasAuthority() || !GetWorld() || BananaPeelCount <= 0 || !IsRaceInputEnabled()) return false;
 
     const FVector Forward = GetActorForwardVector().GetSafeNormal2D();
     const FVector SpawnLocation = GetActorLocation() - Forward * 135.0f + FVector::UpVector * 95.0f;
@@ -276,7 +316,7 @@ bool ARIBikePawn::DropBananaPeel()
 
 bool ARIBikePawn::ThrowRottenEggAt(ARIBikePawn* TargetBike)
 {
-    if (!HasAuthority() || !GetWorld() || RottenEggCount <= 0) return false;
+    if (!HasAuthority() || !GetWorld() || RottenEggCount <= 0 || !IsRaceInputEnabled()) return false;
 
     const FVector Forward = GetActorForwardVector().GetSafeNormal2D();
     const FVector SpawnLocation = GetActorLocation() + Forward * 150.0f + FVector::UpVector * 130.0f;
@@ -323,6 +363,7 @@ bool ARIBikePawn::ThrowRottenEggAt(ARIBikePawn* TargetBike)
 
 void ARIBikePawn::UseItem()
 {
+    if (!IsRaceInputEnabled()) return;
     if (DropBananaPeel()) return;
 
     if (GEngine && Participant && Participant->IsHumanControlled())
