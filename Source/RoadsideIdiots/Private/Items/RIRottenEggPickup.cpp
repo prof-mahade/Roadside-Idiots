@@ -1,11 +1,11 @@
 #include "Items/RIRottenEggPickup.h"
 
+#include "Audio/RIAudioEvents.h"
 #include "Vehicle/RIBikePawn.h"
 #include "Core/RIParticipantComponent.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/PointLightComponent.h"
-#include "Engine/Engine.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialInterface.h"
 #include "UObject/ConstructorHelpers.h"
@@ -27,6 +27,7 @@ ARIRottenEggPickup::ARIRottenEggPickup()
     Visual->SetupAttachment(Trigger);
     Visual->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     Visual->SetRelativeScale3D(FVector(0.34f, 0.26f, 0.42f));
+    Visual->SetRelativeRotation(FRotator(7.0f, 0.0f, -8.0f));
 
     static ConstructorHelpers::FObjectFinder<UStaticMesh> SphereMesh(TEXT("/Engine/BasicShapes/Sphere.Sphere"));
     if (SphereMesh.Succeeded())
@@ -51,7 +52,7 @@ void ARIRottenEggPickup::BeginPlay()
     {
         if (UMaterialInstanceDynamic* Material = UMaterialInstanceDynamic::Create(BaseMaterial, this))
         {
-            Material->SetVectorParameterValue(TEXT("Color"), FLinearColor(0.34f, 0.42f, 0.035f, 1.0f));
+            Material->SetVectorParameterValue(TEXT("Color"), FLinearColor(0.30f, 0.38f, 0.025f, 1.0f));
             Visual->SetMaterial(0, Material);
         }
     }
@@ -75,9 +76,9 @@ void ARIRottenEggPickup::HandleOverlap(
 
     Bike->AddRottenEgg(1);
 
-    if (GEngine && Participant->IsHumanControlled())
+    if (Participant->IsHumanControlled())
     {
-        GEngine->AddOnScreenDebugMessage(-1, 1.7f, FColor(130, 180, 35), TEXT("UGH. Rotten egg acquired. Press G to throw it."));
+        RIAudioEvents::Play(this, FName(TEXT("PickupEgg")), GetActorLocation(), 0.68f, 0.88f);
     }
 
     Destroy();
