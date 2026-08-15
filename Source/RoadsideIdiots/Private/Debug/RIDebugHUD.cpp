@@ -8,6 +8,8 @@
 #include "Items/RIRottenEggWorldSubsystem.h"
 #include "Items/RIRottenEggStinkEffect.h"
 #include "Traffic/RITrafficVehicle.h"
+#include "Hazards/RIPoopWorldSubsystem.h"
+#include "Hazards/RIPoopMessEffect.h"
 #include "Engine/Engine.h"
 #include "Engine/Canvas.h"
 #include "EngineUtils.h"
@@ -39,7 +41,7 @@ void ARIDebugHUD::DrawHUD()
     };
 
     Line(TEXT("ROADSIDE IDIOTS - MVP"), FLinearColor(1.0f, 0.75f, 0.2f));
-    Line(TEXT("BUILD: VPR-11.1 | TRAFFIC: SHAPED CARS | ITEMS: WORKING"), FLinearColor(0.55f, 1.0f, 0.70f));
+    Line(TEXT("BUILD: VPR-12 | HAZARDS: DOG + COW POOP | TRAFFIC: PASSED"), FLinearColor(0.55f, 1.0f, 0.70f));
     Line(FString::Printf(TEXT("Speed: %.0f km/h"), FMath::Abs(Bike->GetBikeMovement()->GetForwardSpeedKph())));
 
     const float CurrentCondition = Bike->GetHealthComponent()->GetCurrentHealth();
@@ -90,6 +92,15 @@ void ARIDebugHUD::DrawHUD()
         ++TrafficCount;
     }
     Line(FString::Printf(TEXT("Traffic: %d civilian idiots"), TrafficCount), FLinearColor(0.72f, 0.82f, 1.0f));
+
+    if (const URIPoopWorldSubsystem* PoopSystem = GetWorld()->GetSubsystem<URIPoopWorldSubsystem>())
+    {
+        Line(
+            FString::Printf(TEXT("Road hazards: %d dog poop | %d cow patties"),
+                PoopSystem->GetSpawnedDogPoopCount(),
+                PoopSystem->GetSpawnedCowPoopCount()),
+            FLinearColor(0.67f, 0.43f, 0.20f));
+    }
 
     if (CachedRaceManager)
     {
@@ -193,6 +204,26 @@ void ARIDebugHUD::DrawHUD()
             ScreenPosition.Y - 10.0f,
             Font,
             1.35f,
+            false);
+    }
+
+    for (TActorIterator<ARIPoopMessEffect> It(GetWorld()); It; ++It)
+    {
+        ARIPoopMessEffect* Mess = *It;
+        ARIBikePawn* DirtyBike = Mess ? Mess->GetAffectedBike() : nullptr;
+        if (!DirtyBike) continue;
+
+        FVector2D ScreenPosition;
+        const FVector LabelLocation = DirtyBike->GetActorLocation() + FVector::UpVector * 335.0f;
+        if (!PlayerOwner->ProjectWorldLocationToScreen(LabelLocation, ScreenPosition, true)) continue;
+
+        DrawText(
+            Mess->IsCowMess() ? TEXT("COW FILTH!") : TEXT("DOG FILTH!"),
+            Mess->IsCowMess() ? FLinearColor(0.62f, 0.33f, 0.08f) : FLinearColor(0.48f, 0.24f, 0.06f),
+            ScreenPosition.X - 46.0f,
+            ScreenPosition.Y - 8.0f,
+            Font,
+            1.15f,
             false);
     }
 
