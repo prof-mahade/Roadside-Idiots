@@ -36,9 +36,42 @@ void ARIDebugHUD::DrawHUD()
     };
 
     Line(TEXT("ROADSIDE IDIOTS - MVP"), FLinearColor(1.0f, 0.75f, 0.2f));
-    Line(TEXT("BUILD: VPR-08 | COMBAT: IMPACT FEEL | BANANA: WORKING"), FLinearColor(0.55f, 1.0f, 0.70f));
+    Line(TEXT("BUILD: VPR-09 | DAMAGE: BANDAGES | COMBAT: IMPACT FEEL"), FLinearColor(0.55f, 1.0f, 0.70f));
     Line(FString::Printf(TEXT("Speed: %.0f km/h"), FMath::Abs(Bike->GetBikeMovement()->GetForwardSpeedKph())));
-    Line(FString::Printf(TEXT("Condition: %.0f / %.0f"), Bike->GetHealthComponent()->GetCurrentHealth(), Bike->GetHealthComponent()->GetMaxHealth()));
+
+    const float CurrentCondition = Bike->GetHealthComponent()->GetCurrentHealth();
+    const float MaxCondition = FMath::Max(1.0f, Bike->GetHealthComponent()->GetMaxHealth());
+    const float ConditionFraction = CurrentCondition / MaxCondition;
+
+    FLinearColor ConditionColor = FLinearColor::White;
+    if (ConditionFraction <= 0.25f)
+    {
+        ConditionColor = FLinearColor(1.0f, 0.18f, 0.10f);
+    }
+    else if (ConditionFraction <= 0.50f)
+    {
+        ConditionColor = FLinearColor(1.0f, 0.48f, 0.10f);
+    }
+    else if (ConditionFraction <= 0.75f)
+    {
+        ConditionColor = FLinearColor(1.0f, 0.82f, 0.18f);
+    }
+
+    Line(FString::Printf(TEXT("Condition: %.0f / %.0f"), CurrentCondition, MaxCondition), ConditionColor);
+
+    if (ConditionFraction <= 0.25f)
+    {
+        Line(TEXT("DAMAGE: HELD TOGETHER BY BANDAGES"), FLinearColor(1.0f, 0.18f, 0.10f));
+    }
+    else if (ConditionFraction <= 0.50f)
+    {
+        Line(TEXT("DAMAGE: ROUGH SHAPE"), FLinearColor(1.0f, 0.48f, 0.10f));
+    }
+    else if (ConditionFraction <= 0.75f)
+    {
+        Line(TEXT("DAMAGE: BANGED UP"), FLinearColor(1.0f, 0.82f, 0.18f));
+    }
+
     Line(FString::Printf(TEXT("Banana peels: %d / 3"), Bike->GetBananaPeelCount()), FLinearColor(1.0f, 0.85f, 0.18f));
 
     if (CachedRaceManager)
@@ -60,8 +93,6 @@ void ARIDebugHUD::DrawHUD()
         }
     }
 
-    // If the human player just got hit, put the impact word near screen center so
-    // it cannot be missed even while looking at the road.
     FString PlayerImpactText;
     float PlayerImpactAlpha = 0.0f;
     if (Bike->GetActiveComicImpact(PlayerImpactText, PlayerImpactAlpha))
@@ -70,8 +101,6 @@ void ARIDebugHUD::DrawHUD()
         DrawText(PlayerImpactText, ImpactColor, Canvas->SizeX * 0.46f, Canvas->SizeY * 0.43f, Font, 2.0f, false);
     }
 
-    // Temporary in-world readability: personality + anger + impact labels above
-    // visually identical prototype riders.
     for (TActorIterator<ARIAIController> It(GetWorld()); It; ++It)
     {
         ARIAIController* AI = *It;
