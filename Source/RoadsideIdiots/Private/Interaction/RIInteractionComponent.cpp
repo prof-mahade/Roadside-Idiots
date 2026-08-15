@@ -5,7 +5,6 @@
 #include "AI/RIAIController.h"
 #include "Visual/RIPrototypeVisuals.h"
 #include "Components/StaticMeshComponent.h"
-#include "Engine/Engine.h"
 #include "Engine/World.h"
 
 URIInteractionComponent::URIInteractionComponent()
@@ -64,7 +63,6 @@ bool URIInteractionComponent::TrySideInteraction(float Side)
 
         if (UStaticMeshComponent* OtherChassis = OtherBike->GetChassis())
         {
-            // The slap should read as a wobble, not just invisible sideways drift.
             OtherChassis->AddImpulse(SideDirection * SideVelocityChange + FVector::UpVector * 38.0f, NAME_None, true);
 
             const FVector RollKick = OtherBike->GetActorForwardVector() * (-Side * 3.6f);
@@ -85,40 +83,12 @@ bool URIInteractionComponent::TrySideInteraction(float Side)
             RivalController->NotifyProvokedBy(OwnerBike);
         }
 
-        const URIParticipantComponent* OwnerParticipant = OwnerBike->GetParticipantComponent();
         const URIParticipantComponent* OtherParticipant = OtherBike->GetParticipantComponent();
-        const bool bOwnerHuman = OwnerParticipant && OwnerParticipant->IsHumanControlled();
         const bool bOtherHuman = OtherParticipant && OtherParticipant->IsHumanControlled();
-        const FString OtherName = OtherParticipant ? OtherParticipant->GetParticipantId().ToString() : TEXT("RIVAL");
-        const FString OwnerName = OwnerParticipant ? OwnerParticipant->GetParticipantId().ToString() : TEXT("RIVAL");
 
-        // Short-lived comic impact text is drawn near the victim. Human victims
-        // also receive a small chase-camera kick from TriggerComicImpact.
+        // HUD/world-space impact text already communicates the hit clearly.
+        // Avoid GEngine screen messages here because they stack over the race HUD.
         OtherBike->TriggerComicImpact(-Side, bOtherHuman ? TEXT("WHACK!") : TEXT("SMACK!"), 0.72f);
-
-        if (GEngine)
-        {
-            if (bOwnerHuman)
-            {
-                const FString Personality = RivalController ? RivalController->GetPersonalityLabel() : TEXT("IDIOT");
-                GEngine->AddOnScreenDebugMessage(
-                    -1,
-                    1.55f,
-                    FColor::Yellow,
-                    FString::Printf(TEXT("SMACK! %s [%s] IS MAD!"), *OtherName, *Personality));
-            }
-            else if (bOtherHuman)
-            {
-                ARIAIController* AttackerAI = Cast<ARIAIController>(OwnerBike->GetController());
-                const FString Personality = AttackerAI ? AttackerAI->GetPersonalityLabel() : TEXT("IDIOT");
-                GEngine->AddOnScreenDebugMessage(
-                    -1,
-                    1.55f,
-                    FColor::Red,
-                    FString::Printf(TEXT("WHACK! %s [%s] hit YOU!"), *OwnerName, *Personality));
-            }
-        }
-
         return true;
     }
 
