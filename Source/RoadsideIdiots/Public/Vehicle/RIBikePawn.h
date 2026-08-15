@@ -54,6 +54,9 @@ public:
     bool DropBananaPeel();
     bool ThrowRottenEggAt(ARIBikePawn* TargetBike = nullptr);
 
+    // Lets AI skip sensing/stuck logic during the real pre-race countdown.
+    bool AreRaceControlsEnabled() const { return IsRaceInputEnabled(); }
+
     // Short-lived prototype feedback used by the HUD and local camera.
     void TriggerComicImpact(float Side, const FString& Text, float Duration = 0.70f);
     bool GetActiveComicImpact(FString& OutText, float& OutAlpha) const;
