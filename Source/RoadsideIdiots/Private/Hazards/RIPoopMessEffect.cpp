@@ -44,11 +44,12 @@ ARIPoopMessEffect::ARIPoopMessEffect()
     SetupSphere(FumeB);
     SetupSphere(FumeC);
     SetupSphere(FumeD);
+    FumeD->SetVisibility(false, true);
 
     StinkGlow = CreateDefaultSubobject<UPointLightComponent>(TEXT("StinkGlow"));
     StinkGlow->SetupAttachment(SceneRoot);
     StinkGlow->SetRelativeLocation(FVector(-35.0f, 0.0f, 105.0f));
-    StinkGlow->SetAttenuationRadius(235.0f);
+    StinkGlow->SetAttenuationRadius(190.0f);
     StinkGlow->SetCastShadows(false);
 }
 
@@ -62,9 +63,6 @@ void ARIPoopMessEffect::Configure(ARIBikePawn* InBike, const bool bInCowMess, co
 
 void ARIPoopMessEffect::Refresh(const bool bInCowMess, const float InLifetimeSeconds)
 {
-    // A rider can cross another pile before the previous mess expires. Refresh
-    // the existing effect instead of stacking multiple splat/fume actors on the
-    // same motorcycle, which quickly obscures the rider and camera view.
     bCowMess = bCowMess || bInCowMess;
     LifetimeSeconds = FMath::Max(LifetimeSeconds, FMath::Max(0.5f, InLifetimeSeconds));
 
@@ -97,8 +95,8 @@ void ARIPoopMessEffect::ApplyPresentation()
         : FLinearColor(0.17f, 0.075f, 0.025f, 1.0f);
 
     const FLinearColor FumeColor = bCowMess
-        ? FLinearColor(0.30f, 0.40f, 0.045f, 1.0f)
-        : FLinearColor(0.36f, 0.46f, 0.07f, 1.0f);
+        ? FLinearColor(0.27f, 0.36f, 0.04f, 1.0f)
+        : FLinearColor(0.32f, 0.41f, 0.06f, 1.0f);
 
     UMaterialInterface* BaseMaterial = LoadObject<UMaterialInterface>(nullptr, TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial"));
     if (BaseMaterial)
@@ -113,7 +111,7 @@ void ARIPoopMessEffect::ApplyPresentation()
             }
         }
 
-        for (UStaticMeshComponent* Mesh : {FumeA.Get(), FumeB.Get(), FumeC.Get(), FumeD.Get()})
+        for (UStaticMeshComponent* Mesh : {FumeA.Get(), FumeB.Get(), FumeC.Get()})
         {
             if (!Mesh) continue;
             if (UMaterialInstanceDynamic* Material = UMaterialInstanceDynamic::Create(BaseMaterial, Mesh))
@@ -126,25 +124,25 @@ void ARIPoopMessEffect::ApplyPresentation()
 
     if (bCowMess)
     {
-        SplatA->SetRelativeLocation(FVector(-68.0f, 0.0f, 50.0f));
-        SplatA->SetRelativeScale3D(FVector(0.25f, 0.36f, 0.10f));
-        SplatB->SetRelativeLocation(FVector(-25.0f, 28.0f, 92.0f));
-        SplatB->SetRelativeScale3D(FVector(0.18f, 0.23f, 0.09f));
-        SplatC->SetRelativeLocation(FVector(18.0f, -25.0f, 66.0f));
-        SplatC->SetRelativeScale3D(FVector(0.16f, 0.23f, 0.08f));
-        StinkGlow->SetIntensity(430.0f);
-        StinkGlow->SetLightColor(FLinearColor(0.36f, 0.46f, 0.07f));
+        SplatA->SetRelativeLocation(FVector(-66.0f, 0.0f, 48.0f));
+        SplatA->SetRelativeScale3D(FVector(0.22f, 0.31f, 0.08f));
+        SplatB->SetRelativeLocation(FVector(-24.0f, 25.0f, 87.0f));
+        SplatB->SetRelativeScale3D(FVector(0.15f, 0.20f, 0.07f));
+        SplatC->SetRelativeLocation(FVector(15.0f, -22.0f, 62.0f));
+        SplatC->SetRelativeScale3D(FVector(0.13f, 0.20f, 0.065f));
+        StinkGlow->SetIntensity(250.0f);
+        StinkGlow->SetLightColor(FLinearColor(0.34f, 0.43f, 0.06f));
     }
     else
     {
-        SplatA->SetRelativeLocation(FVector(-62.0f, -10.0f, 32.0f));
-        SplatA->SetRelativeScale3D(FVector(0.16f, 0.22f, 0.08f));
-        SplatB->SetRelativeLocation(FVector(-35.0f, 20.0f, 64.0f));
-        SplatB->SetRelativeScale3D(FVector(0.12f, 0.16f, 0.07f));
-        SplatC->SetRelativeLocation(FVector(4.0f, -18.0f, 45.0f));
-        SplatC->SetRelativeScale3D(FVector(0.10f, 0.15f, 0.06f));
-        StinkGlow->SetIntensity(260.0f);
-        StinkGlow->SetLightColor(FLinearColor(0.40f, 0.50f, 0.08f));
+        SplatA->SetRelativeLocation(FVector(-60.0f, -9.0f, 31.0f));
+        SplatA->SetRelativeScale3D(FVector(0.14f, 0.19f, 0.065f));
+        SplatB->SetRelativeLocation(FVector(-34.0f, 18.0f, 61.0f));
+        SplatB->SetRelativeScale3D(FVector(0.10f, 0.14f, 0.055f));
+        SplatC->SetRelativeLocation(FVector(4.0f, -16.0f, 43.0f));
+        SplatC->SetRelativeScale3D(FVector(0.085f, 0.13f, 0.05f));
+        StinkGlow->SetIntensity(150.0f);
+        StinkGlow->SetLightColor(FLinearColor(0.38f, 0.47f, 0.07f));
     }
 
     UpdateFumes(0.0f);
@@ -152,27 +150,25 @@ void ARIPoopMessEffect::ApplyPresentation()
 
 void ARIPoopMessEffect::UpdateFumes(const float AgeSeconds)
 {
-    const float Rise = FMath::Fmod(AgeSeconds * (bCowMess ? 31.0f : 38.0f), 88.0f);
+    const float Rise = FMath::Fmod(AgeSeconds * (bCowMess ? 34.0f : 40.0f), 92.0f);
 
-    FumeA->SetRelativeLocation(FVector(-70.0f, -30.0f + FMath::Sin(AgeSeconds * 2.2f) * 13.0f, 88.0f + Rise));
-    FumeB->SetRelativeLocation(FVector(-32.0f, 34.0f + FMath::Cos(AgeSeconds * 1.8f) * 11.0f, 116.0f + FMath::Fmod(Rise + 30.0f, 88.0f)));
-    FumeC->SetRelativeLocation(FVector(12.0f, -24.0f + FMath::Sin(AgeSeconds * 2.7f) * 9.0f, 80.0f + FMath::Fmod(Rise + 58.0f, 88.0f)));
-    FumeD->SetRelativeLocation(FVector(-6.0f, 12.0f + FMath::Cos(AgeSeconds * 2.4f) * 14.0f, 138.0f + FMath::Fmod(Rise + 17.0f, 78.0f)));
+    FumeA->SetRelativeLocation(FVector(-63.0f, -24.0f + FMath::Sin(AgeSeconds * 2.1f) * 9.0f, 86.0f + Rise));
+    FumeB->SetRelativeLocation(FVector(-28.0f, 27.0f + FMath::Cos(AgeSeconds * 1.7f) * 8.0f, 112.0f + FMath::Fmod(Rise + 32.0f, 92.0f)));
+    FumeC->SetRelativeLocation(FVector(8.0f, -18.0f + FMath::Sin(AgeSeconds * 2.5f) * 7.0f, 78.0f + FMath::Fmod(Rise + 61.0f, 92.0f)));
 
-    const float PulseA = 0.90f + FMath::Sin(AgeSeconds * 3.1f) * 0.10f;
-    const float PulseB = 0.90f + FMath::Sin(AgeSeconds * 2.6f + 1.1f) * 0.10f;
-    const float PulseC = 0.90f + FMath::Sin(AgeSeconds * 3.5f + 2.0f) * 0.10f;
-    const float PulseD = 0.90f + FMath::Sin(AgeSeconds * 2.9f + 2.8f) * 0.10f;
+    const float PulseA = 0.92f + FMath::Sin(AgeSeconds * 3.0f) * 0.08f;
+    const float PulseB = 0.92f + FMath::Sin(AgeSeconds * 2.5f + 1.1f) * 0.08f;
+    const float PulseC = 0.92f + FMath::Sin(AgeSeconds * 3.3f + 2.0f) * 0.08f;
 
-    const float ScaleA = bCowMess ? 0.19f : 0.14f;
-    const float ScaleB = bCowMess ? 0.16f : 0.12f;
-    const float ScaleC = bCowMess ? 0.14f : 0.105f;
-    const float ScaleD = bCowMess ? 0.12f : 0.09f;
+    const float WidthA = bCowMess ? 0.082f : 0.060f;
+    const float WidthB = bCowMess ? 0.070f : 0.052f;
+    const float WidthC = bCowMess ? 0.060f : 0.045f;
 
-    FumeA->SetRelativeScale3D(FVector(ScaleA * PulseA));
-    FumeB->SetRelativeScale3D(FVector(ScaleB * PulseB));
-    FumeC->SetRelativeScale3D(FVector(ScaleC * PulseC));
-    FumeD->SetRelativeScale3D(FVector(ScaleD * PulseD));
+    // Tall, narrow ellipsoids read more like drifting stink wisps than solid
+    // green balls, while still using engine primitives and no Niagara assets.
+    FumeA->SetRelativeScale3D(FVector(WidthA * PulseA, WidthA * PulseA, WidthA * 2.25f * PulseA));
+    FumeB->SetRelativeScale3D(FVector(WidthB * PulseB, WidthB * PulseB, WidthB * 2.55f * PulseB));
+    FumeC->SetRelativeScale3D(FVector(WidthC * PulseC, WidthC * PulseC, WidthC * 2.05f * PulseC));
 }
 
 void ARIPoopMessEffect::Tick(const float DeltaSeconds)
