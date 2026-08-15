@@ -1,54 +1,68 @@
-# Next milestone — VPR-12 Dog/Cow Poop Hazard Gate
+# Next milestone — VPR-13 AI Item Parity + Stink Gate
 
-The solo prototype foundation now has locally accepted road physics, combat impact feel, bandage damage states, banana hazards, rotten eggs and VPR-11.1 shaped civilian traffic.
+VPR-12 dog/cow hazards are locally proven to spawn and trigger. The user requested two upgrades before moving on: poop must visibly stink, and AI riders should be smarter and have the same item abilities as the player.
 
 ## Immediate goal
-Verify the first map-dependent comedy hazard pair. Dog poop and cow poop must feel mechanically different rather than being banana reskins.
+Verify that bots now participate in the same comedy-item ecosystem instead of behaving like race-line puppets, while dog/cow filth has an obvious lingering stink presentation.
 
-## VPR-12 gate
-After pulling and compiling latest `dev/mvp-foundation`, verify:
-- HUD shows `BUILD: VPR-12 | HAZARDS: DOG + COW POOP | TRAFFIC: PASSED`
-- HUD reports `Road hazards: 3 dog poop | 3 cow patties`
-- 3 small dark dog-poop piles and 3 larger cow patties are distributed around the oval
+## VPR-13 gate
+After pulling/compiling latest `dev/mvp-foundation`:
+- HUD shows `BUILD: VPR-13 | AI: ITEM PARITY | FILTH: STINKY`
+- existing road/traffic/race systems still function
 
-### Dog poop
-- small and easier to miss
-- touching it produces a quick sideways skid/wobble
-- `SKID! DOG POOP!` feedback appears
-- smaller brown filth follows the affected bike for about 4 seconds
-- poop itself does not reduce Condition
+### Poop stink
+- dog poop still produces the quick skid/wobble
+- cow poop still produces the strong sticky slowdown
+- dirty rider now has rising green/brown fume blobs
+- persistent projected label says `DOG STINK!` or `COW STINK!`
+- cow fumes are more obvious/longer because cow mess lifetime is longer
+- poop itself still does not directly reduce Condition
 
-### Cow poop
-- substantially larger/clearer pile
-- touching it cuts current horizontal speed to roughly 42%
-- smaller wobble but strong sticky slowdown
-- `SPLORCH! COW PATTY!` feedback appears
-- larger brown filth follows the bike for about 6.5 seconds
-- poop itself does not reduce Condition
+### Shared inventory architecture
+Every `ARIBikePawn` owns:
+- banana peel inventory
+- rotten egg inventory
+- shared `DropBananaPeel()` action
+- shared `ThrowRottenEggAt()` action
 
-### Persistence / NPCs
-- piles remain on the road after being hit
-- same bike cannot retrigger a pile continuously because of per-bike cooldown
-- NPC bikes can trigger the same hazards
+Player and AI call the same item actions.
+
+### AI pickup/item behavior
+- banana pickups can be collected by AI and heal/grant peel
+- rotten eggs can be collected by AI
+- projected bot label includes inventory: `P# E#`
+- AI seeks a useful nearby pickup when not actively grudging
+- AI can throw a rotten egg at a suitable rider ahead
+- AI can drop a peel when a suitable victim is following behind
+- HOTHEAD should be the easiest bot to observe throwing eggs
+- PETTY should be the easiest bot to observe dropping peels
+
+### AI awareness
+- bots attempt to avoid civilian traffic
+- bots attempt to dodge dog/cow piles and dropped peels
+- bots give non-target bikes some forward clearance
+- HOTHEAD deliberately becomes more reckless with hazard avoidance during an active grudge
 
 ## Regression checks
-- road remains flat with no invisible seam bumps
-- civilian traffic still circulates normally
-- banana pickup/peel loop still works
-- rotten egg inventory/throw still works
-- Q/E combat and rival grudges still work
-- race checkpoints, finish and Enter restart still work
+- player F peel still works
+- player G egg still works and HUD count comes from the player's bike inventory
+- egg source attribution/grudges still work
+- banana self-hit immunity still works
+- traffic remains circulating
+- road remains flat
+- Condition tuning remains stable
+- Q/E slap/grudge behavior remains intact
+- checkpoint/finish/restart remain intact
 
-## If VPR-12 passes
-Do not add another item immediately. Move into higher-value presentation/feel work:
-1. first real impact/honk/slap audio layer using free assets or generated placeholders
-2. clearer crash/dizzy comedy state
-3. stronger but controlled traffic/hazard VFX
-4. later final environment/map art and final asset replacement
+## If VPR-13 passes
+Stop adding new item architecture for a while. Move to:
+1. free/placeholder audio layer: slap, impact, honk, skid, splat, gross hazard reactions
+2. stronger crash/dizzy comedy state
+3. controlled VFX/presentation polish
+4. then environment/map art and final asset replacement
 
 ## Still deferred
-- final bike/car/banana/egg/poop assets
-- final character clothing and unique rider models
-- sophisticated traffic physics
-- perfect bot off-track recovery
+- final models/textures
+- sophisticated vehicle physics
+- perfect off-track recovery
 - multiplayer networking
