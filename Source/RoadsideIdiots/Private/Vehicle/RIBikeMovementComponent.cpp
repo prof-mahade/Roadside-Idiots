@@ -82,7 +82,9 @@ void URIBikeMovementComponent::ApplySteeringAndBalance(float DeltaTime, UPrimiti
     const FVector Forward = GetOwner()->GetActorForwardVector().GetSafeNormal();
     const FVector Right = GetOwner()->GetActorRightVector().GetSafeNormal2D();
     const FVector CurrentUp = GetOwner()->GetActorUpVector().GetSafeNormal();
-    const float SpeedAlpha = FMath::Clamp(FMath::Abs(GetForwardSpeedKph()) / 70.0f, 0.0f, 1.0f);
+    const float SpeedKph = FMath::Abs(GetForwardSpeedKph());
+    const float SpeedAlpha = FMath::Clamp(SpeedKph / 130.0f, 0.0f, 1.0f);
+
     const float TargetLean = -SteeringInput * MaxLeanDegrees * SpeedAlpha;
     const FQuat LeanRotation(Forward, FMath::DegreesToRadians(TargetLean));
     const FVector DesiredUp = LeanRotation.RotateVector(FVector::UpVector).GetSafeNormal();
@@ -99,11 +101,28 @@ void URIBikeMovementComponent::ApplySteeringAndBalance(float DeltaTime, UPrimiti
         Body->AddForce(-Right * (LateralSpeed * LateralGrip), NAME_None, true);
     }
 
-    if (bGrounded && FMath::Abs(SteeringInput) > KINDA_SMALL_NUMBER)
+    if (bGrounded)
     {
-        const float SteeringAuthority = FMath::Lerp(0.55f, 1.0f, SpeedAlpha);
+        // VPR-24D: close the steering loop around yaw rate. The old model added
+        // yaw torque directly from SteeringInput every physics tick; therefore a
+        // constant command kept increasing yaw velocity until the AI reversed
+        // the command, which produced repeated left/right overshoot.
+        //
+        // SteeringInput now means "fraction of desired yaw rate". At high speed
+        // the allowed yaw rate is lower, making the same input less twitchy.
         const float DirectionSign = GetForwardSpeedKph() < -2.0f ? -1.0f : 1.0f;
-        Body->AddTorqueInRadians(DesiredUp * (SteeringInput * SteeringAcceleration * SteeringAuthority * DirectionSign), NAME_None, true);
+        const float MaxYawRate = FMath::Lerp(MaxYawRateLowSpeed, MaxYawRateHighSpeed, SpeedAlpha);
+        const float DesiredYawRate = SteeringInput * MaxYawRate * DirectionSign;
+        const float CurrentYawRate = FVector::DotProduct(AngularVelocity, FVector::UpVector);
+        const float YawRateError = DesiredYawRate - CurrentYawRate;
+        const float YawAcceleration = FMath::Clamp(
+            YawRateError * YawRateResponse,
+            -MaxYawAcceleration,
+            MaxYawAcceleration);
+
+        // Apply yaw about world-up. Using the leaned DesiredUp as the yaw axis
+        // coupled steering torque back into roll and made correction less clean.
+        Body->AddTorqueInRadians(FVector::UpVector * YawAcceleration, NAME_None, true);
     }
 }
 
