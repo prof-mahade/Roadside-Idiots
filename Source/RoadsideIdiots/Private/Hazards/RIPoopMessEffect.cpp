@@ -47,8 +47,8 @@ ARIPoopMessEffect::ARIPoopMessEffect()
 
     StinkGlow = CreateDefaultSubobject<UPointLightComponent>(TEXT("StinkGlow"));
     StinkGlow->SetupAttachment(SceneRoot);
-    StinkGlow->SetRelativeLocation(FVector(-35.0f, 0.0f, 115.0f));
-    StinkGlow->SetAttenuationRadius(320.0f);
+    StinkGlow->SetRelativeLocation(FVector(-35.0f, 0.0f, 105.0f));
+    StinkGlow->SetAttenuationRadius(235.0f);
     StinkGlow->SetCastShadows(false);
 }
 
@@ -58,6 +58,23 @@ void ARIPoopMessEffect::Configure(ARIBikePawn* InBike, const bool bInCowMess, co
     bCowMess = bInCowMess;
     LifetimeSeconds = FMath::Max(0.5f, InLifetimeSeconds);
     SetOwner(InBike);
+}
+
+void ARIPoopMessEffect::Refresh(const bool bInCowMess, const float InLifetimeSeconds)
+{
+    // A rider can cross another pile before the previous mess expires. Refresh
+    // the existing effect instead of stacking multiple splat/fume actors on the
+    // same motorcycle, which quickly obscures the rider and camera view.
+    bCowMess = bCowMess || bInCowMess;
+    LifetimeSeconds = FMath::Max(LifetimeSeconds, FMath::Max(0.5f, InLifetimeSeconds));
+
+    if (GetWorld())
+    {
+        const double Now = GetWorld()->GetTimeSeconds();
+        ExpiresAt = FMath::Max(ExpiresAt, Now + InLifetimeSeconds);
+    }
+
+    ApplyPresentation();
 }
 
 void ARIPoopMessEffect::BeginPlay()
@@ -109,24 +126,24 @@ void ARIPoopMessEffect::ApplyPresentation()
 
     if (bCowMess)
     {
-        SplatA->SetRelativeLocation(FVector(-78.0f, 0.0f, 56.0f));
-        SplatA->SetRelativeScale3D(FVector(0.42f, 0.60f, 0.20f));
-        SplatB->SetRelativeLocation(FVector(-26.0f, 33.0f, 108.0f));
-        SplatB->SetRelativeScale3D(FVector(0.30f, 0.38f, 0.16f));
-        SplatC->SetRelativeLocation(FVector(22.0f, -30.0f, 72.0f));
-        SplatC->SetRelativeScale3D(FVector(0.28f, 0.42f, 0.15f));
-        StinkGlow->SetIntensity(820.0f);
+        SplatA->SetRelativeLocation(FVector(-68.0f, 0.0f, 50.0f));
+        SplatA->SetRelativeScale3D(FVector(0.25f, 0.36f, 0.10f));
+        SplatB->SetRelativeLocation(FVector(-25.0f, 28.0f, 92.0f));
+        SplatB->SetRelativeScale3D(FVector(0.18f, 0.23f, 0.09f));
+        SplatC->SetRelativeLocation(FVector(18.0f, -25.0f, 66.0f));
+        SplatC->SetRelativeScale3D(FVector(0.16f, 0.23f, 0.08f));
+        StinkGlow->SetIntensity(430.0f);
         StinkGlow->SetLightColor(FLinearColor(0.36f, 0.46f, 0.07f));
     }
     else
     {
-        SplatA->SetRelativeLocation(FVector(-72.0f, -12.0f, 34.0f));
-        SplatA->SetRelativeScale3D(FVector(0.24f, 0.34f, 0.12f));
-        SplatB->SetRelativeLocation(FVector(-40.0f, 24.0f, 70.0f));
-        SplatB->SetRelativeScale3D(FVector(0.18f, 0.24f, 0.10f));
-        SplatC->SetRelativeLocation(FVector(6.0f, -22.0f, 48.0f));
-        SplatC->SetRelativeScale3D(FVector(0.15f, 0.22f, 0.09f));
-        StinkGlow->SetIntensity(460.0f);
+        SplatA->SetRelativeLocation(FVector(-62.0f, -10.0f, 32.0f));
+        SplatA->SetRelativeScale3D(FVector(0.16f, 0.22f, 0.08f));
+        SplatB->SetRelativeLocation(FVector(-35.0f, 20.0f, 64.0f));
+        SplatB->SetRelativeScale3D(FVector(0.12f, 0.16f, 0.07f));
+        SplatC->SetRelativeLocation(FVector(4.0f, -18.0f, 45.0f));
+        SplatC->SetRelativeScale3D(FVector(0.10f, 0.15f, 0.06f));
+        StinkGlow->SetIntensity(260.0f);
         StinkGlow->SetLightColor(FLinearColor(0.40f, 0.50f, 0.08f));
     }
 
@@ -135,22 +152,22 @@ void ARIPoopMessEffect::ApplyPresentation()
 
 void ARIPoopMessEffect::UpdateFumes(const float AgeSeconds)
 {
-    const float Rise = FMath::Fmod(AgeSeconds * (bCowMess ? 38.0f : 46.0f), 105.0f);
+    const float Rise = FMath::Fmod(AgeSeconds * (bCowMess ? 31.0f : 38.0f), 88.0f);
 
-    FumeA->SetRelativeLocation(FVector(-80.0f, -36.0f + FMath::Sin(AgeSeconds * 2.2f) * 18.0f, 92.0f + Rise));
-    FumeB->SetRelativeLocation(FVector(-35.0f, 42.0f + FMath::Cos(AgeSeconds * 1.8f) * 15.0f, 126.0f + FMath::Fmod(Rise + 34.0f, 105.0f)));
-    FumeC->SetRelativeLocation(FVector(18.0f, -28.0f + FMath::Sin(AgeSeconds * 2.7f) * 12.0f, 82.0f + FMath::Fmod(Rise + 67.0f, 105.0f)));
-    FumeD->SetRelativeLocation(FVector(-8.0f, 15.0f + FMath::Cos(AgeSeconds * 2.4f) * 20.0f, 155.0f + FMath::Fmod(Rise + 18.0f, 90.0f)));
+    FumeA->SetRelativeLocation(FVector(-70.0f, -30.0f + FMath::Sin(AgeSeconds * 2.2f) * 13.0f, 88.0f + Rise));
+    FumeB->SetRelativeLocation(FVector(-32.0f, 34.0f + FMath::Cos(AgeSeconds * 1.8f) * 11.0f, 116.0f + FMath::Fmod(Rise + 30.0f, 88.0f)));
+    FumeC->SetRelativeLocation(FVector(12.0f, -24.0f + FMath::Sin(AgeSeconds * 2.7f) * 9.0f, 80.0f + FMath::Fmod(Rise + 58.0f, 88.0f)));
+    FumeD->SetRelativeLocation(FVector(-6.0f, 12.0f + FMath::Cos(AgeSeconds * 2.4f) * 14.0f, 138.0f + FMath::Fmod(Rise + 17.0f, 78.0f)));
 
     const float PulseA = 0.90f + FMath::Sin(AgeSeconds * 3.1f) * 0.10f;
     const float PulseB = 0.90f + FMath::Sin(AgeSeconds * 2.6f + 1.1f) * 0.10f;
     const float PulseC = 0.90f + FMath::Sin(AgeSeconds * 3.5f + 2.0f) * 0.10f;
     const float PulseD = 0.90f + FMath::Sin(AgeSeconds * 2.9f + 2.8f) * 0.10f;
 
-    const float ScaleA = bCowMess ? 0.34f : 0.24f;
-    const float ScaleB = bCowMess ? 0.28f : 0.20f;
-    const float ScaleC = bCowMess ? 0.25f : 0.18f;
-    const float ScaleD = bCowMess ? 0.22f : 0.16f;
+    const float ScaleA = bCowMess ? 0.19f : 0.14f;
+    const float ScaleB = bCowMess ? 0.16f : 0.12f;
+    const float ScaleC = bCowMess ? 0.14f : 0.105f;
+    const float ScaleD = bCowMess ? 0.12f : 0.09f;
 
     FumeA->SetRelativeScale3D(FVector(ScaleA * PulseA));
     FumeB->SetRelativeScale3D(FVector(ScaleB * PulseB));
