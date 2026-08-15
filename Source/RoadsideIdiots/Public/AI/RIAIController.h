@@ -20,6 +20,13 @@ public:
     float GetGrudgeTimeRemaining() const { return GrudgeTimeRemaining; }
     bool IsHoldingGrudgeAgainst(const ARIBikePawn* Target) const;
 
+    // The world-level chaos director assigns readable roles to extra demo bots
+    // without reaching into steering/physics internals.
+    void SetDirectorRoleLabel(const FString& InLabel)
+    {
+        if (!InLabel.IsEmpty()) PersonalityLabel = InLabel;
+    }
+
 private:
     void ConfigurePersonality();
     void TryUseComedyItems();
