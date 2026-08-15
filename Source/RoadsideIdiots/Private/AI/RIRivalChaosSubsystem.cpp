@@ -12,10 +12,7 @@ namespace
         if (!Bike || !Bike->GetParticipantComponent()) return 0;
 
         FString Id = Bike->GetParticipantComponent()->GetParticipantId().ToString();
-        if (!Id.RemoveFromStart(TEXT("BOT_"), ESearchCase::IgnoreCase))
-        {
-            return 0;
-        }
+        if (!Id.RemoveFromStart(TEXT("BOT_"), ESearchCase::IgnoreCase)) return 0;
         return FMath::Clamp(FCString::Atoi(*Id), 0, 99);
     }
 
@@ -49,31 +46,76 @@ float URIRivalChaosSubsystem::GetDirectiveInterval(const int32 BotIndex) const
 {
     switch (BotIndex)
     {
-    case 1: return 9.0f;   // Leech still cares about the race most of the time.
-    case 2: return 4.8f;   // Hothead actively starts trouble.
-    case 3: return 6.8f;   // Petty periodically chooses someone to annoy.
-    case 4: return 4.2f;   // Gremlin's actual objective is disruption.
-    case 5: return 5.2f;   // Brawler hunts close-range confrontations.
-    case 6: return 30.0f;  // Tryhard is intentionally race-focused.
-    default: return 8.0f;
+    case 1: return 15.0f;
+    case 2: return 11.0f;
+    case 3: return 14.0f;
+    case 4: return 9.5f;
+    case 5: return 11.5f;
+    case 6: return 999.0f; // TRYHARD only retaliates; the director leaves it racing.
+    default: return 14.0f;
+    }
+}
+
+float URIRivalChaosSubsystem::GetDirectiveChance(const int32 BotIndex) const
+{
+    switch (BotIndex)
+    {
+    case 1: return 0.28f;
+    case 2: return 0.46f;
+    case 3: return 0.34f;
+    case 4: return 0.58f;
+    case 5: return 0.48f;
+    case 6: return 0.0f;
+    default: return 0.25f;
+    }
+}
+
+ERITacticalIntent URIRivalChaosSubsystem::ChooseIntent(const ARIBikePawn* ControlledBike, const int32 BotIndex) const
+{
+    if (!ControlledBike) return ERITacticalIntent::None;
+
+    const bool bHasEgg = ControlledBike->GetRottenEggCount() > 0;
+    const bool bHasPeel = ControlledBike->GetBananaPeelCount() > 0;
+
+    switch (BotIndex)
+    {
+    case 1: // LEECH: annoy by occupying the useful line, not endless punching.
+        return ERITacticalIntent::Block;
+
+    case 2: // HOTHEAD: close contact first, egg if armed.
+        return bHasEgg && FMath::FRand() < 0.35f ? ERITacticalIntent::EggShot : ERITacticalIntent::SidePressure;
+
+    case 3: // PETTY: weapon-focused annoyance.
+        if (bHasEgg) return ERITacticalIntent::EggShot;
+        if (bHasPeel) return ERITacticalIntent::PeelTrap;
+        return ERITacticalIntent::Block;
+
+    case 4: // GREMLIN: trap people whenever possible.
+        if (bHasPeel) return ERITacticalIntent::PeelTrap;
+        if (bHasEgg) return ERITacticalIntent::EggShot;
+        return ERITacticalIntent::Block;
+
+    case 5: // BRAWLER: short side-pressure event.
+        return ERITacticalIntent::SidePressure;
+
+    default:
+        return ERITacticalIntent::None;
     }
 }
 
 ARIBikePawn* URIRivalChaosSubsystem::FindTargetFor(
     ARIAIController* Controller,
     ARIBikePawn* ControlledBike,
-    const int32 BotIndex) const
+    const int32 BotIndex,
+    const TSet<const ARIBikePawn*>& ReservedTargets) const
 {
-    if (!Controller || !ControlledBike || !GetWorld() || BotIndex == 6)
-    {
-        return nullptr;
-    }
+    if (!Controller || !ControlledBike || !GetWorld() || BotIndex == 6) return nullptr;
 
     const FVector Origin = ControlledBike->GetActorLocation();
     const FVector Forward = ControlledBike->GetActorForwardVector().GetSafeNormal2D();
     const FVector Right = ControlledBike->GetActorRightVector().GetSafeNormal2D();
+    const float MaxRange = BotIndex == 4 ? 2400.0f : 2100.0f;
 
-    const float MaxRange = BotIndex == 4 ? 3600.0f : (BotIndex == 2 ? 3200.0f : 2800.0f);
     ARIBikePawn* BestTarget = nullptr;
     float BestScore = TNumericLimits<float>::Max();
 
@@ -81,50 +123,31 @@ ARIBikePawn* URIRivalChaosSubsystem::FindTargetFor(
     {
         ARIBikePawn* Candidate = *It;
         if (!Candidate || Candidate == ControlledBike || !Candidate->AreRaceControlsEnabled()) continue;
+        if (ReservedTargets.Contains(Candidate)) continue;
 
         FVector ToCandidate = Candidate->GetActorLocation() - Origin;
         ToCandidate.Z = 0.0f;
         const float Distance = ToCandidate.Size();
-        if (Distance < 160.0f || Distance > MaxRange) continue;
+        if (Distance < 220.0f || Distance > MaxRange) continue;
 
         const FVector Direction = ToCandidate / Distance;
         const float ForwardDot = FVector::DotProduct(Direction, Forward);
         const float SideDistance = FMath::Abs(FVector::DotProduct(ToCandidate, Right));
         const bool bCandidateAI = Cast<ARIAIController>(Candidate->GetController()) != nullptr;
 
+        // Distance dominates. Modest role biases produce variety without making
+        // every bot abandon the racing line for somebody half a track away.
         float Score = Distance;
+        if (bCandidateAI) Score *= 0.90f;
+        if (ForwardDot < -0.55f) Score += 500.0f;
 
-        switch (BotIndex)
+        if (BotIndex == 2 || BotIndex == 5)
         {
-        case 1: // LEECH: stalk somebody mostly ahead, with a mild AI-vs-AI bias.
-            if (ForwardDot < 0.05f) Score += 850.0f;
-            Score *= bCandidateAI ? 0.78f : 0.96f;
-            break;
-
-        case 2: // HOTHEAD: nearest trouble wins; strongly encourage bot-on-bot fights.
-            Score *= bCandidateAI ? 0.52f : 0.88f;
-            if (SideDistance < 360.0f) Score *= 0.82f;
-            break;
-
-        case 3: // PETTY: likes reachable targets and does not tunnel exclusively on the player.
-            Score *= bCandidateAI ? 0.68f : 0.90f;
-            if (ForwardDot < -0.45f) Score += 320.0f;
-            break;
-
-        case 4: // GREMLIN: sabotage is more important than position.
-            Score *= bCandidateAI ? 0.42f : 0.76f;
-            Score += FMath::Abs(SideDistance - 210.0f) * 0.22f;
-            break;
-
-        case 5: // BRAWLER: seeks nearby side-by-side contact.
-            Score *= bCandidateAI ? 0.58f : 0.86f;
-            Score += FMath::Abs(SideDistance - 150.0f) * 0.30f;
-            if (FMath::Abs(ForwardDot) < 0.65f) Score *= 0.82f;
-            break;
-
-        default:
-            Score *= bCandidateAI ? 0.72f : 0.95f;
-            break;
+            Score += FMath::Abs(SideDistance - 170.0f) * 0.16f;
+        }
+        else if (BotIndex == 4)
+        {
+            Score += FMath::Abs(SideDistance - 240.0f) * 0.08f;
         }
 
         if (Score < BestScore)
@@ -143,6 +166,9 @@ void URIRivalChaosSubsystem::IssueDirectives()
     if (!World) return;
 
     const double Now = World->GetTimeSeconds();
+    TArray<ARIAIController*> Controllers;
+    TSet<const ARIBikePawn*> ReservedTargets;
+    int32 ActiveTroublemakers = 0;
 
     for (TActorIterator<ARIAIController> It(World); It; ++It)
     {
@@ -150,38 +176,72 @@ void URIRivalChaosSubsystem::IssueDirectives()
         ARIBikePawn* ControlledBike = Controller ? Cast<ARIBikePawn>(Controller->GetPawn()) : nullptr;
         if (!Controller || !ControlledBike || !ControlledBike->AreRaceControlsEnabled()) continue;
 
+        Controllers.Add(Controller);
         const int32 BotIndex = RIChaos_GetBotIndex(ControlledBike);
-        if (BotIndex <= 0) continue;
-
         Controller->SetDirectorRoleLabel(RIChaos_GetRoleName(BotIndex));
 
-        // Existing retaliation is already purposeful. Do not overwrite an active
-        // grudge every few seconds or bots would jitter between objectives.
+        if (Controller->IsTacticalIntentActive())
+        {
+            ++ActiveTroublemakers;
+            if (ARIBikePawn* Target = Controller->GetTacticalTarget()) ReservedTargets.Add(Target);
+        }
+    }
+
+    // With 2-3 opponents allow only one deliberate chaos event at once. With
+    // larger fields allow at most two. Retaliation can still happen naturally.
+    const int32 MaxActiveTroublemakers = Controllers.Num() >= 5 ? 2 : 1;
+    if (ActiveTroublemakers >= MaxActiveTroublemakers) return;
+
+    for (ARIAIController* Controller : Controllers)
+    {
+        if (!Controller || Controller->IsTacticalIntentActive() || Controller->GetTacticalCooldownRemaining() > 0.0f) continue;
         if (Controller->GetGrudgeTimeRemaining() > 0.25f) continue;
+
+        ARIBikePawn* ControlledBike = Cast<ARIBikePawn>(Controller->GetPawn());
+        const int32 BotIndex = RIChaos_GetBotIndex(ControlledBike);
+        if (BotIndex <= 0 || BotIndex == 6) continue;
 
         const TWeakObjectPtr<ARIAIController> Key(Controller);
         const double LastTime = LastDirectiveTime.FindRef(Key);
         if (LastTime > 0.0 && Now - LastTime < GetDirectiveInterval(BotIndex)) continue;
 
-        // TRYHARD intentionally remains the race-first personality. Other roles
-        // occasionally abandon the perfect racing line to create stories/chaos.
-        ARIBikePawn* Target = FindTargetFor(Controller, ControlledBike, BotIndex);
+        // Record the attempt even when it elects to keep racing; otherwise a
+        // failed chance would be retried every director tick and become 100%.
         LastDirectiveTime.Add(Key, Now);
+        if (FMath::FRand() > GetDirectiveChance(BotIndex)) continue;
+
+        ARIBikePawn* Target = FindTargetFor(Controller, ControlledBike, BotIndex, ReservedTargets);
         if (!Target) continue;
 
-        Controller->NotifyProvokedBy(Target);
+        const ERITacticalIntent Intent = ChooseIntent(ControlledBike, BotIndex);
+        if (Intent == ERITacticalIntent::None) continue;
 
-        const FString SelfId = ControlledBike->GetParticipantComponent()
+        float Duration = 2.4f;
+        switch (Intent)
+        {
+        case ERITacticalIntent::SidePressure: Duration = 2.8f; break;
+        case ERITacticalIntent::Block: Duration = 3.4f; break;
+        case ERITacticalIntent::PeelTrap: Duration = 4.0f; break;
+        case ERITacticalIntent::EggShot: Duration = 3.2f; break;
+        default: break;
+        }
+
+        if (!Controller->AssignTacticalIntent(Target, Intent, Duration)) continue;
+
+        ReservedTargets.Add(Target);
+        ++ActiveTroublemakers;
+
+        const FString SelfId = ControlledBike && ControlledBike->GetParticipantComponent()
             ? ControlledBike->GetParticipantComponent()->GetParticipantId().ToString()
             : TEXT("BOT");
         const FString TargetId = Target->GetParticipantComponent()
             ? Target->GetParticipantComponent()->GetParticipantId().ToString()
             : TEXT("RIVAL");
 
-        UE_LOG(LogTemp, Display, TEXT("RoadsideIdiots chaos: %s [%s] chose %s as sabotage target"),
-            *SelfId,
-            RIChaos_GetRoleName(BotIndex),
-            *TargetId);
+        UE_LOG(LogTemp, Display, TEXT("RoadsideIdiots tactics: %s [%s] intent=%d target=%s"),
+            *SelfId, RIChaos_GetRoleName(BotIndex), static_cast<int32>(Intent), *TargetId);
+
+        if (ActiveTroublemakers >= MaxActiveTroublemakers) break;
     }
 }
 
@@ -190,6 +250,6 @@ void URIRivalChaosSubsystem::Tick(const float DeltaTime)
     DecisionRemaining -= DeltaTime;
     if (DecisionRemaining > 0.0f) return;
 
-    DecisionRemaining = 1.25f;
+    DecisionRemaining = 1.50f;
     IssueDirectives();
 }
