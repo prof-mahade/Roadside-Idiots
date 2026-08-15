@@ -41,7 +41,7 @@ void ARIDebugHUD::DrawHUD()
     };
 
     Line(TEXT("ROADSIDE IDIOTS - MVP"), FLinearColor(1.0f, 0.75f, 0.2f));
-    Line(TEXT("BUILD: VPR-12 | HAZARDS: DOG + COW POOP | TRAFFIC: PASSED"), FLinearColor(0.55f, 1.0f, 0.70f));
+    Line(TEXT("BUILD: VPR-13 | AI: ITEM PARITY | FILTH: STINKY"), FLinearColor(0.55f, 1.0f, 0.70f));
     Line(FString::Printf(TEXT("Speed: %.0f km/h"), FMath::Abs(Bike->GetBikeMovement()->GetForwardSpeedKph())));
 
     const float CurrentCondition = Bike->GetHealthComponent()->GetCurrentHealth();
@@ -151,7 +151,12 @@ void ARIDebugHUD::DrawHUD()
         const FString RivalName = RivalParticipant ? RivalParticipant->GetParticipantId().ToString() : TEXT("RIVAL");
         const bool bMad = AI->IsHoldingGrudgeAgainst(Bike);
 
-        FString Label = FString::Printf(TEXT("%s [%s]"), *RivalName, *AI->GetPersonalityLabel());
+        FString Label = FString::Printf(
+            TEXT("%s [%s] | P%d E%d"),
+            *RivalName,
+            *AI->GetPersonalityLabel(),
+            RivalBike->GetBananaPeelCount(),
+            RivalBike->GetRottenEggCount());
         if (bMad)
         {
             Label += TEXT(" !! MAD !!");
@@ -175,7 +180,7 @@ void ARIDebugHUD::DrawHUD()
             LabelColor = FLinearColor(0.86f, 0.52f, 1.0f);
         }
 
-        DrawText(Label, LabelColor, ScreenPosition.X - 72.0f, ScreenPosition.Y, Font, 0.88f, false);
+        DrawText(Label, LabelColor, ScreenPosition.X - 92.0f, ScreenPosition.Y, Font, 0.84f, false);
 
         FString RivalImpactText;
         float RivalImpactAlpha = 0.0f;
@@ -218,12 +223,12 @@ void ARIDebugHUD::DrawHUD()
         if (!PlayerOwner->ProjectWorldLocationToScreen(LabelLocation, ScreenPosition, true)) continue;
 
         DrawText(
-            Mess->IsCowMess() ? TEXT("COW FILTH!") : TEXT("DOG FILTH!"),
-            Mess->IsCowMess() ? FLinearColor(0.62f, 0.33f, 0.08f) : FLinearColor(0.48f, 0.24f, 0.06f),
-            ScreenPosition.X - 46.0f,
+            Mess->IsCowMess() ? TEXT("COW STINK!") : TEXT("DOG STINK!"),
+            Mess->IsCowMess() ? FLinearColor(0.62f, 0.48f, 0.05f) : FLinearColor(0.48f, 0.62f, 0.08f),
+            ScreenPosition.X - 50.0f,
             ScreenPosition.Y - 8.0f,
             Font,
-            1.15f,
+            1.28f,
             false);
     }
 
