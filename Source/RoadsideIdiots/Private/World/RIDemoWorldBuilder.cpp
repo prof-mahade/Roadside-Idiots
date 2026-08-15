@@ -3,16 +3,31 @@
 #include "Race/RICheckpoint.h"
 #include "Vehicle/RIBikePawn.h"
 #include "Core/RIParticipantComponent.h"
+#include "Core/RIRaceSettingsSubsystem.h"
 #include "AI/RIAIController.h"
 #include "Items/RIBananaPickup.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMeshActor.h"
 #include "Engine/DirectionalLight.h"
 #include "Engine/SkyLight.h"
+#include "Engine/GameInstance.h"
 #include "Components/SkyAtmosphereComponent.h"
 #include "Components/DirectionalLightComponent.h"
 #include "Components/SkyLightComponent.h"
 #include "GameFramework/PlayerController.h"
+
+namespace
+{
+    URIRaceSettingsSubsystem* RIWorldBuilder_GetRaceSettings(UWorld* World)
+    {
+        if (!World) return nullptr;
+        if (UGameInstance* GameInstance = World->GetGameInstance())
+        {
+            return GameInstance->GetSubsystem<URIRaceSettingsSubsystem>();
+        }
+        return nullptr;
+    }
+}
 
 ARIDemoWorldBuilder::ARIDemoWorldBuilder()
 {
@@ -149,7 +164,9 @@ void ARIDemoWorldBuilder::BuildCheckpoints(ARIRaceManager* RaceManager)
     if (!GetWorld() || RoutePoints.Num() < 10 || !RaceManager) return;
 
     TArray<int32> CheckpointRouteIndices = {5, 10, 15, 20, 25, 30, 35, 0};
-    RaceManager->ConfigureRace(CheckpointRouteIndices.Num(), 3);
+    const URIRaceSettingsSubsystem* Settings = RIWorldBuilder_GetRaceSettings(GetWorld());
+    const int32 TotalLaps = Settings ? Settings->GetLapCount() : 3;
+    RaceManager->ConfigureRace(CheckpointRouteIndices.Num(), TotalLaps);
 
     for (int32 CheckpointIndex = 0; CheckpointIndex < CheckpointRouteIndices.Num(); ++CheckpointIndex)
     {
@@ -192,15 +209,28 @@ void ARIDemoWorldBuilder::SpawnRacers(ARIRaceManager* RaceManager, APlayerContro
 {
     if (!GetWorld() || RoutePoints.Num() < 4 || !RaceManager) return;
 
+    const URIRaceSettingsSubsystem* Settings = RIWorldBuilder_GetRaceSettings(GetWorld());
+    const int32 OpponentCount = Settings ? FMath::Clamp(Settings->GetOpponentCount(), 2, 6) : 3;
+    const int32 RacerCount = OpponentCount + 1;
+
     const FVector StartBase = RoutePoints[1];
     const FVector Forward = (RoutePoints[2] - RoutePoints[1]).GetSafeNormal2D();
     const FVector Right = FVector::CrossProduct(FVector::UpVector, Forward).GetSafeNormal();
     const FRotator StartRotation = Forward.Rotation();
-    const float LaneOffsets[4] = {-315.0f, -105.0f, 105.0f, 315.0f};
 
-    for (int32 RacerIndex = 0; RacerIndex < 4; ++RacerIndex)
+    // Three-wide staggered grid. This safely scales the existing demo from the
+    // original player + 3 rivals up to player + 6 rivals without squeezing bikes
+    // against the barriers.
+    const float GridLaneOffsets[3] = {0.0f, -300.0f, 300.0f};
+    constexpr float RowSpacing = 330.0f;
+
+    for (int32 RacerIndex = 0; RacerIndex < RacerCount; ++RacerIndex)
     {
-        FVector Location = StartBase - Forward * (RacerIndex * 260.0f) + Right * LaneOffsets[RacerIndex];
+        const int32 Row = RacerIndex / 3;
+        const int32 Column = RacerIndex % 3;
+        const float RacerLaneOffset = GridLaneOffsets[Column];
+
+        FVector Location = StartBase - Forward * (static_cast<float>(Row) * RowSpacing) + Right * RacerLaneOffset;
         Location.Z = 28.0f;
 
         ARIBikePawn* Bike = GetWorld()->SpawnActor<ARIBikePawn>(Location, StartRotation);
@@ -209,7 +239,9 @@ void ARIDemoWorldBuilder::SpawnRacers(ARIRaceManager* RaceManager, APlayerContro
         Bike->SetRecoveryTransform(FTransform(StartRotation, Location));
 
         const bool bHuman = RacerIndex == 0;
-        const FName ParticipantId = bHuman ? FName(TEXT("PLAYER")) : FName(*FString::Printf(TEXT("BOT_%02d"), RacerIndex));
+        const FName ParticipantId = bHuman
+            ? FName(TEXT("PLAYER"))
+            : FName(*FString::Printf(TEXT("BOT_%02d"), RacerIndex));
         Bike->GetParticipantComponent()->AssignParticipant(ParticipantId, bHuman);
         RaceManager->RegisterParticipant(ParticipantId);
 
@@ -226,7 +258,7 @@ void ARIDemoWorldBuilder::SpawnRacers(ARIRaceManager* RaceManager, APlayerContro
             if (AI)
             {
                 AI->Possess(Bike);
-                AI->SetRoute(RoutePoints, 2, LaneOffsets[RacerIndex]);
+                AI->SetRoute(RoutePoints, 2, RacerLaneOffset);
             }
         }
     }
