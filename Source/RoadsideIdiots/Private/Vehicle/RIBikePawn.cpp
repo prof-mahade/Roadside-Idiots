@@ -4,6 +4,7 @@
 #include "Core/RIParticipantComponent.h"
 #include "Interaction/RIInteractionComponent.h"
 #include "Items/RIBananaPeelHazard.h"
+#include "Items/RIRottenEggProjectile.h"
 #include "Visual/RIPrototypeVisuals.h"
 #include "Camera/CameraComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -106,9 +107,6 @@ void ARIBikePawn::BeginPlay()
 {
     Super::BeginPlay();
 
-    // Apply custom mass after engine/physics initialization. Calling this in the
-    // native constructor causes UE to query physical-material data while the CDO
-    // is being built, before GEngine exists.
     Chassis->SetMassOverrideInKg(NAME_None, 180.0f, true);
 
     if (GetWorld())
@@ -202,6 +200,12 @@ void ARIBikePawn::AddBananaPeel(int32 Amount)
     BananaPeelCount = FMath::Clamp(BananaPeelCount + Amount, 0, MaxBananaPeels);
 }
 
+void ARIBikePawn::AddRottenEgg(int32 Amount)
+{
+    if (!HasAuthority() || Amount <= 0) return;
+    RottenEggCount = FMath::Clamp(RottenEggCount + Amount, 0, MaxRottenEggs);
+}
+
 void ARIBikePawn::TriggerComicImpact(float Side, const FString& Text, float Duration)
 {
     ComicImpactText = Text;
@@ -213,8 +217,6 @@ void ARIBikePawn::TriggerComicImpact(float Side, const FString& Text, float Dura
         ComicImpactExpiresAt = ComicImpactStartedAt + ComicImpactDuration;
     }
 
-    // Only the human player's camera exists as meaningful feedback. Keep the
-    // kick small so it reads as impact rather than motion sickness.
     if (Participant && Participant->IsHumanControlled())
     {
         const float SignedSide = Side < 0.0f ? -1.0f : 1.0f;
@@ -240,18 +242,9 @@ bool ARIBikePawn::GetActiveComicImpact(FString& OutText, float& OutAlpha) const
     return true;
 }
 
-void ARIBikePawn::UseItem()
+bool ARIBikePawn::DropBananaPeel()
 {
-    if (!HasAuthority() || !GetWorld()) return;
-
-    if (BananaPeelCount <= 0)
-    {
-        if (GEngine && Participant && Participant->IsHumanControlled())
-        {
-            GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Silver, TEXT("No banana peel. Find a glowing banana first."));
-        }
-        return;
-    }
+    if (!HasAuthority() || !GetWorld() || BananaPeelCount <= 0) return false;
 
     const FVector Forward = GetActorForwardVector().GetSafeNormal2D();
     const FVector SpawnLocation = GetActorLocation() - Forward * 135.0f + FVector::UpVector * 95.0f;
@@ -275,6 +268,66 @@ void ARIBikePawn::UseItem()
         {
             GEngine->AddOnScreenDebugMessage(-1, 1.2f, FColor::Yellow, TEXT("Peel dropped behind you. Bad citizenship achieved."));
         }
+        return true;
+    }
+
+    return false;
+}
+
+bool ARIBikePawn::ThrowRottenEggAt(ARIBikePawn* TargetBike)
+{
+    if (!HasAuthority() || !GetWorld() || RottenEggCount <= 0) return false;
+
+    const FVector Forward = GetActorForwardVector().GetSafeNormal2D();
+    const FVector SpawnLocation = GetActorLocation() + Forward * 150.0f + FVector::UpVector * 130.0f;
+
+    FVector AimDirection = Forward;
+    if (TargetBike && TargetBike != this)
+    {
+        FVector PredictedTarget = TargetBike->GetActorLocation() + FVector::UpVector * 95.0f;
+        if (UStaticMeshComponent* TargetChassis = TargetBike->GetChassis())
+        {
+            PredictedTarget += TargetChassis->GetPhysicsLinearVelocity() * 0.22f;
+        }
+
+        const FVector ToPredicted = PredictedTarget - SpawnLocation;
+        if (!ToPredicted.IsNearlyZero())
+        {
+            AimDirection = ToPredicted.GetSafeNormal();
+        }
+    }
+
+    const FTransform SpawnTransform(AimDirection.Rotation(), SpawnLocation);
+    AActor* DeferredActor = UGameplayStatics::BeginDeferredActorSpawnFromClass(
+        this,
+        ARIRottenEggProjectile::StaticClass(),
+        SpawnTransform,
+        ESpawnActorCollisionHandlingMethod::AlwaysSpawn,
+        this);
+
+    if (ARIRottenEggProjectile* Projectile = Cast<ARIRottenEggProjectile>(DeferredActor))
+    {
+        Projectile->ConfigureSource(this);
+        UGameplayStatics::FinishSpawningActor(Projectile, SpawnTransform);
+        RottenEggCount = FMath::Max(0, RottenEggCount - 1);
+
+        if (GEngine && Participant && Participant->IsHumanControlled())
+        {
+            GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor(130, 180, 35), TEXT("ROTTEN EGG AWAY! Public hygiene -1."));
+        }
+        return true;
+    }
+
+    return false;
+}
+
+void ARIBikePawn::UseItem()
+{
+    if (DropBananaPeel()) return;
+
+    if (GEngine && Participant && Participant->IsHumanControlled())
+    {
+        GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Silver, TEXT("No banana peel. Find a glowing banana first."));
     }
 }
 
@@ -322,7 +375,6 @@ void ARIBikePawn::Tick(float DeltaSeconds)
 
     RIPrototypeVisuals::Update(this);
 
-    // Ease camera slap-kick back to the normal chase angle every frame.
     CameraKickYaw = FMath::FInterpTo(CameraKickYaw, 0.0f, DeltaSeconds, 10.0f);
     CameraKickRoll = FMath::FInterpTo(CameraKickRoll, 0.0f, DeltaSeconds, 11.0f);
     if (CameraBoom)
