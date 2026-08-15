@@ -45,21 +45,40 @@ ARIBananaPeelHazard::ARIBananaPeelHazard()
     Visual->SetupAttachment(PhysicsBody);
     Visual->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     Visual->SetGenerateOverlapEvents(false);
-    Visual->SetRelativeScale3D(FVector(0.58f, 0.34f, 0.07f));
-    Visual->SetRelativeLocation(FVector(0.0f, 0.0f, -8.0f));
+    Visual->SetRelativeScale3D(FVector(0.46f, 0.16f, 0.055f));
+    Visual->SetRelativeLocation(FVector(18.0f, 0.0f, -8.0f));
+    Visual->SetRelativeRotation(FRotator(0.0f, 0.0f, 0.0f));
+
+    VisualLeft = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("VisualLeft"));
+    VisualLeft->SetupAttachment(PhysicsBody);
+    VisualLeft->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    VisualLeft->SetGenerateOverlapEvents(false);
+    VisualLeft->SetRelativeScale3D(FVector(0.42f, 0.15f, 0.055f));
+    VisualLeft->SetRelativeLocation(FVector(-7.0f, -12.0f, -8.0f));
+    VisualLeft->SetRelativeRotation(FRotator(0.0f, 0.0f, 118.0f));
+
+    VisualRight = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("VisualRight"));
+    VisualRight->SetupAttachment(PhysicsBody);
+    VisualRight->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    VisualRight->SetGenerateOverlapEvents(false);
+    VisualRight->SetRelativeScale3D(FVector(0.42f, 0.15f, 0.055f));
+    VisualRight->SetRelativeLocation(FVector(-7.0f, 12.0f, -8.0f));
+    VisualRight->SetRelativeRotation(FRotator(0.0f, 0.0f, -118.0f));
 
     static ConstructorHelpers::FObjectFinder<UStaticMesh> SphereMesh(TEXT("/Engine/BasicShapes/Sphere.Sphere"));
     if (SphereMesh.Succeeded())
     {
         Visual->SetStaticMesh(SphereMesh.Object);
+        VisualLeft->SetStaticMesh(SphereMesh.Object);
+        VisualRight->SetStaticMesh(SphereMesh.Object);
     }
 
     Glow = CreateDefaultSubobject<UPointLightComponent>(TEXT("Glow"));
     Glow->SetupAttachment(PhysicsBody);
     Glow->SetLightColor(FLinearColor(1.0f, 0.62f, 0.02f));
-    Glow->SetIntensity(700.0f);
-    Glow->SetAttenuationRadius(155.0f);
-    Glow->SetRelativeLocation(FVector(0.0f, 0.0f, 18.0f));
+    Glow->SetIntensity(520.0f);
+    Glow->SetAttenuationRadius(140.0f);
+    Glow->SetRelativeLocation(FVector(0.0f, 0.0f, 16.0f));
 
     InitialLifeSpan = 25.0f;
 }
@@ -92,6 +111,8 @@ void ARIBananaPeelHazard::BeginPlay()
         {
             Material->SetVectorParameterValue(TEXT("Color"), FLinearColor(1.0f, 0.60f, 0.01f, 1.0f));
             Visual->SetMaterial(0, Material);
+            VisualLeft->SetMaterial(0, Material);
+            VisualRight->SetMaterial(0, Material);
         }
     }
 }
@@ -144,7 +165,7 @@ void ARIBananaPeelHazard::HandleHazardOverlap(
     }
 
     OtherBike->GetHealthComponent()->ApplyImpact(2.0f);
-    OtherBike->TriggerComicImpact(SideSign, ValidSource == OtherBike ? TEXT("OWN GOAL!" ) : TEXT("SLIP!"), 0.95f);
+    OtherBike->TriggerComicImpact(SideSign, ValidSource == OtherBike ? TEXT("OWN GOAL!") : TEXT("SLIP!"), 0.95f);
     RIPrototypeVisuals::PlayReaction(OtherBike, SideSign);
     RIAudioEvents::Play(this, TEXT("PeelSlip"), OtherBike->GetActorLocation(), 1.0f, FMath::FRandRange(0.94f, 1.08f));
 
