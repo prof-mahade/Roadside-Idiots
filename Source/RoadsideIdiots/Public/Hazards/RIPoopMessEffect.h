@@ -21,6 +21,7 @@ public:
     virtual void Tick(float DeltaSeconds) override;
 
     void Configure(ARIBikePawn* InBike, bool bInCowMess, float InLifetimeSeconds);
+    void Refresh(bool bInCowMess, float InLifetimeSeconds);
     ARIBikePawn* GetAffectedBike() const { return AffectedBike.Get(); }
     bool IsCowMess() const { return bCowMess; }
 
