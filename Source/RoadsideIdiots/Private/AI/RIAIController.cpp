@@ -132,7 +132,6 @@ void ARIAIController::NotifyProvokedBy(ARIBikePawn* InstigatorBike)
         ? FMath::Min(GrudgeTimeRemaining + 0.75f, GrudgeDurationSeconds * 1.10f)
         : GrudgeDurationSeconds;
 
-    // Fight fatigue prevents two riders from refreshing each other's chase forever.
     if (IsTacticalIntentActive() || TacticalCooldownRemaining > 0.0f) return;
 
     float RetaliationChance = 0.35f;
@@ -241,7 +240,10 @@ float ARIAIController::ComputeAvoidanceShift(const FVector& BikeLocation, const 
     };
 
     for (TActorIterator<ARITrafficVehicle> It(GetWorld()); It; ++It)
-        ConsiderObstacle(*It, FVector::ZeroVector, 1450.0f, 340.0f, 330.0f, 1.0f);
+    {
+        ARITrafficVehicle* Traffic = *It;
+        ConsiderObstacle(Traffic, Traffic ? Traffic->GetTrafficVelocityEstimate() : FVector::ZeroVector, 1450.0f, 340.0f, 330.0f, 1.0f);
+    }
     for (TActorIterator<ARIPoopHazard> It(GetWorld()); It; ++It)
         ConsiderObstacle(*It, FVector::ZeroVector, 900.0f, 205.0f, 260.0f, 1.0f);
     for (TActorIterator<ARIBananaPeelHazard> It(GetWorld()); It; ++It)
@@ -266,26 +268,36 @@ float ARIAIController::ComputeCrowdSpeedScale(const FVector& BikeLocation, const
     float SpeedScale = 1.0f;
     const FVector SelfVelocity = Bike->GetChassis() ? Bike->GetChassis()->GetPhysicsLinearVelocity() : FVector::ZeroVector;
 
+    auto ConsiderMover = [&](const AActor* Other, const FVector& OtherVelocity, const float LookAhead, const float SideClearance, const float MinimumScale)
+    {
+        if (!Other || Other == Bike) return;
+        FVector ToOther = Other->GetActorLocation() - BikeLocation;
+        ToOther.Z = 0.0f;
+        const float Distance = ToOther.Size();
+        if (Distance < 1.0f || Distance > LookAhead) return;
+        const FVector Direction = ToOther / Distance;
+        if (FVector::DotProduct(Direction, Forward) < 0.35f) return;
+        if (FMath::Abs(FVector::DotProduct(ToOther, Right)) > SideClearance) return;
+        const float ClosingSpeed = FMath::Max(0.0f, FVector::DotProduct(SelfVelocity - OtherVelocity, Direction));
+        const float PredictedDistance = FMath::Max(100.0f, Distance - ClosingSpeed * 0.85f);
+        const float LocalScale = FMath::GetMappedRangeValueClamped(
+            FVector2D(150.0f, LookAhead), FVector2D(MinimumScale, 1.0f), PredictedDistance);
+        SpeedScale = FMath::Min(SpeedScale, LocalScale);
+    };
+
+    for (TActorIterator<ARITrafficVehicle> It(GetWorld()); It; ++It)
+    {
+        ARITrafficVehicle* Traffic = *It;
+        if (Traffic) ConsiderMover(Traffic, Traffic->GetTrafficVelocityEstimate(), 1350.0f, 330.0f, 0.28f);
+    }
+
     for (TActorIterator<ARIBikePawn> It(GetWorld()); It; ++It)
     {
         ARIBikePawn* OtherBike = *It;
         if (!OtherBike || OtherBike == Bike) continue;
-        FVector ToOther = OtherBike->GetActorLocation() - BikeLocation;
-        ToOther.Z = 0.0f;
-        const float Distance = ToOther.Size();
-        if (Distance < 1.0f || Distance > CrowdLookAhead) continue;
-        const FVector Direction = ToOther / Distance;
-        if (FVector::DotProduct(Direction, Forward) < 0.35f) continue;
-        if (FMath::Abs(FVector::DotProduct(ToOther, Right)) > CrowdSideClearance) continue;
-
         const FVector OtherVelocity = OtherBike->GetChassis() ? OtherBike->GetChassis()->GetPhysicsLinearVelocity() : FVector::ZeroVector;
-        const float ClosingSpeed = FMath::Max(0.0f, FVector::DotProduct(SelfVelocity - OtherVelocity, Direction));
-        const float PredictedDistance = FMath::Max(100.0f, Distance - ClosingSpeed * 0.85f);
         const bool bIntentTarget = IsTacticalIntentActive() && TacticalTarget.Get() == OtherBike;
-        const float MinimumScale = bIntentTarget ? 0.55f : 0.34f;
-        const float LocalScale = FMath::GetMappedRangeValueClamped(
-            FVector2D(150.0f, CrowdLookAhead), FVector2D(MinimumScale, 1.0f), PredictedDistance);
-        SpeedScale = FMath::Min(SpeedScale, LocalScale);
+        ConsiderMover(OtherBike, OtherVelocity, CrowdLookAhead, CrowdSideClearance, bIntentTarget ? 0.55f : 0.34f);
     }
     return SpeedScale;
 }
