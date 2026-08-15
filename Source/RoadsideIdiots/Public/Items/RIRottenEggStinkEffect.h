@@ -33,5 +33,14 @@ private:
     TObjectPtr<UStaticMeshComponent> PuffC;
 
     UPROPERTY(VisibleAnywhere)
+    TObjectPtr<UStaticMeshComponent> PuffD;
+
+    UPROPERTY(VisibleAnywhere)
+    TObjectPtr<UStaticMeshComponent> PuffE;
+
+    UPROPERTY(VisibleAnywhere)
+    TObjectPtr<UStaticMeshComponent> Splatter;
+
+    UPROPERTY(VisibleAnywhere)
     TObjectPtr<UPointLightComponent> Glow;
 };
