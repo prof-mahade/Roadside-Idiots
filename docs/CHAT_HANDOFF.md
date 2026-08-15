@@ -25,21 +25,23 @@ Working tagline: **The road is dangerous. The riders are worse.**
 - ordered checkpoints, place/progress HUD and Condition value
 - manual/automatic recovery
 - side interaction on Q/E
-- bot retaliation/grudge state after a successful interaction
+- bot retaliation/grudge state after successful interactions
 - deterministic rival personalities
 - finish state and instant Enter restart
 - continuous flat collision floor for the prototype road
 - banana pickup/heal/peel hazard loop
-- combat impact feedback pass accepted as good enough for now
-- visible bandage damage progression accepted as readable in VPR-10 screenshot
+- rotten egg pickup/throw/grudge loop
+- combat impact feedback accepted as good enough for now
+- visible bandage damage progression accepted as readable
+- civilian traffic movement architecture locally proven in VPR-11 screenshot
 
 ## Known limitations
 - bot corner/off-track recovery is still imperfect and deferred to a later motorcycle/AI mechanics pass
 - current motorcycle physics are prototype physics, not final two-wheel simulation
 - final slap/kick sound, particles and final character/bike art are not implemented
 - banana, bandage, rotten-egg and traffic visuals are engine-primitive placeholders
-- VPR-10.1 stronger rotten-egg stink presentation was not yet visually proven in a screenshot with an actively egged rider
-- VPR-11 civilian traffic is pending first local compile/playtest
+- VPR-10.1 stronger rotten-egg stink presentation has not yet been visually proven in a screenshot with an actively egged rider
+- VPR-11.1 refined traffic shape is pending local compile/visual verification
 
 ## Imported local visual assets
 The developer locally imported:
@@ -88,7 +90,7 @@ Current architecture:
 - tip/crash penalty: 3
 - spawn settling grace: 1.25 seconds
 - health supports positive healing for banana pickups
-- physics mass overrides were moved from native constructors to `BeginPlay()` to avoid UE 5.8 `GEngine not initialized / GetSimplePhysicalMaterial` startup errors; latest user log no longer showed those strings
+- physics mass overrides were moved from native constructors to `BeginPlay()` to avoid UE 5.8 startup physical-material errors
 
 Design intent: Condition should move only for readable combat hits, meaningful crashes, hard impacts, traffic impacts, or healing.
 
@@ -106,22 +108,21 @@ HUD shows angry-rival direction/distance:
 - eight glowing prototype banana pickups around the oval
 - pickup heals up to 12 Condition and grants one peel
 - carry up to 3 peels
-- F drops a peel behind the rider using deferred spawn so it cannot instantly hit the dropper
-- peel has a small gravity-driven physics body and visibly falls to the road
-- dropper has only a short self-immunity window; after that anyone, including the player, can slip on it
+- F drops a gravity-driven peel behind the rider
+- short dropper immunity prevents instant self-hit, after which anyone can slip on it
 - slip applies visible lateral/roll wobble, small Condition loss and reaction
 - if a bot slips on the player's peel, that bot becomes angry at the player
 - user confirmed banana peels are working fine
 
-## VPR-08 combat impact feel — locally accepted
-- successful slap adds a stronger roll/yaw wobble instead of only sideways drift
+## Combat impact feel — locally accepted
+- successful slap adds stronger roll/yaw wobble
 - `SMACK!` appears over a victim
 - player receiving a hit gets center-screen `WHACK!`
 - player camera gets a short directional kick and smoothly settles
 - damage values were not changed in this pass
-- user feedback: "not bad for now"; do not keep polishing this slice unless later systems expose a problem
+- user feedback: "not bad for now"
 
-## VPR-09/VPR-10 visible damage progression — locally accepted for readability
+## Visible damage progression — locally accepted
 Health-driven prototype bandages are attached to Manny bones:
 - Condition <= 75%: upper-left-arm bandage
 - Condition <= 50%: head bandage also visible
@@ -129,34 +130,41 @@ Health-driven prototype bandages are attached to Manny bones:
 - healing hides bandages again when thresholds are crossed upward
 - HUD Condition color and damage text use the same thresholds
 
-VPR-10 enlarged the wraps and added dark-red accent strips. User screenshot at 35/100 Condition showed the arm/head bandage presentation clearly from chase-camera distance, so the readability goal is considered passed for prototype purposes.
+VPR-10 enlarged the wraps and added dark-red accent strips. User screenshots confirmed the wraps are readable from chase-camera distance.
 
-## Rotten egg prototype — mechanic present, stronger readability in VPR-10.1
-- `URIRottenEggWorldSubsystem` auto-spawns three ugly green rotten-egg pickups near banana-route anchors
+## Rotten egg prototype
+- three ugly green rotten-egg pickups
 - player can carry up to 2 rotten eggs
-- direct prototype input polling: `G` throws a rotten egg; no `DefaultInput.ini` edit
+- G throws a rotten egg using direct prototype input polling (no DefaultInput.ini edit)
 - projectile launches forward with gravity and limited range
 - rider hit receives `SPLAT!`, small wobble, 1 Condition damage and reaction animation
 - NPC hit by player's egg becomes angry at the player
-- VPR-10.1 adds six-second larger green/brown stink puffs, brighter green light, a yellow-green splatter patch and persistent `STINK!` HUD marker
-- current screenshot proves VPR-10.1 is running, but did not show an actively egged rider, so the stronger presentation is not yet visually verified
+- VPR-10.1 adds six-second larger green/brown stink puffs, brighter green light, yellow-green splatter patch and persistent `STINK!` HUD marker
+- current screenshots prove VPR-10.1 runs, but stronger stink presentation still awaits a screenshot with an actively egged rider
 
-## VPR-11 civilian traffic — pending local gate
-Current `dev/mvp-foundation` adds a prototype traffic layer using the same analytic oval as the race route:
-- `ARITrafficVehicle`: kinematic civilian traffic actor using engine primitive body/cabin/headlight visuals
-- `URITrafficWorldSubsystem`: auto-spawns three vehicles once per game world
-- three traffic personalities/speeds:
-  - yellow `SUNDAY DRIVER`: ~42 km/h, left-side lane, stable path
-  - blue `TAXI`: ~58 km/h, right-side lane, slight ~95 cm sinusoidal lane wander
-  - orange `DELIVERY VAN`: ~72 km/h, near-center lane, stable path
-- vehicles follow the exact 9000 × 5000 cm oval using local tangent speed correction so travel speed stays roughly consistent through the ellipse
-- first traffic collision architecture is overlap-based rather than hard kinematic blocking to avoid traffic/bike deadlocks
-- hitting traffic gives the bike one shove/roll reaction, 6 Condition impact, `HONK!`, and a temporary comedy message
-- each bike/traffic pair has a 1.25 s impact cooldown so a single contact cannot machine-gun Condition loss
-- traffic keeps flowing instead of becoming stuck against player/NPC physics
+## Civilian traffic — VPR-11 movement locally proven, VPR-11.1 visual pass pending
+Traffic uses the same analytic 9000 × 5000 cm oval as the race route.
 
-HUD marker:
-`BUILD: VPR-11 | TRAFFIC: CIVILIAN IDIOTS | ITEMS: WORKING`
+Movement/behavior:
+- three auto-spawned civilian vehicles
+- yellow `SUNDAY DRIVER`: ~42 km/h, left-side lane, stable path
+- blue `TAXI`: ~58 km/h, right-side lane, slight ~95 cm sinusoidal lane wander
+- orange `DELIVERY VAN`: ~72 km/h, near-center lane, stable path
+- local VPR-11 screenshot showed traffic present on-route, HUD count 3, and race completion still working
+- first collision architecture is overlap-based rather than hard kinematic blocking to avoid traffic/bike deadlocks
+- touching traffic gives one shove/roll reaction, 6 Condition impact, `HONK!`, and a comedy message
+- each bike/traffic pair has a 1.25 s impact cooldown
+- traffic keeps moving instead of becoming stuck against player/NPC physics
+
+VPR-11 screenshot exposed a presentation issue: the simple body/cabin boxes read too much like a giant moving wall. VPR-11.1 keeps the proven movement system but refines visuals/footprint:
+- impact envelope reduced to compact-car proportions
+- lower/narrower body and cabin
+- four visible dark wheels
+- front yellow-white lamps and rear red lamps
+- vehicle colors/speeds/lane behavior unchanged
+
+Current HUD marker:
+`BUILD: VPR-11.1 | TRAFFIC: SHAPED CARS | ITEMS: WORKING`
 
 HUD also shows:
 `Traffic: 3 civilian idiots`
@@ -178,17 +186,12 @@ Checkpoint recovery stores a predefined road-center location based on checkpoint
 1. Close Unreal Editor.
 2. Pull latest `dev/mvp-foundation`.
 3. Compile `RoadsideIdiotsEditor`.
-4. Launch PIE and verify HUD shows VPR-11 and `Traffic: 3 civilian idiots`.
-5. Drive at least one lap and verify three colored civilian vehicles circulate on the same road instead of cutting across the oval.
-6. Overtake the slow yellow car and the medium blue taxi; confirm traffic motion looks smooth enough for the prototype.
-7. Watch the blue taxi for slight lane wandering; it should stay inside the 12 m road and not scrape barriers.
-8. Intentionally touch one traffic vehicle once:
-   - bike should receive one noticeable shove/wobble
-   - `HONK!` / traffic comedy message should appear
-   - Condition should drop once, not continuously
-   - traffic vehicle should keep moving rather than getting stuck
-9. Reconfirm flat-road behavior, banana/egg inventory, NPC race AI and restart still behave normally.
-10. If VPR-11 passes, continue to map-dependent comedy hazards (dog/cow poop) or traffic/audio polish rather than redesigning traffic physics yet.
+4. Launch PIE and verify HUD shows VPR-11.1 and `Traffic: 3 civilian idiots`.
+5. Drive near the yellow car and verify it now reads approximately like a compact car rather than a giant box/wall.
+6. Confirm four wheels/lights are visible and vehicle footprint leaves comfortable overtaking space on the 12 m road.
+7. Drive one lap and reconfirm the three traffic actors still follow their lanes smoothly.
+8. Touch one traffic vehicle once and reconfirm the existing single shove/Condition/HONK behavior still works.
+9. If VPR-11.1 passes, move to the next comedy-value slice rather than further traffic polish: first dog/cow poop road hazard prototype, then audio/final assets later.
 
 ## New-chat protocol
 1. Read this file.
