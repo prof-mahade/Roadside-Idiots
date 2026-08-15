@@ -84,9 +84,38 @@ void ARIDebugHUD::DrawHUD()
         if (*It) RivalControllers.Add(*It);
     }
 
-    // Compact left HUD: keep gameplay information readable and stop turning the
-    // screen into a debug console while we are validating presentation.
-    DrawRect(FLinearColor(0.015f, 0.022f, 0.030f, 0.58f), 16.0f, 18.0f, 330.0f, DamageText.IsEmpty() ? 142.0f : 164.0f);
+    bool bPlayerEggStink = false;
+    bool bPlayerPoopMess = false;
+    bool bPlayerCowMess = false;
+
+    for (TActorIterator<ARIRottenEggStinkEffect> It(GetWorld()); It; ++It)
+    {
+        ARIRottenEggStinkEffect* Effect = *It;
+        if (Effect && Cast<ARIBikePawn>(Effect->GetOwner()) == Bike)
+        {
+            bPlayerEggStink = true;
+            break;
+        }
+    }
+
+    for (TActorIterator<ARIPoopMessEffect> It(GetWorld()); It; ++It)
+    {
+        ARIPoopMessEffect* Mess = *It;
+        if (Mess && Mess->GetAffectedBike() == Bike)
+        {
+            bPlayerPoopMess = true;
+            bPlayerCowMess = Mess->IsCowMess();
+            break;
+        }
+    }
+
+    int32 ExtraStatusLines = 0;
+    if (!DamageText.IsEmpty()) ++ExtraStatusLines;
+    if (bPlayerEggStink) ++ExtraStatusLines;
+    if (bPlayerPoopMess) ++ExtraStatusLines;
+    const float LeftPanelHeight = 142.0f + ExtraStatusLines * 20.0f;
+
+    DrawRect(FLinearColor(0.015f, 0.022f, 0.030f, 0.60f), 16.0f, 18.0f, 330.0f, LeftPanelHeight);
 
     float LeftY = 28.0f;
     auto LeftLine = [&](const FString& Text, const FLinearColor& Color = FLinearColor::White, float Scale = 0.92f)
@@ -96,24 +125,35 @@ void ARIDebugHUD::DrawHUD()
     };
 
     LeftLine(TEXT("ROADSIDE IDIOTS"), FLinearColor(1.0f, 0.76f, 0.18f), 1.02f);
-    LeftLine(TEXT("VPR-14.1 | HUD CLEANUP | PACK SPACING"), FLinearColor(0.52f, 1.0f, 0.70f), 0.78f);
+    LeftLine(TEXT("VPR-15 | PRESENTATION + AUDIO HOOKS"), FLinearColor(0.52f, 1.0f, 0.70f), 0.76f);
     LeftLine(FString::Printf(TEXT("SPEED  %.0f km/h"), FMath::Abs(Bike->GetBikeMovement()->GetForwardSpeedKph())));
     LeftLine(FString::Printf(TEXT("CONDITION  %.0f / %.0f"), CurrentCondition, MaxCondition), ConditionColor);
     LeftLine(
         FString::Printf(TEXT("PEELS %d/3     EGGS %d/%d"), Bike->GetBananaPeelCount(), Bike->GetRottenEggCount(), Bike->GetMaxRottenEggs()),
         FLinearColor(0.95f, 0.86f, 0.28f),
         0.88f);
+
     if (!DamageText.IsEmpty())
     {
         LeftLine(FString::Printf(TEXT("DAMAGE  %s"), *DamageText), ConditionColor, 0.80f);
     }
+    if (bPlayerPoopMess)
+    {
+        LeftLine(
+            bPlayerCowMess ? TEXT("FILTH  COW PATTY") : TEXT("FILTH  DOG POOP"),
+            bPlayerCowMess ? FLinearColor(0.70f, 0.52f, 0.10f) : FLinearColor(0.58f, 0.70f, 0.12f),
+            0.82f);
+    }
+    if (bPlayerEggStink)
+    {
+        LeftLine(TEXT("STINK  ROTTEN EGG"), FLinearColor(0.52f, 0.82f, 0.10f), 0.82f);
+    }
 
-    // Race strip gets its own dark backing so sky/filth effects cannot wash it out.
     if (CachedRaceManager && bHasRaceProgress)
     {
         const float StripX = Canvas->SizeX * 0.37f;
         const float StripW = 390.0f;
-        DrawRect(FLinearColor(0.015f, 0.022f, 0.030f, 0.62f), StripX - 15.0f, 17.0f, StripW, 38.0f);
+        DrawRect(FLinearColor(0.015f, 0.022f, 0.030f, 0.64f), StripX - 15.0f, 17.0f, StripW, 38.0f);
         DrawText(
             FString::Printf(TEXT("LAP %d/%d     POS %d/%d     %s"), CurrentLap, TotalLaps, PlayerPlace, ParticipantCount, *RaceTimeText),
             FLinearColor(0.96f, 0.98f, 1.0f),
@@ -152,8 +192,11 @@ void ARIDebugHUD::DrawHUD()
         }
     }
 
-    // Circular top-right minimap. Keep the map itself bright, but give it a
-    // subtle dark panel so markers remain visible against the sky.
+    constexpr float MapPanelWidth = 234.0f;
+    constexpr float MapPanelHeight = 264.0f;
+    const float MapPanelX = Canvas->SizeX - 262.0f;
+    const float MapPanelY = 15.0f;
+
     {
         constexpr float MapWorldRadiusX = 9000.0f;
         constexpr float MapWorldRadiusY = 5000.0f;
@@ -162,12 +205,7 @@ void ARIDebugHUD::DrawHUD()
         const float OuterRadius = 105.0f;
         const float TrackRadius = 80.0f;
 
-        DrawRect(
-            FLinearColor(0.015f, 0.022f, 0.030f, 0.55f),
-            MapCenter.X - OuterRadius - 12.0f,
-            MapCenter.Y - OuterRadius - 30.0f,
-            (OuterRadius + 12.0f) * 2.0f,
-            (OuterRadius + 12.0f) * 2.0f + 30.0f);
+        DrawRect(FLinearColor(0.015f, 0.022f, 0.030f, 0.58f), MapPanelX, MapPanelY, MapPanelWidth, MapPanelHeight);
 
         auto CirclePoint = [&](float Radius, int32 Index)
         {
@@ -262,11 +300,36 @@ void ARIDebugHUD::DrawHUD()
     if (Bike->GetActiveComicImpact(PlayerImpactText, PlayerImpactAlpha))
     {
         const FLinearColor ImpactColor(1.0f, 0.20f, 0.07f, PlayerImpactAlpha);
-        DrawText(PlayerImpactText, ImpactColor, Canvas->SizeX * 0.45f, Canvas->SizeY * 0.41f, Font, 1.9f, false);
+        const float CenterX = Canvas->SizeX * 0.50f;
+        const float CenterY = Canvas->SizeY * 0.43f;
+        DrawText(PlayerImpactText, ImpactColor, CenterX - 48.0f, CenterY - 12.0f, Font, 1.9f, false);
+
+        const float Inner = 70.0f + (1.0f - PlayerImpactAlpha) * 20.0f;
+        const float Outer = Inner + 44.0f * PlayerImpactAlpha;
+        for (int32 Index = 0; Index < 8; ++Index)
+        {
+            const float Angle = 2.0f * PI * static_cast<float>(Index) / 8.0f;
+            const FVector2D Direction(FMath::Cos(Angle), FMath::Sin(Angle));
+            const FVector2D A(CenterX + Direction.X * Inner, CenterY + Direction.Y * Inner);
+            const FVector2D B(CenterX + Direction.X * Outer, CenterY + Direction.Y * Outer);
+            DrawLine(A.X, A.Y, B.X, B.Y, ImpactColor, 2.0f + PlayerImpactAlpha * 2.0f);
+        }
+
+        const float EdgeAlpha = 0.11f * PlayerImpactAlpha;
+        DrawRect(FLinearColor(0.55f, 0.03f, 0.01f, EdgeAlpha), 0.0f, 0.0f, Canvas->SizeX, 18.0f);
+        DrawRect(FLinearColor(0.55f, 0.03f, 0.01f, EdgeAlpha), 0.0f, Canvas->SizeY - 18.0f, Canvas->SizeX, 18.0f);
+        DrawRect(FLinearColor(0.55f, 0.03f, 0.01f, EdgeAlpha), 0.0f, 0.0f, 18.0f, Canvas->SizeY);
+        DrawRect(FLinearColor(0.55f, 0.03f, 0.01f, EdgeAlpha), Canvas->SizeX - 18.0f, 0.0f, 18.0f, Canvas->SizeY);
     }
 
-    // Only show rival world labels when they are close enough to matter, or when
-    // they are actively angry at the player. This keeps the road readable.
+    auto IsReservedHudPoint = [&](const FVector2D& Point)
+    {
+        const bool bLeftPanel = Point.X < 370.0f && Point.Y < LeftPanelHeight + 36.0f;
+        const bool bRaceStrip = Point.Y < 78.0f && Point.X > Canvas->SizeX * 0.32f && Point.X < Canvas->SizeX * 0.72f;
+        const bool bMapPanel = Point.X > MapPanelX - 20.0f && Point.Y < MapPanelY + MapPanelHeight + 25.0f;
+        return bLeftPanel || bRaceStrip || bMapPanel;
+    };
+
     for (ARIAIController* AI : RivalControllers)
     {
         ARIBikePawn* RivalBike = AI ? Cast<ARIBikePawn>(AI->GetPawn()) : nullptr;
@@ -274,14 +337,15 @@ void ARIDebugHUD::DrawHUD()
 
         const bool bMad = AI->IsHoldingGrudgeAgainst(Bike);
         const float DistanceSq = FVector::DistSquared2D(Bike->GetActorLocation(), RivalBike->GetActorLocation());
-        if (!bMad && DistanceSq > FMath::Square(3000.0f)) continue;
-        if (bMad && DistanceSq > FMath::Square(5200.0f)) continue;
+        if (!bMad && DistanceSq > FMath::Square(2200.0f)) continue;
+        if (bMad && DistanceSq > FMath::Square(4000.0f)) continue;
 
         FVector2D ScreenPosition;
         const FVector LabelWorldLocation = RivalBike->GetActorLocation() + FVector::UpVector * 245.0f;
         if (!PlayerOwner->ProjectWorldLocationToScreen(LabelWorldLocation, ScreenPosition, true)) continue;
         if (ScreenPosition.X < -80.0f || ScreenPosition.X > Canvas->SizeX + 80.0f ||
-            ScreenPosition.Y < -50.0f || ScreenPosition.Y > Canvas->SizeY + 50.0f)
+            ScreenPosition.Y < -50.0f || ScreenPosition.Y > Canvas->SizeY + 50.0f ||
+            IsReservedHudPoint(ScreenPosition))
         {
             continue;
         }
@@ -289,8 +353,7 @@ void ARIDebugHUD::DrawHUD()
         const URIParticipantComponent* RivalParticipant = RivalBike->GetParticipantComponent();
         const FString RivalName = RivalParticipant ? RivalParticipant->GetParticipantId().ToString() : TEXT("RIVAL");
 
-        FString Label = FString::Printf(
-            TEXT("%s [%s]  P%d E%d"),
+        FString Label = FString::Printf(TEXT("%s [%s]  P%d E%d"),
             *RivalName,
             *AI->GetPersonalityLabel(),
             RivalBike->GetBananaPeelCount(),
@@ -303,7 +366,7 @@ void ARIDebugHUD::DrawHUD()
         else if (AI->GetPersonalityLabel().Equals(TEXT("HOTHEAD"), ESearchCase::IgnoreCase)) LabelColor = FLinearColor(1.0f, 0.55f, 0.12f);
         else if (AI->GetPersonalityLabel().Equals(TEXT("PETTY"), ESearchCase::IgnoreCase)) LabelColor = FLinearColor(0.86f, 0.52f, 1.0f);
 
-        DrawText(Label, LabelColor, ScreenPosition.X - 72.0f, ScreenPosition.Y, Font, 0.72f, false);
+        DrawText(Label, LabelColor, ScreenPosition.X - 72.0f, ScreenPosition.Y, Font, 0.70f, false);
 
         FString RivalImpactText;
         float RivalImpactAlpha = 0.0f;
@@ -320,38 +383,6 @@ void ARIDebugHUD::DrawHUD()
         }
     }
 
-    // Stink labels are useful, but smaller and range-limited so they do not
-    // dominate the entire sky when the pack is close together.
-    for (TActorIterator<ARIRottenEggStinkEffect> It(GetWorld()); It; ++It)
-    {
-        ARIRottenEggStinkEffect* Stink = *It;
-        ARIBikePawn* EggedBike = Stink ? Cast<ARIBikePawn>(Stink->GetOwner()) : nullptr;
-        if (!EggedBike || FVector::DistSquared2D(Bike->GetActorLocation(), EggedBike->GetActorLocation()) > FMath::Square(3400.0f)) continue;
-
-        FVector2D ScreenPosition;
-        if (!PlayerOwner->ProjectWorldLocationToScreen(EggedBike->GetActorLocation() + FVector::UpVector * 290.0f, ScreenPosition, true)) continue;
-        DrawText(TEXT("STINK!"), FLinearColor(0.48f, 0.88f, 0.06f), ScreenPosition.X - 28.0f, ScreenPosition.Y, Font, 0.92f, false);
-    }
-
-    for (TActorIterator<ARIPoopMessEffect> It(GetWorld()); It; ++It)
-    {
-        ARIPoopMessEffect* Mess = *It;
-        ARIBikePawn* DirtyBike = Mess ? Mess->GetAffectedBike() : nullptr;
-        if (!DirtyBike || FVector::DistSquared2D(Bike->GetActorLocation(), DirtyBike->GetActorLocation()) > FMath::Square(3400.0f)) continue;
-
-        FVector2D ScreenPosition;
-        if (!PlayerOwner->ProjectWorldLocationToScreen(DirtyBike->GetActorLocation() + FVector::UpVector * 300.0f, ScreenPosition, true)) continue;
-        DrawText(
-            Mess->IsCowMess() ? TEXT("COW STINK") : TEXT("DOG STINK"),
-            Mess->IsCowMess() ? FLinearColor(0.65f, 0.50f, 0.08f) : FLinearColor(0.48f, 0.66f, 0.08f),
-            ScreenPosition.X - 38.0f,
-            ScreenPosition.Y,
-            Font,
-            0.88f,
-            false);
-    }
-
-    // Show one concise angry-rival warning instead of a growing debug list.
     for (ARIAIController* AI : RivalControllers)
     {
         if (!AI || !AI->IsHoldingGrudgeAgainst(Bike)) continue;
@@ -365,7 +396,7 @@ void ARIDebugHUD::DrawHUD()
             FString::Printf(TEXT("MAD: %s [%s]  %.0fm"), *RivalName, *AI->GetPersonalityLabel(), DistanceMeters),
             FLinearColor(1.0f, 0.25f, 0.10f),
             28.0f,
-            DamageText.IsEmpty() ? 170.0f : 192.0f,
+            LeftPanelHeight + 26.0f,
             Font,
             0.82f,
             false);
@@ -374,7 +405,7 @@ void ARIDebugHUD::DrawHUD()
 
     if (bHasRaceProgress && PlayerProgress.bFinished)
     {
-        DrawRect(FLinearColor(0.015f, 0.022f, 0.030f, 0.70f), Canvas->SizeX * 0.34f, Canvas->SizeY * 0.31f, 520.0f, 115.0f);
+        DrawRect(FLinearColor(0.015f, 0.022f, 0.030f, 0.72f), Canvas->SizeX * 0.34f, Canvas->SizeY * 0.31f, 520.0f, 115.0f);
         DrawText(
             FString::Printf(TEXT("FINISH!   PLACE %d/%d"), PlayerPlace, ParticipantCount),
             FLinearColor(0.20f, 1.0f, 0.32f),
