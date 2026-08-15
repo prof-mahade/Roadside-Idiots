@@ -1,68 +1,71 @@
-# Next milestone — VPR-14.1 Presentation Cleanup Gate
+# Next milestone — VPR-15 Presentation + Audio Hooks Gate
 
-VPR-14 is visually proven in the user's screenshot: the circular minimap is active, LAP 2/3 continues correctly, position/time update, and the race did not end after lap 1.
-
-The same screenshot exposed the next cleanup targets: upper-left debug-message clutter, oversized/stacked filth effects, and riders bunching when several bikes meet around hazards.
+VPR-14.1 is visually passed from the user's latest screenshot. The compact HUD/minimap layout is readable, stink no longer hides the motorcycle, pack spacing is improved, and the multi-lap/minimap architecture remains intact.
 
 ## Immediate goal
-Clean the readable-race layer before adding audio: keep the successful VPR-14 race/minimap architecture, reduce prototype visual noise, improve pack spacing, and add a first crash/dizzy comedy beat.
+Validate the first presentation-foundation batch without changing core race mechanics: cleaner world labels, lighter stink visuals, stronger comic impact framing, non-stacking egg stink, and an asset-independent audio event layer.
 
-## VPR-14.1 changes
+## VPR-15 changes
+
+### HUD / comic feedback
+- build marker: `VPR-15 | PRESENTATION + AUDIO HOOKS`
+- player poop/egg status moves into the left HUD instead of floating `COW STINK` / `DOG STINK` / `STINK` labels over the road
+- rival labels have shorter range and are suppressed when their projected position overlaps the left HUD, race strip or minimap
+- player comic impact text now gets an 8-ray burst and a short red edge vignette
+- existing minimap, race strip, finish panel and controls remain
 
 ### Filth / stink cleanup
-- only one `ARIPoopMessEffect` may remain active per bike
-- crossing another pile refreshes/upgrades the existing mess instead of stacking another full set of splats/fumes
-- cow and dog road-pile placeholder meshes are smaller
-- rider-attached brown splats are smaller
-- green/brown stink fumes are substantially smaller and tighter around the rider
-- stink point light is reduced
-- poop/combat no longer create redundant `GEngine` screen-message spam over the HUD
+- poop remains one `ARIPoopMessEffect` per bike; repeated hits refresh/upgrade it
+- poop uses three narrow rising wisps instead of large round green spheres
+- poop glow and attached splats are reduced again
+- rotten-egg stink uses three small wisps instead of five large puffs
+- repeated egg hits refresh one existing stink actor rather than stacking several clouds
 
-### AI anti-bunching
-The existing ~5 Hz cached sense pass now also calculates pack spacing:
-- stronger side avoidance for non-target bikes
-- nearby rider directly ahead reduces desired speed
-- very close blocked lane triggers stronger braking
-- active grudge target still allows a more aggressive minimum following speed
-- steering remains on the existing 20 Hz control loop
+### Optional audio foundation
+New `RIAudioEvents` helper resolves optional assets from:
 
-Goal: fewer multi-bike deadlocks without turning rivals into passive traffic-following bots.
+`/Game/Audio/SFX/SFX_<Event>.SFX_<Event>`
 
-### Crash / dizzy comedy
-- first transition into a tipped state triggers `DIZZY!`
-- existing get-hit rider reaction animation is reused for the first pass
-- human chase camera gets a short decaying sinusoidal dizzy wobble
-- existing 3 Condition crash penalty remains unchanged
-- auto-upright timing remains 2.4 s
-- R/auto recovery clears dizzy state
+Missing local assets are silent and cached for the current editor run, so gameplay never depends on binary sound content being present in Git.
 
-### HUD cleanup
-- build marker becomes `VPR-14.1 | HUD CLEANUP | PACK SPACING`
-- compact dark-backed top-left gameplay panel replaces the long diagnostic list
-- top-center LAP/POS/TIME strip gets its own dark backing
-- minimap gets a subtle dark backing and moves slightly tighter into the corner
-- duplicate LAP label over the map is replaced by a small `MAP` label
-- rival world labels are range-limited unless the rival is actively MAD
-- stink labels are smaller and range-limited
-- only one concise MAD warning is shown in the left HUD
-- controls move to a fixed bottom-left strip instead of extending the debug list
+Wired events:
+- Countdown
+- RaceGo
+- LapComplete
+- Finish
+- SlapHit
+- PeelSlip
+- EggThrow
+- EggSplat
+- EggMiss
+- DogPoop
+- CowPoop
+- Honk
+- TrafficHit
+- Crash
 
-## VPR-14.1 local gate
+`URIPresentationWorldSubsystem` owns countdown / GO / lap / finish / crash presentation cues without changing `ARIRaceManager` race rules.
+
+Exact optional sound naming is documented in `docs/AUDIO_ASSET_CONVENTION.md`.
+
+## VPR-15 local gate
 After pulling/compiling latest `dev/mvp-foundation`:
-1. confirm the build marker says `VPR-14.1 | HUD CLEANUP | PACK SPACING`
-2. run through dog/cow poop and confirm the rider is still visibly filthy/stinky but the effect no longer hides the motorcycle
-3. hit multiple poop hazards before the previous mess expires; effect should refresh rather than stack into many spheres/blobs
-4. watch several bots converge; they should brake/space themselves more often instead of forming a stationary pile
-5. deliberately tip/crash the player bike and confirm `DIZZY!` + brief camera wobble, then normal recovery
-6. confirm top-left HUD is much cleaner and no repeated COW PATTY / SMACK screen messages cover it
-7. reconfirm minimap, 3 laps, countdown, items, traffic, Condition and flat road
+1. verify `VPR-15 | PRESENTATION + AUDIO HOOKS`
+2. hit dog/cow poop; player filth status should be in the left HUD and the green effect should look thinner/more wisp-like
+3. hit multiple poop hazards; effects should refresh rather than stack
+4. get egged more than once before stink expires; there should still be one compact egg-stink effect
+5. slap a rival, hit a peel, throw an egg and contact traffic; mechanics/comic feedback must still work
+6. actual sound is expected to remain silent until matching `/Game/Audio/SFX/` assets are imported
+7. deliberately tip the bike; `DIZZY!`, camera wobble and recovery must still work
+8. confirm rival labels do not draw over the minimap/top strip/left HUD
+9. reconfirm countdown, minimap, three laps, F/G item use, AI item use, traffic, Condition and flat road
 
-## If VPR-14.1 passes
-Proceed to the first audio/presentation package:
-1. establish an audio event layer for engine/slap/impact/honk/skid/splat/gross reactions
-2. use free/imported placeholder sounds where legally usable and locally available
-3. add controlled impact/hazard VFX that do not obscure racing visibility
-4. continue replacing prototype debug presentation with final-style HUD elements
+## If VPR-15 passes
+Next batch:
+1. import or generate legally usable prototype SFX using the established naming convention
+2. add a dedicated motorcycle engine loop with speed/RPM-style pitch rather than treating it as a one-shot event
+3. add tire/skid loop and spatial traffic ambience where useful
+4. then start environment/map art replacement while keeping the proven gameplay loop intact
 
 ## Still deferred
 - final environment/models/textures
