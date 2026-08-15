@@ -80,7 +80,7 @@ void ARIBananaPickup::HandlePickupOverlap(
     if (!Bike) return;
 
     const URIParticipantComponent* Participant = Bike->GetParticipantComponent();
-    if (!Participant || !Participant->IsHumanControlled()) return;
+    if (!Participant) return;
 
     bConsumed = true;
 
@@ -88,7 +88,7 @@ void ARIBananaPickup::HandlePickupOverlap(
     const float After = Bike->GetHealthComponent()->Heal(HealAmount);
     Bike->AddBananaPeel(1);
 
-    if (GEngine)
+    if (GEngine && Participant->IsHumanControlled())
     {
         const float Recovered = FMath::Max(0.0f, After - Before);
         GEngine->AddOnScreenDebugMessage(
