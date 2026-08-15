@@ -7,6 +7,13 @@ Roadside Idiots is a Windows PC motorcycle racing game with believable road moti
 
 Tagline: **The road is dangerous. The riders are worse.**
 
+## PERMANENT USER CONSTRAINT — FREE ONLY
+The user has explicitly required that the entire project use only:
+- assets/tools/content available to them for $0 under the applicable license, or
+- assets/models/materials/audio we create ourselves.
+
+Do not recommend or plan around paid packs, subscriptions, or "buy later" content. If a suitable free asset cannot be found, make a lightweight custom replacement.
+
 ## Branch / local environment
 - stable milestone branch: `main`
 - active development branch: `dev/mvp-foundation`
@@ -42,6 +49,11 @@ Imported local presentation assets:
 - Fab `MotoInteractionAnims`
 - `SM_Bike`
 - riding/mounted/punch/get-hit/dizzy/interaction animations
+- free `PN_Banana` vegetation pack
+- free `PN_tropicalGroundPlants` vegetation pack
+
+Removed / do not use:
+- SankoolArts compound/gate pack; user requested removal after license/payment concern
 
 Authoritative architecture:
 - hidden cube chassis remains authoritative physics
@@ -85,7 +97,7 @@ Poop:
 - dog: short sideways skid/wobble + shorter filth
 - cow: speed cut to roughly 42% + longer filth
 - one poop mess actor max per bike
-- VPR-19 presentation makes dog poop stacked/small and cow poop broad/flat
+- dog silhouette stacked/small; cow broad/flat
 
 ## Civilian traffic
 - yellow SUNDAY DRIVER ~42 km/h
@@ -110,62 +122,73 @@ VPR-16/16.1:
 VPR-17:
 - UE 5.8 Unity Build succeeded
 - actor count ~173
-- collision-disabled road-join/barrier polish retained
 - generated asset-first fallback one-shot audio accepted for prototype use
 - UE-owned `SoundWaveProcedural.h` emits a non-fatal C4996 warning
 
 VPR-18 — PLAYABLE BASELINE:
-- presentation caches human bike instead of scanning every presentation tick
-- lightweight generated player `EnginePulse` varies with speed/throttle
-- throttled `TireSkid` cue on hard steering/braking at speed
+- cached human-bike presentation reference
+- lightweight generated player EnginePulse varies with speed/throttle
+- throttled TireSkid cue
 - banana pickup/drop readability improved
-- user accepted overall result as playable for now
+- user accepted overall result as playable
 
-VPR-19 — PASSED 2026-08-15:
-- one additional collision-disabled roadside-theme root using instanced mesh groups
-- South-Asian/Bangladesh-inspired graybox scaffold: stalls/houses, tin-style roofs, shelter, fields/water, vegetation, utility poles/lines
-- PIE actor count observed at ~174, confirming theme remained lightweight
-- screenshots show theme visible outside the road while three-lap race/minimap/traffic remain stable
-- VPR-19 fulfilled its purpose as a scale/density scaffold; do not add more primitive scenery for its own sake
+VPR-19 — PASSED:
+- one additional collision-disabled roadside-theme root with instanced mesh groups
+- Bangladesh/South-Asian-inspired graybox scaffold: stalls/houses, tin-style roofs, shelter, fields/water, vegetation, utility poles/lines
+- PIE actor count observed ~174
+- theme stayed outside road; three-lap race/minimap/traffic stable
+- do not add more primitive scenery for its own sake
 
 ## Audio architecture
 `RIAudioEvents` is asset-first:
 - checks `/Game/Audio/SFX/SFX_<Event>.SFX_<Event>`
-- real imported SFX override generated fallbacks automatically
+- real imported free SFX can override generated fallbacks automatically
 - generated fallbacks include countdown/GO/lap/finish, impacts, honk, eggs, peel, poop, pickups, engine pulse and tire skid
-- distant fallback events receive simple player-distance volume reduction
 
-## CURRENT ACTIVE GATE — VPR-20 Real Art Import
-Goal: prove the first real Fab environment-asset replacement pipeline while keeping VPR-18 gameplay and VPR-19 performance architecture frozen.
+## CURRENT ACTIVE GATE — VPR-20 Free Real-Art Import
+Goal: prove the first real free environment-art replacement pipeline while keeping gameplay frozen.
 
-Current selected first-pass assets are free-at-research-time Fab packs:
-1. `tropical Vegetation: Banana Plants` by Project Nature
-2. `tropical Vegetation: Ground Plants` by Project Nature
-3. `Indian Building Compound Gate - Game Ready Asset Pack (Unreal Engine Only)` by SankoolArts
+Current local free assets:
+1. `PN_Banana`
+2. `PN_tropicalGroundPlants`
 
-Why these first:
-- all have Unreal Engine formats
-- they provide regionally useful vegetation/boundary detail without requiring a paid village purchase
-- VPR-20 only needs to prove optional real-art integration, not final-map completeness
+Next local action:
+- after the compound/gate pack is deleted, inspect `PN_Banana/Meshes` and `PN_tropicalGroundPlants/Meshes`
+- record exact candidate Static Mesh names/paths
+- integrate selected vegetation with optional paths + primitive fallback
+- all replacements NoCollision and instanced where practical
+- build our own simple houses/stalls/walls/gates/signs if free assets are unavailable
 
-Import protocol:
-1. user adds the three packs locally through Fab
-2. inspect Content Browser and record exact imported folder + candidate Static Mesh names
-3. code uses explicit optional asset paths, with primitive fallback if an asset is unavailable
-4. imported environment replacements remain NoCollision and should stay instanced where practical
-5. actor count should remain approximately near the current ~174 baseline plus transient gameplay actors
-6. no imported content may alter the authoritative road/barrier collision or race mechanics
+## Demo 1 definition
+Demo 1 is a packaged Windows SOLO build. Multiplayer is not required.
 
-Avoid `Megaplants: Giant Bamboo` for this first gate because its listing currently relies on Experimental Procedural Vegetation / Nanite Foliage features.
+Required:
+1. one coherent 3-lap course
+2. stable player + 3 rivals
+3. AI/items/hazards/traffic/recovery/finish stable
+4. minimap/HUD/countdown/results readable
+5. comedy loops working
+6. usable audio feedback
+7. free real environment dressing or custom equivalents
+8. simple title/start/restart/quit flow
+9. packaged Windows build launches outside editor
+10. final bug/performance/package sweep
 
-Paid architecture remains optional. Regional Indian village-house Fab kits exist, but do not purchase one until the free VPR-20 art pipeline is proven and the user explicitly decides the visual benefit is worth the cost.
+Planned remaining gates:
+- VPR-20: free vegetation integration
+- VPR-21: custom/free roadside-art cleanup
+- VPR-22: traffic/item/hazard visual cleanup + rider animation polish
+- VPR-23: menu/title/pause/settings + packaging flow
+- VPR-24: final demo audit/package
 
-## Known limitations still deferred
-- bot corner/off-track recovery remains imperfect
-- motorcycle physics remain prototype physics
-- final sounds/map/traffic/item/environment art not implemented
-- sophisticated final traffic physics deferred
-- multiplayer networking deferred
+If no major regression appears, Demo 1 is only a few focused milestone passes away.
+
+## Known limitations deferred beyond Demo 1
+- multiplayer networking
+- perfect off-track recovery
+- sophisticated final motorcycle/traffic physics
+- final commercial-quality map/assets/audio
+- additional maps/modes
 
 ## New-chat protocol
 1. Read this file.
