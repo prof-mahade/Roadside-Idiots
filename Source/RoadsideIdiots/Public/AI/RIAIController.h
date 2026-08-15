@@ -22,6 +22,10 @@ public:
 
 private:
     void ConfigurePersonality();
+    void TryUseComedyItems();
+    ARIBikePawn* FindBestItemVictim() const;
+    bool FindUsefulPickupTarget(FVector& OutTarget) const;
+    float ComputeAvoidanceShift(const FVector& BikeLocation, const FVector& Forward, const FVector& Right) const;
 
     UPROPERTY() TObjectPtr<ARIBikePawn> Bike;
     TArray<FVector> RoutePoints;
@@ -31,6 +35,8 @@ private:
     TWeakObjectPtr<ARIBikePawn> GrudgeTarget;
     float GrudgeTimeRemaining = 0.0f;
     float AttackCooldownRemaining = 0.0f;
+    float EggUseCooldownRemaining = 0.0f;
+    float PeelUseCooldownRemaining = 0.0f;
     FString PersonalityLabel = TEXT("IDIOT");
 
     UPROPERTY(EditAnywhere, Category="AI Tuning") float TargetSpeedKph = 132.0f;
@@ -39,4 +45,9 @@ private:
     UPROPERTY(EditAnywhere, Category="AI Tuning|Retaliation") float GrudgeCatchupSpeedKph = 145.0f;
     UPROPERTY(EditAnywhere, Category="AI Tuning|Retaliation") float AttackRange = 235.0f;
     UPROPERTY(EditAnywhere, Category="AI Tuning|Retaliation") float AttackCooldownSeconds = 1.60f;
+
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Awareness") float PickupSeekRange = 1600.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Awareness") float AvoidanceStrength = 0.80f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Items") float EggUseCooldownSeconds = 3.6f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Items") float PeelUseCooldownSeconds = 4.2f;
 };
