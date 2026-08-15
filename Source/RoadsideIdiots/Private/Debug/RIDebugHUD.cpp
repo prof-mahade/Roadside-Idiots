@@ -125,7 +125,7 @@ void ARIDebugHUD::DrawHUD()
     };
 
     LeftLine(TEXT("ROADSIDE IDIOTS"), FLinearColor(1.0f, 0.76f, 0.18f), 1.02f);
-    LeftLine(TEXT("VPR-16 | TRACK SKIN + CAMERA FEEL"), FLinearColor(0.52f, 1.0f, 0.70f), 0.76f);
+    LeftLine(TEXT("VPR-20.1 | FREE VEG DENSITY + CLEANUP"), FLinearColor(0.52f, 1.0f, 0.70f), 0.76f);
     LeftLine(FString::Printf(TEXT("SPEED  %.0f km/h"), FMath::Abs(Bike->GetBikeMovement()->GetForwardSpeedKph())));
     LeftLine(FString::Printf(TEXT("CONDITION  %.0f / %.0f"), CurrentCondition, MaxCondition), ConditionColor);
     LeftLine(
