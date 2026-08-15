@@ -1,6 +1,5 @@
 #include "Items/RIRottenEggPickup.h"
 
-#include "Items/RIRottenEggWorldSubsystem.h"
 #include "Vehicle/RIBikePawn.h"
 #include "Core/RIParticipantComponent.h"
 #include "Components/SphereComponent.h"
@@ -72,17 +71,11 @@ void ARIRottenEggPickup::HandleOverlap(
     if (!Bike) return;
 
     const URIParticipantComponent* Participant = Bike->GetParticipantComponent();
-    if (!Participant || !Participant->IsHumanControlled()) return;
+    if (!Participant) return;
 
-    if (UWorld* World = GetWorld())
-    {
-        if (URIRottenEggWorldSubsystem* EggSystem = World->GetSubsystem<URIRottenEggWorldSubsystem>())
-        {
-            EggSystem->AddEgg(1);
-        }
-    }
+    Bike->AddRottenEgg(1);
 
-    if (GEngine)
+    if (GEngine && Participant->IsHumanControlled())
     {
         GEngine->AddOnScreenDebugMessage(-1, 1.7f, FColor(130, 180, 35), TEXT("UGH. Rotten egg acquired. Press G to throw it."));
     }
