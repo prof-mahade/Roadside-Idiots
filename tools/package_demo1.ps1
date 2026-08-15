@@ -21,6 +21,17 @@ if (-not (Test-Path $RunUAT)) {
 if (-not (Test-Path $ContentDir)) {
     Write-Warning "Content folder is missing. Local imported presentation assets will not be available to the cook."
 }
+else {
+    # Permanent project rule: free/custom content only. The SankoolArts compound
+    # pack was deliberately removed after the user's licensing/payment concern.
+    $ForbiddenFolders = Get-ChildItem -Path $ContentDir -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -match "Sankool" }
+
+    if ($ForbiddenFolders) {
+        $Names = ($ForbiddenFolders | ForEach-Object { $_.FullName }) -join ", "
+        throw "Packaging stopped: removed licensing-risk SankoolArts content was found: $Names"
+    }
+}
 
 $ExpectedFreeAssets = @(
     "PN_Banana\Meshes\plants\banana_01_07.uasset",
@@ -41,7 +52,7 @@ $ArchiveDir = Join-Path $ArchiveRoot "RoadsideIdiots_Demo1_$Stamp"
 New-Item -ItemType Directory -Force -Path $ArchiveDir | Out-Null
 
 Write-Host ""
-Write-Host "ROADSIDЕ IDIOTS - DEMO 1 WINDOWS PACKAGE" -ForegroundColor Cyan
+Write-Host "ROADSIDE IDIOTS - DEMO 1 WINDOWS PACKAGE" -ForegroundColor Cyan
 Write-Host "Project : $Project"
 Write-Host "Engine  : $EngineRoot"
 Write-Host "Output  : $ArchiveDir"
