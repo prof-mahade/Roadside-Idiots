@@ -115,11 +115,6 @@ void ARIPoopMessEffect::ApplyPresentation()
         SplatB->SetRelativeScale3D(FVector(0.30f, 0.38f, 0.16f));
         SplatC->SetRelativeLocation(FVector(22.0f, -30.0f, 72.0f));
         SplatC->SetRelativeScale3D(FVector(0.28f, 0.42f, 0.15f));
-
-        FumeA->SetRelativeScale3D(FVector(0.34f));
-        FumeB->SetRelativeScale3D(FVector(0.28f));
-        FumeC->SetRelativeScale3D(FVector(0.25f));
-        FumeD->SetRelativeScale3D(FVector(0.22f));
         StinkGlow->SetIntensity(820.0f);
         StinkGlow->SetLightColor(FLinearColor(0.36f, 0.46f, 0.07f));
     }
@@ -131,11 +126,6 @@ void ARIPoopMessEffect::ApplyPresentation()
         SplatB->SetRelativeScale3D(FVector(0.18f, 0.24f, 0.10f));
         SplatC->SetRelativeLocation(FVector(6.0f, -22.0f, 48.0f));
         SplatC->SetRelativeScale3D(FVector(0.15f, 0.22f, 0.09f));
-
-        FumeA->SetRelativeScale3D(FVector(0.24f));
-        FumeB->SetRelativeScale3D(FVector(0.20f));
-        FumeC->SetRelativeScale3D(FVector(0.18f));
-        FumeD->SetRelativeScale3D(FVector(0.16f));
         StinkGlow->SetIntensity(460.0f);
         StinkGlow->SetLightColor(FLinearColor(0.40f, 0.50f, 0.08f));
     }
@@ -145,7 +135,6 @@ void ARIPoopMessEffect::ApplyPresentation()
 
 void ARIPoopMessEffect::UpdateFumes(const float AgeSeconds)
 {
-    const float SizeBoost = bCowMess ? 1.25f : 1.0f;
     const float Rise = FMath::Fmod(AgeSeconds * (bCowMess ? 38.0f : 46.0f), 105.0f);
 
     FumeA->SetRelativeLocation(FVector(-80.0f, -36.0f + FMath::Sin(AgeSeconds * 2.2f) * 18.0f, 92.0f + Rise));
@@ -153,8 +142,20 @@ void ARIPoopMessEffect::UpdateFumes(const float AgeSeconds)
     FumeC->SetRelativeLocation(FVector(18.0f, -28.0f + FMath::Sin(AgeSeconds * 2.7f) * 12.0f, 82.0f + FMath::Fmod(Rise + 67.0f, 105.0f)));
     FumeD->SetRelativeLocation(FVector(-8.0f, 15.0f + FMath::Cos(AgeSeconds * 2.4f) * 20.0f, 155.0f + FMath::Fmod(Rise + 18.0f, 90.0f)));
 
-    const float Pulse = 0.88f + FMath::Sin(AgeSeconds * 3.1f) * 0.12f;
-    FumeA->SetRelativeScale3D(FumeA->GetRelativeScale3D().GetSafeNormal() * (0.30f * SizeBoost * Pulse));
+    const float PulseA = 0.90f + FMath::Sin(AgeSeconds * 3.1f) * 0.10f;
+    const float PulseB = 0.90f + FMath::Sin(AgeSeconds * 2.6f + 1.1f) * 0.10f;
+    const float PulseC = 0.90f + FMath::Sin(AgeSeconds * 3.5f + 2.0f) * 0.10f;
+    const float PulseD = 0.90f + FMath::Sin(AgeSeconds * 2.9f + 2.8f) * 0.10f;
+
+    const float ScaleA = bCowMess ? 0.34f : 0.24f;
+    const float ScaleB = bCowMess ? 0.28f : 0.20f;
+    const float ScaleC = bCowMess ? 0.25f : 0.18f;
+    const float ScaleD = bCowMess ? 0.22f : 0.16f;
+
+    FumeA->SetRelativeScale3D(FVector(ScaleA * PulseA));
+    FumeB->SetRelativeScale3D(FVector(ScaleB * PulseB));
+    FumeC->SetRelativeScale3D(FVector(ScaleC * PulseC));
+    FumeD->SetRelativeScale3D(FVector(ScaleD * PulseD));
 }
 
 void ARIPoopMessEffect::Tick(const float DeltaSeconds)
