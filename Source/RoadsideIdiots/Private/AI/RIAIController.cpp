@@ -67,6 +67,12 @@ void ARIAIController::ConfigurePersonality()
         PeelUseCooldownSeconds = 2.7f;
     }
 
+    // Stagger expensive awareness passes so all bots do not scan the world on
+    // the same frame. The offset is stable for a given participant ID.
+    const uint32 StableHash = GetTypeHash(Id);
+    SenseRefreshRemaining = static_cast<float>(StableHash % 5u) * 0.025f;
+    ItemDecisionRemaining = static_cast<float>((StableHash >> 3u) % 5u) * 0.035f;
+
     UE_LOG(LogTemp, Display, TEXT("RoadsideIdiots AI: %s personality=%s grudge=%.0fs attackCooldown=%.2fs egg=%.2fs peel=%.2fs"),
         *Id,
         *PersonalityLabel,
@@ -299,6 +305,8 @@ void ARIAIController::Tick(float DeltaSeconds)
     AttackCooldownRemaining = FMath::Max(0.0f, AttackCooldownRemaining - DeltaSeconds);
     EggUseCooldownRemaining = FMath::Max(0.0f, EggUseCooldownRemaining - DeltaSeconds);
     PeelUseCooldownRemaining = FMath::Max(0.0f, PeelUseCooldownRemaining - DeltaSeconds);
+    SenseRefreshRemaining = FMath::Max(0.0f, SenseRefreshRemaining - DeltaSeconds);
+    ItemDecisionRemaining = FMath::Max(0.0f, ItemDecisionRemaining - DeltaSeconds);
 
     if (GrudgeTimeRemaining > 0.0f)
     {
@@ -331,6 +339,7 @@ void ARIAIController::Tick(float DeltaSeconds)
     const int32 NextIndex = (TargetIndex + 1) % Count;
     const FVector Tangent = (RoutePoints[NextIndex] - RoutePoints[PrevIndex]).GetSafeNormal2D();
     const FVector Right = FVector::CrossProduct(FVector::UpVector, Tangent).GetSafeNormal();
+    const FVector Forward = Bike->GetActorForwardVector().GetSafeNormal2D();
     FVector TargetPoint = RoutePoints[TargetIndex] + Right * LaneOffset;
 
     const bool bFollowingRival = GrudgeTimeRemaining > 0.0f && GrudgeTarget.IsValid();
@@ -357,27 +366,33 @@ void ARIAIController::Tick(float DeltaSeconds)
             }
         }
     }
-    else
+
+    // Expensive world awareness is refreshed at ~5 Hz instead of every 20 Hz
+    // steering tick. The cached result is plenty responsive for road hazards.
+    if (SenseRefreshRemaining <= 0.0f)
     {
-        FVector PickupTarget;
-        if (FindUsefulPickupTarget(PickupTarget))
-        {
-            TargetPoint = FMath::Lerp(TargetPoint, PickupTarget, 0.78f);
-        }
+        SenseRefreshRemaining = FMath::Max(0.08f, SenseRefreshIntervalSeconds);
+        bHasCachedPickupTarget = !bFollowingRival && FindUsefulPickupTarget(CachedPickupTarget);
+        CachedAvoidanceShift = ComputeAvoidanceShift(BikeLocation, Forward, Right);
     }
 
-    const FVector Forward = Bike->GetActorForwardVector().GetSafeNormal2D();
-    TargetPoint += Right * ComputeAvoidanceShift(BikeLocation, Forward, Right);
+    if (!bFollowingRival && bHasCachedPickupTarget)
+    {
+        TargetPoint = FMath::Lerp(TargetPoint, CachedPickupTarget, 0.78f);
+    }
 
-    TryUseComedyItems();
+    TargetPoint += Right * CachedAvoidanceShift;
+
+    if (ItemDecisionRemaining <= 0.0f)
+    {
+        ItemDecisionRemaining = FMath::Max(0.10f, ItemDecisionIntervalSeconds);
+        TryUseComedyItems();
+    }
 
     FVector ToTarget = TargetPoint - BikeLocation;
     ToTarget.Z = 0.0f;
 
     const float SpeedKph = FMath::Abs(Bike->GetBikeMovement()->GetForwardSpeedKph());
-
-    static TMap<TWeakObjectPtr<ARIAIController>, float> LowMotionTimes;
-    float& LowMotionTime = LowMotionTimes.FindOrAdd(this);
     if (SpeedKph < 7.0f && ToTarget.SizeSquared() > FMath::Square(WaypointReachDistance * 0.5f))
     {
         LowMotionTime += DeltaSeconds;
