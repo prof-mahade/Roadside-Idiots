@@ -20,13 +20,13 @@ public:
     int32 GetTrafficCount() const { return TrafficCount; }
 
     UFUNCTION(BlueprintCallable, Category="Roadside Idiots|Race Setup")
-    void SetOpponentCount(int32 Value) { OpponentCount = FMath::Clamp(Value, 2, 6); }
+    void SetOpponentCount(int32 Value) { OpponentCount = FMath::Clamp(Value, MinOpponents, MaxOpponents); }
 
     UFUNCTION(BlueprintCallable, Category="Roadside Idiots|Race Setup")
-    void SetLapCount(int32 Value) { LapCount = FMath::Clamp(Value, 1, 5); }
+    void SetLapCount(int32 Value) { LapCount = FMath::Clamp(Value, MinLaps, MaxLaps); }
 
     UFUNCTION(BlueprintCallable, Category="Roadside Idiots|Race Setup")
-    void SetTrafficCount(int32 Value) { TrafficCount = FMath::Clamp(Value, 0, 6); }
+    void SetTrafficCount(int32 Value) { TrafficCount = FMath::Clamp(Value, MinTraffic, MaxTraffic); }
 
     UFUNCTION(BlueprintCallable, Category="Roadside Idiots|Race Setup")
     void ResetToDemoDefaults()
@@ -34,6 +34,17 @@ public:
         OpponentCount = 3;
         LapCount = 3;
         TrafficCount = 3;
+    }
+
+    // A direct pause-menu restart should rebuild the same configured race instead
+    // of forcing the player through setup again. GameInstance subsystems survive
+    // OpenLevel, so this one-shot flag is the safest place to carry that intent.
+    void RequestAutoStartAfterReload() { bAutoStartAfterReload = true; }
+    bool ConsumeAutoStartAfterReload()
+    {
+        const bool bRequested = bAutoStartAfterReload;
+        bAutoStartAfterReload = false;
+        return bRequested;
     }
 
     static constexpr int32 MinOpponents = 2;
@@ -52,4 +63,7 @@ private:
 
     UPROPERTY()
     int32 TrafficCount = 3;
+
+    UPROPERTY()
+    bool bAutoStartAfterReload = false;
 };
