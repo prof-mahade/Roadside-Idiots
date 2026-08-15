@@ -233,16 +233,21 @@ void ARIDemoWorldBuilder::SpawnRacers(ARIRaceManager* RaceManager, APlayerContro
     const FVector Right = FVector::CrossProduct(FVector::UpVector, Forward).GetSafeNormal();
     const FRotator StartRotation = Forward.Rotation();
 
+    // The physical start grid remains wide for readable staging, but VPR-24C
+    // deliberately separates it from the permanent racing lanes. Previously the
+    // +/-300 cm grid positions were also fed to the controller as forever-lanes,
+    // which kept two rivals unnecessarily close to a barrier around every bend.
     const float GridLaneOffsets[3] = {0.0f, -300.0f, 300.0f};
+    const float RaceLaneOffsets[6] = {-220.0f, 220.0f, -40.0f, -130.0f, 130.0f, 40.0f};
     constexpr float RowSpacing = 330.0f;
 
     for (int32 RacerIndex = 0; RacerIndex < RacerCount; ++RacerIndex)
     {
         const int32 Row = RacerIndex / 3;
         const int32 Column = RacerIndex % 3;
-        const float RacerLaneOffset = GridLaneOffsets[Column];
+        const float GridLaneOffset = GridLaneOffsets[Column];
 
-        FVector Location = StartBase - Forward * (static_cast<float>(Row) * RowSpacing) + Right * RacerLaneOffset;
+        FVector Location = StartBase - Forward * (static_cast<float>(Row) * RowSpacing) + Right * GridLaneOffset;
         Location.Z = 28.0f;
 
         ARIBikePawn* Bike = GetWorld()->SpawnActor<ARIBikePawn>(Location, StartRotation);
@@ -270,7 +275,8 @@ void ARIDemoWorldBuilder::SpawnRacers(ARIRaceManager* RaceManager, APlayerContro
             if (AI)
             {
                 AI->Possess(Bike);
-                AI->SetRoute(RoutePoints, 2, RacerLaneOffset);
+                const int32 RivalIndex = FMath::Clamp(RacerIndex - 1, 0, 5);
+                AI->SetRoute(RoutePoints, 2, RaceLaneOffsets[RivalIndex]);
             }
         }
     }
