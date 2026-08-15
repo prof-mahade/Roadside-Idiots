@@ -6,6 +6,7 @@
 
 class ARIAIController;
 class ARIBikePawn;
+enum class ERITacticalIntent : uint8;
 
 UCLASS()
 class ROADSIDEIDIOTS_API URIRivalChaosSubsystem : public UTickableWorldSubsystem
@@ -19,9 +20,11 @@ public:
 
 private:
     void IssueDirectives();
-    ARIBikePawn* FindTargetFor(ARIAIController* Controller, ARIBikePawn* ControlledBike, int32 BotIndex) const;
+    ARIBikePawn* FindTargetFor(ARIAIController* Controller, ARIBikePawn* ControlledBike, int32 BotIndex, const TSet<const ARIBikePawn*>& ReservedTargets) const;
     float GetDirectiveInterval(int32 BotIndex) const;
+    float GetDirectiveChance(int32 BotIndex) const;
+    ERITacticalIntent ChooseIntent(const ARIBikePawn* ControlledBike, int32 BotIndex) const;
 
-    float DecisionRemaining = 1.75f;
+    float DecisionRemaining = 2.0f;
     TMap<TWeakObjectPtr<ARIAIController>, double> LastDirectiveTime;
 };
