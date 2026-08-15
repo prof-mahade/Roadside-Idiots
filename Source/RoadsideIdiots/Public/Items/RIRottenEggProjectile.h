@@ -17,6 +17,7 @@ class ROADSIDEIDIOTS_API ARIRottenEggProjectile : public AActor
 public:
     ARIRottenEggProjectile();
     void ConfigureSource(ARIBikePawn* InSourceBike);
+    void ConfigureTarget(ARIBikePawn* InTargetBike);
 
 protected:
     virtual void BeginPlay() override;
@@ -51,6 +52,7 @@ private:
     TObjectPtr<UProjectileMovementComponent> Movement;
 
     TWeakObjectPtr<ARIBikePawn> SourceBike;
+    TWeakObjectPtr<ARIBikePawn> AssistedTargetBike;
     double SourceImmunityEndsAt = 0.0;
     bool bResolved = false;
 };
