@@ -92,6 +92,38 @@ UInstancedStaticMeshComponent* URIRoadsideThemeSubsystem::CreateGroup(UStaticMes
     return Group;
 }
 
+UInstancedStaticMeshComponent* URIRoadsideThemeSubsystem::CreateAssetGroup(UStaticMesh* Mesh)
+{
+    if (!ThemeRoot || !Mesh)
+    {
+        return nullptr;
+    }
+
+    UInstancedStaticMeshComponent* Group = NewObject<UInstancedStaticMeshComponent>(ThemeRoot);
+    if (!Group)
+    {
+        return nullptr;
+    }
+
+    Group->SetMobility(EComponentMobility::Movable);
+    Group->SetStaticMesh(Mesh);
+    Group->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    Group->SetCollisionProfileName(TEXT("NoCollision"));
+    Group->SetGenerateOverlapEvents(false);
+    Group->SetCastShadow(true);
+
+    if (USceneComponent* Root = ThemeRoot->GetRootComponent())
+    {
+        Group->SetupAttachment(Root);
+    }
+
+    // Do not override materials here. Imported free-art meshes keep their authored
+    // Fab materials/textures, unlike the colorized primitive fallback groups.
+    ThemeRoot->AddInstanceComponent(Group);
+    Group->RegisterComponent();
+    return Group;
+}
+
 void URIRoadsideThemeSubsystem::AddInstance(
     UInstancedStaticMeshComponent* Group,
     const FVector& Location,
@@ -102,6 +134,37 @@ void URIRoadsideThemeSubsystem::AddInstance(
     {
         Group->AddInstance(FTransform(Rotation, Location, Scale), false);
     }
+}
+
+void URIRoadsideThemeSubsystem::AddAssetInstance(
+    UInstancedStaticMeshComponent* Group,
+    const FVector& Location,
+    const FRotator& Rotation,
+    const float DesiredHeightCm,
+    const float UniformScaleMultiplier)
+{
+    if (!Group || DesiredHeightCm <= 0.0f)
+    {
+        return;
+    }
+
+    UStaticMesh* Mesh = Group->GetStaticMesh();
+    if (!Mesh)
+    {
+        return;
+    }
+
+    const FBoxSphereBounds Bounds = Mesh->GetBounds();
+    const float NativeHeight = Bounds.BoxExtent.Z * 2.0f;
+    if (NativeHeight <= KINDA_SMALL_NUMBER)
+    {
+        return;
+    }
+
+    const float ScaleValue = (DesiredHeightCm / NativeHeight) * FMath::Max(0.05f, UniformScaleMultiplier);
+    const float LocalBottomZ = Bounds.Origin.Z - Bounds.BoxExtent.Z;
+    const FVector GroundedLocation = Location - FVector::UpVector * (LocalBottomZ * ScaleValue);
+    AddInstance(Group, GroundedLocation, Rotation, FVector(ScaleValue));
 }
 
 void URIRoadsideThemeSubsystem::BuildFields()
@@ -168,8 +231,8 @@ void URIRoadsideThemeSubsystem::BuildUtilityLines()
 
 void URIRoadsideThemeSubsystem::BuildRoadsideClusters()
 {
-    // Reversible South-Asian roadside-inspired graybox clusters. These are not
-    // final cultural/environment art; they establish scale, density and color.
+    // Reversible South-Asian roadside-inspired graybox clusters. Real free vegetation
+    // now replaces the old ball-tree rows when the local Fab packs are available.
     const int32 ClusterIndices[] = {3, 9, 16, 24, 31, 37};
     for (int32 Cluster = 0; Cluster < UE_ARRAY_COUNT(ClusterIndices); ++Cluster)
     {
@@ -207,12 +270,59 @@ void URIRoadsideThemeSubsystem::BuildRoadsideClusters()
             AddInstance(DarkInstances, Base + FVector::UpVector * 55.0f, Rotation, FVector(2.8f, 0.35f, 0.30f));
         }
 
-        for (int32 Tree = 0; Tree < 3; ++Tree)
+        if (!BananaTallInstances && !BananaMediumInstances)
         {
-            const float Across = (static_cast<float>(Tree) - 1.0f) * 230.0f;
-            const FVector TreeBase = Base + Right * Across + Forward * (430.0f + Tree * 65.0f);
-            AddInstance(DarkInstances, TreeBase + FVector::UpVector * 120.0f, FRotator::ZeroRotator, FVector(0.22f, 0.22f, 2.4f));
-            AddInstance(LeafInstances, TreeBase + FVector::UpVector * 300.0f, FRotator::ZeroRotator, FVector(0.95f, 0.85f, 1.15f));
+            for (int32 Tree = 0; Tree < 3; ++Tree)
+            {
+                const float Across = (static_cast<float>(Tree) - 1.0f) * 230.0f;
+                const FVector TreeBase = Base + Right * Across + Forward * (430.0f + Tree * 65.0f);
+                AddInstance(DarkInstances, TreeBase + FVector::UpVector * 120.0f, FRotator::ZeroRotator, FVector(0.22f, 0.22f, 2.4f));
+                AddInstance(LeafInstances, TreeBase + FVector::UpVector * 300.0f, FRotator::ZeroRotator, FVector(0.95f, 0.85f, 1.15f));
+            }
+        }
+    }
+}
+
+void URIRoadsideThemeSubsystem::BuildRealVegetation()
+{
+    if (!BananaTallInstances && !BananaMediumInstances && !GroundPlantTallInstances && !GroundPlantLowInstances)
+    {
+        return;
+    }
+
+    const int32 VegetationIndices[] = {1, 4, 7, 10, 13, 17, 20, 23, 27, 30, 34, 38};
+    for (int32 Site = 0; Site < UE_ARRAY_COUNT(VegetationIndices); ++Site)
+    {
+        const int32 RouteIndex = VegetationIndices[Site];
+        const float Angle = 2.0f * PI * static_cast<float>(RouteIndex) / static_cast<float>(RITHRouteSegments);
+        const FVector RouteCenter = RoutePoint(Angle);
+        const FVector Forward = RouteTangent(Angle).GetSafeNormal2D();
+        const FVector Right = FVector::CrossProduct(FVector::UpVector, Forward).GetSafeNormal();
+        const float Side = (Site % 2 == 0) ? 1.0f : -1.0f;
+        const float Distance = RITHRoadWidth * 0.5f + 1050.0f + static_cast<float>(Site % 3) * 210.0f;
+        const FVector Base = RouteCenter + Right * (Distance * Side);
+        const float YawVariation = static_cast<float>((Site * 37) % 110) - 55.0f;
+        const FRotator PlantRotation(0.0f, Forward.Rotation().Yaw + YawVariation, 0.0f);
+
+        UInstancedStaticMeshComponent* BananaGroup = (Site % 3 == 0 && BananaMediumInstances)
+            ? BananaMediumInstances
+            : BananaTallInstances;
+        if (!BananaGroup)
+        {
+            BananaGroup = BananaMediumInstances;
+        }
+
+        AddAssetInstance(BananaGroup, Base, PlantRotation, (Site % 3 == 0) ? 275.0f : 360.0f, 0.92f + 0.04f * static_cast<float>(Site % 4));
+
+        const FVector GroundA = Base + Forward * 150.0f + Right * (75.0f * Side);
+        const FVector GroundB = Base - Forward * 125.0f - Right * (105.0f * Side);
+        AddAssetInstance(GroundPlantTallInstances, GroundA, FRotator(0.0f, PlantRotation.Yaw + 63.0f, 0.0f), 105.0f, 0.85f + 0.05f * static_cast<float>(Site % 3));
+        AddAssetInstance(GroundPlantLowInstances, GroundB, FRotator(0.0f, PlantRotation.Yaw - 44.0f, 0.0f), 70.0f, 0.90f + 0.04f * static_cast<float>((Site + 1) % 3));
+
+        if (Site % 4 == 0)
+        {
+            const FVector Extra = Base + Forward * 300.0f - Right * (110.0f * Side);
+            AddAssetInstance(GroundPlantLowInstances, Extra, FRotator(0.0f, PlantRotation.Yaw + 121.0f, 0.0f), 62.0f, 0.85f);
         }
     }
 }
@@ -274,9 +384,22 @@ void URIRoadsideThemeSubsystem::TryBuild()
         return;
     }
 
+    // These packs are local/free-only presentation dependencies. If any are missing,
+    // the theme still builds using the primitive fallback groups above.
+    UStaticMesh* BananaTallMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/PN_Banana/Meshes/plants/banana_01_07.banana_01_07"));
+    UStaticMesh* BananaMediumMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/PN_Banana/Meshes/plants/banana_02_05.banana_02_05"));
+    UStaticMesh* GroundPlantTallMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/PN_tropicalGroundPlants/Meshes/tropicalPlant_01_04.tropicalPlant_01_04"));
+    UStaticMesh* GroundPlantLowMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/PN_tropicalGroundPlants/Meshes/tropicalPlant_05_04.tropicalPlant_05_04"));
+
+    BananaTallInstances = CreateAssetGroup(BananaTallMesh);
+    BananaMediumInstances = CreateAssetGroup(BananaMediumMesh);
+    GroundPlantTallInstances = CreateAssetGroup(GroundPlantTallMesh);
+    GroundPlantLowInstances = CreateAssetGroup(GroundPlantLowMesh);
+
     BuildFields();
     BuildUtilityLines();
     BuildRoadsideClusters();
+    BuildRealVegetation();
     bBuilt = true;
 }
 
