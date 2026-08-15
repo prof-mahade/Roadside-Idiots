@@ -32,6 +32,17 @@ public:
     UFUNCTION(BlueprintPure, Category="Roadside Idiots|Bike")
     bool IsGrounded() const { return bGrounded; }
 
+    // Read-only presentation helpers. Audio/camera systems can react to player
+    // intent without duplicating input state or changing the movement model.
+    UFUNCTION(BlueprintPure, Category="Roadside Idiots|Bike")
+    float GetThrottleInput() const { return ThrottleInput; }
+
+    UFUNCTION(BlueprintPure, Category="Roadside Idiots|Bike")
+    float GetSteeringInput() const { return SteeringInput; }
+
+    UFUNCTION(BlueprintPure, Category="Roadside Idiots|Bike")
+    float GetBrakeInput() const { return BrakeInput; }
+
 private:
     UPrimitiveComponent* GetPhysicsBody() const;
     void UpdateGroundedState();
