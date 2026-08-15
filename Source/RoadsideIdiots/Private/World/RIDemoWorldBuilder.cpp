@@ -2,6 +2,7 @@
 #include "Race/RIRaceManager.h"
 #include "Race/RICheckpoint.h"
 #include "Vehicle/RIBikePawn.h"
+#include "Vehicle/RIBikeMovementComponent.h"
 #include "Core/RIParticipantComponent.h"
 #include "Core/RIRaceSettingsSubsystem.h"
 #include "AI/RIAIController.h"
@@ -275,6 +276,22 @@ void ARIDemoWorldBuilder::SpawnRacers(ARIRaceManager* RaceManager, APlayerContro
             if (AI)
             {
                 AI->Possess(Bike);
+
+                // VPR-24D: the old AI actor ticked at 20 Hz. At racing speed that
+                // held stale steering commands for metres of travel while the
+                // physics component kept applying them. Run the cheap path
+                // controller every frame; sensing/item scans remain internally
+                // throttled by their own timers.
+                AI->SetActorTickInterval(0.0f);
+
+                // Both controller and movement are PrePhysics. Make the movement
+                // component explicitly wait for the AI actor so this frame's
+                // steering input is consumed by this frame's physics update.
+                if (URIBikeMovementComponent* Movement = Bike->GetBikeMovement())
+                {
+                    Movement->AddTickPrerequisiteActor(AI);
+                }
+
                 const int32 RivalIndex = FMath::Clamp(RacerIndex - 1, 0, 5);
                 AI->SetRoute(RoutePoints, 2, RaceLaneOffsets[RivalIndex]);
             }
