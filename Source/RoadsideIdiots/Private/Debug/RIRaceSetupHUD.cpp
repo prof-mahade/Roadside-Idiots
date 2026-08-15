@@ -16,6 +16,24 @@ void ARIRaceSetupHUD::DrawHUD()
     }
 
     Super::DrawHUD();
+
+    // The proven gameplay HUD still contains the old VPR-20.1 build string.
+    // Cover only that small line here instead of rewriting the large accepted HUD.
+    if (Canvas && GEngine)
+    {
+        if (UFont* Font = GEngine->GetSmallFont())
+        {
+            DrawRect(FLinearColor(0.015f, 0.022f, 0.030f, 0.96f), 24.0f, 45.0f, 300.0f, 19.0f);
+            DrawText(
+                TEXT("VPR-23A | CONFIG RACE + CHAOS AI"),
+                FLinearColor(0.52f, 1.0f, 0.70f),
+                28.0f,
+                48.0f,
+                Font,
+                0.76f,
+                false);
+        }
+    }
 }
 
 void ARIRaceSetupHUD::DrawRaceSetupMenu()
