@@ -16,6 +16,8 @@ Current wired events:
 
 - `SFX_Countdown` — each 3/2/1 countdown tick
 - `SFX_RaceGo` — GO cue
+- `SFX_LapComplete` — player completes lap 1 or lap 2
+- `SFX_Finish` — player completes the final lap
 - `SFX_SlapHit` — Q/E side hit connects
 - `SFX_PeelSlip` — a bike hits a banana peel
 - `SFX_EggThrow` — rotten egg projectile launches
@@ -33,6 +35,7 @@ Current wired events:
 - Prefer original, CC0, or appropriately licensed assets.
 - Normalize loudness before final balancing; code intentionally keeps event volumes near 1.0.
 - Pitch variation is already applied by several gameplay events so repeated hits sound less identical.
+- Missing assets are cached as silent for the current editor run; restart PIE/editor after importing a previously missing event asset.
 
 ## Later additions
 The engine loop, tire/skid loop, ambience, crowd/world audio, UI clicks and music should use dedicated looping/audio-component architecture rather than this one-shot event helper.
