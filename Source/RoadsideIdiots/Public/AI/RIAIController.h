@@ -38,7 +38,7 @@ public:
      *
      * This deliberately exposes a lane target rather than a steering command.
      * The low-level Pure-Pursuit follower remains the only authority that can
-     * actually steer the motorcycle. Pickup seeking, obstacle awareness and
+     * actually steer the motorcycle. Pickup seeking, static-hazard avoidance and
      * tactical behavior therefore influence racecraft without reopening the old
      * competing-steering / wall-oscillation failure mode.
      */
@@ -56,9 +56,9 @@ public:
             OutStrength = 0.42f;
         }
 
-        // Existing perception already predicts traffic, rivals and road hazards.
-        // Give that information a moderate influence only; the racing follower's
-        // persistent pass planner and stability recovery still have final say.
+        // Rival/traffic passing now belongs exclusively to the persistent racing
+        // follower. CachedAvoidanceShift is therefore reserved for static road
+        // hazards (peels/poop), where a moderate lane request is still useful.
         if (FMath::Abs(CachedAvoidanceShift) > 28.0f)
         {
             OutStrength = FMath::Max(OutStrength, 0.58f);
@@ -137,17 +137,16 @@ private:
     float SmoothedThrottle = 0.0f;
     float SmoothedBrake = 0.0f;
 
-    // VPR-24D: keep the fast straight-line target, but use a realistic corner
-    // acceleration budget and start planning turns well before reaching them.
-    UPROPERTY(EditAnywhere, Category="AI Tuning|Speed") float TargetSpeedKph = 146.0f;
-    UPROPERTY(EditAnywhere, Category="AI Tuning|Speed") float MaxLateralAccelCmS2 = 1150.0f;
-    UPROPERTY(EditAnywhere, Category="AI Tuning|Speed") float MinimumCornerSpeedKph = 50.0f;
+    // Pace planner: road curvature sets the normal speed envelope; the low-level
+    // driver may still veto speed for a blocked pass or genuine stability risk.
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Speed") float TargetSpeedKph = 150.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Speed") float MaxLateralAccelCmS2 = 1450.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Speed") float MinimumCornerSpeedKph = 56.0f;
     UPROPERTY(EditAnywhere, Category="AI Tuning|Speed") float CurvePreviewMinDistance = 3400.0f;
     UPROPERTY(EditAnywhere, Category="AI Tuning|Speed") float CurvePreviewMaxDistance = 5800.0f;
 
-    // Prefer anticipation and damping over snapping back toward the line.
-    // Short lookahead + aggressive cross-track correction was feeding the
-    // left/right overcorrection cycle visible in the wall-hit tests.
+    // Legacy high-level steering model is retained only for recovery/context.
+    // Final race steering is owned by ARIRacingLineFollower.
     UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float MinLookAheadDistance = 1400.0f;
     UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float MaxLookAheadDistance = 3600.0f;
     UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float HeadingGain = 0.82f;
@@ -165,7 +164,7 @@ private:
     UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float WallTraceLength = 700.0f;
 
     UPROPERTY(EditAnywhere, Category="AI Tuning|Retaliation") float GrudgeDurationSeconds = 4.5f;
-    UPROPERTY(EditAnywhere, Category="AI Tuning|Retaliation") float GrudgeCatchupSpeedKph = 150.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Retaliation") float GrudgeCatchupSpeedKph = 154.0f;
     UPROPERTY(EditAnywhere, Category="AI Tuning|Retaliation") float AttackRange = 235.0f;
     UPROPERTY(EditAnywhere, Category="AI Tuning|Retaliation") float AttackCooldownSeconds = 1.60f;
 
