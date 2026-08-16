@@ -26,14 +26,17 @@ Rate each from **1 (poor)** to **5 (excellent)**.
 Mark **PASS / FAIL / NOT TESTED**.
 
 - Game launches from packaged `RoadsideIdiots.exe`: __________
-- Setup menu works without help: __________
+- Main/setup menu works without help: __________
 - Controller-only menu navigation works: __________
+- Pause menu contains an explicit **MAIN MENU** option: __________
+- Pause → MAIN MENU returns to setup without auto-starting a race: __________
 - Y does nothing during an unfinished race: __________
 - Engine remains audible while horn/item/crash sounds play: __________
 - No recurring AI wall-to-wall oscillation: __________
 - Visible repair patches/skid marks cause zero physical bump: __________
 - Traffic contacts do not create persistent AI ping-pong: __________
-- After finish, Start/P/Esc does not replace the result screen with Pause: __________
+- After finish, P/Start does not replace the result screen with Pause: __________
+- After finish, Esc/B returns to Main Menu: __________
 - After finish, peel/egg/slap/recovery controls are blocked: __________
 - Y after finish restarts the same configured race: __________
 - PN vegetation / roadside environment renders correctly: __________
