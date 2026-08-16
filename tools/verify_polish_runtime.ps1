@@ -26,6 +26,7 @@ Write-Host ""
 
 $Checks = @(
     @{ Label = "Controller/menu input flow"; Pattern = "RI INPUT FLOW"; Required = $true },
+    @{ Label = "Persistent engine audio channel"; Pattern = "RI AUDIO ENGINE channel=persistent_procedural"; Required = $true },
     @{ Label = "Landmark world layer"; Pattern = "RI WORLD LANDMARKS"; Required = $true },
     @{ Label = "World landmark signage"; Pattern = "RI WORLD SIGNAGE"; Required = $true },
     @{ Label = "Near roadside facade details"; Pattern = "RI WORLD FACADE_DETAILS"; Required = $true },
@@ -104,6 +105,6 @@ if ($MissingRequired.Count -gt 0 -or $WarningFailures.Count -gt 0) {
     exit 2
 }
 
-Write-Host "Required runtime presentation/input hooks were observed." -ForegroundColor Green
+Write-Host "Required runtime presentation/input/audio hooks were observed." -ForegroundColor Green
 Write-Host "Finish/traffic/restart entries are event-dependent and may legitimately be absent if they did not occur." -ForegroundColor DarkGray
 exit 0
