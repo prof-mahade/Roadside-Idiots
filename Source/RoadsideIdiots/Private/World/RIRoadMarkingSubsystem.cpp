@@ -120,8 +120,15 @@ void URIRoadMarkingSubsystem::BuildMarkings()
     UInstancedStaticMeshComponent* CheckerDarkLayer = CreateLayer(
         TEXT("StartCheckerDark"),
         FLinearColor(0.055f, 0.062f, 0.070f, 1.0f));
+    UInstancedStaticMeshComponent* ReflectorAmberLayer = CreateLayer(
+        TEXT("BarrierReflectorAmber"),
+        FLinearColor(1.0f, 0.66f, 0.05f, 1.0f));
+    UInstancedStaticMeshComponent* ReflectorWhiteLayer = CreateLayer(
+        TEXT("BarrierReflectorWhite"),
+        FLinearColor(0.92f, 0.96f, 1.0f, 1.0f));
 
-    if (!EdgeLayer || !CenterLayer || !CheckerLightLayer || !CheckerDarkLayer)
+    if (!EdgeLayer || !CenterLayer || !CheckerLightLayer || !CheckerDarkLayer ||
+        !ReflectorAmberLayer || !ReflectorWhiteLayer)
     {
         RootActor->Destroy();
         return;
@@ -129,6 +136,7 @@ void URIRoadMarkingSubsystem::BuildMarkings()
 
     int32 EdgeInstances = 0;
     int32 DashInstances = 0;
+    int32 ReflectorInstances = 0;
 
     for (int32 Index = 0; Index < RIMarkingPointCount; ++Index)
     {
@@ -169,6 +177,30 @@ void URIRoadMarkingSubsystem::BuildMarkings()
                 true);
             ++DashInstances;
         }
+
+        // Sparse reflectors break up the long dark barrier surfaces and make
+        // corner curvature easier to read from the chase camera. They sit just
+        // inside the visual wall face but remain fully non-colliding.
+        if ((Index % 4) == 0)
+        {
+            constexpr float ReflectorOffset = RIMarkingRoadWidth * 0.5f - 8.0f;
+            for (int32 SideIndex = 0; SideIndex < 2; ++SideIndex)
+            {
+                const float Side = SideIndex == 0 ? -1.0f : 1.0f;
+                UInstancedStaticMeshComponent* ReflectorLayer =
+                    (((Index / 4) + SideIndex) & 1) == 0
+                        ? ReflectorAmberLayer
+                        : ReflectorWhiteLayer;
+
+                ReflectorLayer->AddInstance(
+                    FTransform(
+                        Rotation,
+                        Center + Right * (Side * ReflectorOffset) + FVector::UpVector * 68.0f,
+                        FVector(0.30f, 0.028f, 0.17f)),
+                    true);
+                ++ReflectorInstances;
+            }
+        }
     }
 
     // Correctly visible start/finish checker. It sits just above the visual road
@@ -208,8 +240,9 @@ void URIRoadMarkingSubsystem::BuildMarkings()
     UE_LOG(
         LogTemp,
         Display,
-        TEXT("RI ROAD MARKINGS edges=%d dashes=%d checker=%d collision=off navigation=off"),
+        TEXT("RI ROAD MARKINGS edges=%d dashes=%d checker=%d reflectors=%d collision=off navigation=off"),
         EdgeInstances,
         DashInstances,
-        CheckerInstances);
+        CheckerInstances,
+        ReflectorInstances);
 }
