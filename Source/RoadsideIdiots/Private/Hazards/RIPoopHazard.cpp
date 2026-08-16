@@ -6,6 +6,7 @@
 #include "Audio/RIAudioEvents.h"
 #include "Components/BoxComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/PointLightComponent.h"
 #include "Engine/StaticMesh.h"
 #include "EngineUtils.h"
 #include "Kismet/GameplayStatics.h"
@@ -46,6 +47,14 @@ ARIPoopHazard::ARIPoopHazard()
         BlobB->SetStaticMesh(SphereMesh.Object);
         BlobC->SetStaticMesh(SphereMesh.Object);
     }
+
+    StinkGlow = CreateDefaultSubobject<UPointLightComponent>(TEXT("StinkGlow"));
+    StinkGlow->SetupAttachment(TriggerVolume);
+    StinkGlow->SetLightColor(FLinearColor(0.54f, 0.72f, 0.08f));
+    StinkGlow->SetIntensity(210.0f);
+    StinkGlow->SetAttenuationRadius(145.0f);
+    StinkGlow->SetRelativeLocation(FVector(0.0f, 0.0f, 24.0f));
+    StinkGlow->SetCastShadows(false);
 }
 
 void ARIPoopHazard::Configure(const ERIPoopHazardType InType)
@@ -79,6 +88,15 @@ void ARIPoopHazard::ApplyPresentation()
                 Mesh->SetMaterial(0, Material);
             }
         }
+    }
+
+    if (StinkGlow)
+    {
+        // Cow patties are larger and deserve a slightly broader cue. Both remain
+        // far dimmer than banana/egg pickup lights so visual language stays clear.
+        StinkGlow->SetIntensity(bCow ? 270.0f : 190.0f);
+        StinkGlow->SetAttenuationRadius(bCow ? 190.0f : 135.0f);
+        StinkGlow->SetRelativeLocation(FVector(0.0f, 0.0f, bCow ? 28.0f : 31.0f));
     }
 
     if (bCow)
