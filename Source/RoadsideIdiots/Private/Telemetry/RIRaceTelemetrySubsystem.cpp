@@ -156,10 +156,70 @@ void URIRaceTelemetrySubsystem::SampleRace(ARIBikePawn* PlayerBike, ARIRaceManag
     }
     LastEggCount = EggCount;
 
+    // Comic impact text is already the player-facing explanation for incidents.
+    // Reading it here gives us passive incident classification without adding
+    // telemetry calls to gameplay actors or creating another owner of behavior.
+    FString ImpactText;
+    float ImpactAlpha = 0.0f;
+    const bool bImpactActive = PlayerBike->GetActiveComicImpact(ImpactText, ImpactAlpha);
+    if (bImpactActive)
+    {
+        if (!bImpactWasActive || !ImpactText.Equals(LastImpactText, ESearchCase::CaseSensitive))
+        {
+            RecordComicIncident(ImpactText);
+        }
+        bImpactWasActive = true;
+        LastImpactText = ImpactText;
+    }
+    else
+    {
+        bImpactWasActive = false;
+        LastImpactText.Reset();
+    }
+
     FRIRaceProgress Progress;
     if (RaceManager->GetProgress(PlayerId, Progress) && Progress.bFinished)
     {
         WriteSummary(TEXT("player_finish"));
+    }
+}
+
+void URIRaceTelemetrySubsystem::RecordComicIncident(const FString& ImpactText)
+{
+    if (ImpactText.Contains(TEXT("HONK"), ESearchCase::IgnoreCase))
+    {
+        ++TrafficIncidents;
+    }
+    else if (
+        ImpactText.Contains(TEXT("WHACK"), ESearchCase::IgnoreCase) ||
+        ImpactText.Contains(TEXT("SMACK"), ESearchCase::IgnoreCase))
+    {
+        ++SlapIncidents;
+    }
+    else if (
+        ImpactText.Contains(TEXT("SLIP"), ESearchCase::IgnoreCase) ||
+        ImpactText.Contains(TEXT("OWN GOAL"), ESearchCase::IgnoreCase))
+    {
+        ++PeelIncidents;
+    }
+    else if (ImpactText.Contains(TEXT("SPLAT"), ESearchCase::IgnoreCase))
+    {
+        ++EggIncidents;
+    }
+    else if (
+        ImpactText.Contains(TEXT("DOG POOP"), ESearchCase::IgnoreCase) ||
+        ImpactText.Contains(TEXT("COW PATTY"), ESearchCase::IgnoreCase) ||
+        ImpactText.Contains(TEXT("SPLORCH"), ESearchCase::IgnoreCase))
+    {
+        ++PoopIncidents;
+    }
+    else if (ImpactText.Contains(TEXT("DIZZY"), ESearchCase::IgnoreCase))
+    {
+        ++CrashIncidents;
+    }
+    else
+    {
+        ++OtherIncidents;
     }
 }
 
@@ -221,4 +281,15 @@ void URIRaceTelemetrySubsystem::WriteSummary(const TCHAR* Reason)
         PeelUses,
         EggPickups,
         EggUses);
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("RI PLAYTEST INCIDENTS crash=%d traffic=%d slap=%d peel=%d egg=%d poop=%d other=%d"),
+        CrashIncidents,
+        TrafficIncidents,
+        SlapIncidents,
+        PeelIncidents,
+        EggIncidents,
+        PoopIncidents,
+        OtherIncidents);
 }
