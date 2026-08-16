@@ -161,6 +161,18 @@ void ARIDebugHUD::DrawHUD()
             Font,
             1.25f,
             false);
+
+        if (!PlayerProgress.bFinished && TotalLaps > 1 && CurrentLap == TotalLaps)
+        {
+            DrawText(
+                TEXT("FINAL LAP"),
+                FLinearColor(1.0f, 0.76f, 0.10f),
+                StripX + 126.0f,
+                59.0f,
+                Font,
+                0.88f,
+                false);
+        }
     }
 
     if (CachedRaceManager)
@@ -438,14 +450,20 @@ void ARIDebugHUD::DrawHUD()
             false);
     }
 
-    const float ControlsY = Canvas->SizeY - 47.0f;
-    DrawRect(FLinearColor(0.015f, 0.022f, 0.030f, 0.52f), 16.0f, ControlsY - 8.0f, 590.0f, 34.0f);
-    DrawText(
-        TEXT("W/S drive  A/D steer  |  Q/E slap  F peel  G egg  R recover  |  P pause"),
-        FLinearColor(0.76f, 0.86f, 1.0f),
-        28.0f,
-        ControlsY,
-        Font,
-        0.76f,
-        false);
+    // Teach controls at the beginning, then get out of the player's way. They
+    // remain available from the pause screen and packaged README at any time.
+    const bool bShowControlHints = !bHasRaceProgress || (!PlayerProgress.bFinished && RaceTime <= 12.0f);
+    if (bShowControlHints)
+    {
+        const float ControlsY = Canvas->SizeY - 47.0f;
+        DrawRect(FLinearColor(0.015f, 0.022f, 0.030f, 0.52f), 16.0f, ControlsY - 8.0f, 590.0f, 34.0f);
+        DrawText(
+            TEXT("W/S drive  A/D steer  |  Q/E slap  F peel  G egg  R recover  |  P pause"),
+            FLinearColor(0.76f, 0.86f, 1.0f),
+            28.0f,
+            ControlsY,
+            Font,
+            0.76f,
+            false);
+    }
 }
