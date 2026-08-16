@@ -57,6 +57,7 @@ namespace
         Accent->SetCollisionProfileName(TEXT("NoCollision"));
         Accent->SetGenerateOverlapEvents(false);
         Accent->SetCanEverAffectNavigation(false);
+        Accent->SetCastShadow(false);
         Accent->SetRelativeLocation(RelativeLocation);
         Accent->SetRelativeScale3D(RelativeScale);
         Accent->RegisterComponent();
@@ -118,31 +119,33 @@ void URIRivalIdentitySubsystem::Tick(const float DeltaTime)
 
 FLinearColor URIRivalIdentitySubsystem::ColorForPersonality(const FString& PersonalityLabel) const
 {
+    // Deliberately less saturated than the first body-accent pass. These colors
+    // should read as trim on a motorcycle, not neon pickup/hazard indicators.
     if (PersonalityLabel.Equals(TEXT("LEECH"), ESearchCase::IgnoreCase))
     {
-        return FLinearColor(0.10f, 0.82f, 0.54f, 1.0f);
+        return FLinearColor(0.08f, 0.48f, 0.32f, 1.0f);
     }
     if (PersonalityLabel.Equals(TEXT("HOTHEAD"), ESearchCase::IgnoreCase))
     {
-        return FLinearColor(1.0f, 0.30f, 0.06f, 1.0f);
+        return FLinearColor(0.72f, 0.20f, 0.035f, 1.0f);
     }
     if (PersonalityLabel.Equals(TEXT("PETTY"), ESearchCase::IgnoreCase))
     {
-        return FLinearColor(0.72f, 0.28f, 0.96f, 1.0f);
+        return FLinearColor(0.46f, 0.15f, 0.66f, 1.0f);
     }
     if (PersonalityLabel.Equals(TEXT("GREMLIN"), ESearchCase::IgnoreCase))
     {
-        return FLinearColor(0.58f, 0.88f, 0.08f, 1.0f);
+        return FLinearColor(0.34f, 0.58f, 0.055f, 1.0f);
     }
     if (PersonalityLabel.Equals(TEXT("BRAWLER"), ESearchCase::IgnoreCase))
     {
-        return FLinearColor(0.88f, 0.08f, 0.12f, 1.0f);
+        return FLinearColor(0.62f, 0.045f, 0.07f, 1.0f);
     }
     if (PersonalityLabel.Equals(TEXT("TRYHARD"), ESearchCase::IgnoreCase))
     {
-        return FLinearColor(0.12f, 0.52f, 1.0f, 1.0f);
+        return FLinearColor(0.075f, 0.32f, 0.68f, 1.0f);
     }
-    return FLinearColor(0.80f, 0.82f, 0.86f, 1.0f);
+    return FLinearColor(0.48f, 0.50f, 0.54f, 1.0f);
 }
 
 void URIRivalIdentitySubsystem::EnsureIdentity(ARIBikePawn* Bike, const FString& PersonalityLabel)
@@ -151,16 +154,16 @@ void URIRivalIdentitySubsystem::EnsureIdentity(ARIBikePawn* Bike, const FString&
 
     const FLinearColor PersonalityColor = ColorForPersonality(PersonalityLabel);
 
-    // Thin body accents keep personality recognition close to the motorcycle.
-    // The original tall flag/pole was readable but visually dominated the rider
-    // and could look like it was dangling below the bike from the chase camera.
+    // Compact tail/fairing badges are intentionally tucked close to the chassis.
+    // They remain visible when riders bunch together but no longer extend under
+    // the wheels or compete visually with hazards, pickups and comic hit lines.
     RIEnsureAccent(
         Bike,
         CubeMesh,
         BaseMaterial,
         RIPersonalityAccentLeftName,
-        FVector(-34.0f, -43.0f, 48.0f),
-        FVector(0.52f, 0.055f, 0.095f),
+        FVector(-31.0f, -29.0f, 39.0f),
+        FVector(0.34f, 0.025f, 0.052f),
         PersonalityColor);
 
     RIEnsureAccent(
@@ -168,8 +171,8 @@ void URIRivalIdentitySubsystem::EnsureIdentity(ARIBikePawn* Bike, const FString&
         CubeMesh,
         BaseMaterial,
         RIPersonalityAccentRightName,
-        FVector(-34.0f, 43.0f, 48.0f),
-        FVector(0.52f, 0.055f, 0.095f),
+        FVector(-31.0f, 29.0f, 39.0f),
+        FVector(0.34f, 0.025f, 0.052f),
         PersonalityColor);
 
     const bool bHadRearAccent = RIFindStaticComponentByName(Bike, RIPersonalityAccentRearName) != nullptr;
@@ -178,8 +181,8 @@ void URIRivalIdentitySubsystem::EnsureIdentity(ARIBikePawn* Bike, const FString&
         CubeMesh,
         BaseMaterial,
         RIPersonalityAccentRearName,
-        FVector(-91.0f, 0.0f, 57.0f),
-        FVector(0.13f, 0.27f, 0.095f),
+        FVector(-73.0f, 0.0f, 42.0f),
+        FVector(0.10f, 0.17f, 0.052f),
         PersonalityColor);
 
     if (!bHadRearAccent)
@@ -187,7 +190,7 @@ void URIRivalIdentitySubsystem::EnsureIdentity(ARIBikePawn* Bike, const FString&
         UE_LOG(
             LogTemp,
             Display,
-            TEXT("RI RIVAL IDENTITY personality=%s style=body_accents collision=off"),
+            TEXT("RI RIVAL IDENTITY personality=%s style=integrated_tail_badges collision=off"),
             *PersonalityLabel);
     }
 }
