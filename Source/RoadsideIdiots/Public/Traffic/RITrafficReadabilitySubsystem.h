@@ -21,7 +21,10 @@ public:
     virtual TStatId GetStatId() const override;
     virtual bool IsTickable() const override;
 
+    int32 GetWarningCount() const { return WarningCount; }
+
 private:
     float ScanAccumulator = 0.0f;
     double LastWarningTime = -100.0;
+    int32 WarningCount = 0;
 };
