@@ -138,14 +138,14 @@ void URITrafficVisualPolishSubsystem::EnsurePolish(ARITrafficVehicle* Traffic)
         return Part;
     };
 
-    auto AddBodyPart = [&AddPart, TrafficBodyMaterial](
+    auto AddBodyPart = [this, &AddPart, TrafficBodyMaterial](
         const FString& SemanticName,
         const FVector& RelativeLocation,
         const FVector& RelativeScale,
         const FRotator& RelativeRotation = FRotator::ZeroRotator) -> UStaticMeshComponent*
     {
         UStaticMeshComponent* Part = AddPart(
-            LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube")),
+            CubeMesh,
             SemanticName,
             RelativeLocation,
             RelativeScale,
@@ -168,8 +168,6 @@ void URITrafficVisualPolishSubsystem::EnsurePolish(ARITrafficVehicle* Traffic)
 
     if (Label.Equals(TEXT("CNG AUTO"), ESearchCase::IgnoreCase))
     {
-        // Compact three-wheeler shell. All pieces are visual-only and use the
-        // existing CNG actor as their parent; the impact box remains authoritative.
         AddPart(CubeMesh, TEXT("CNG_Windscreen"), FVector(70.0f, 0.0f, 47.0f), FVector(0.055f, 0.66f, 0.38f), Glass, FRotator(0.0f, 0.0f, -8.0f));
         AddPart(CubeMesh, TEXT("CNG_Canopy"), FVector(-18.0f, 0.0f, 95.0f), FVector(1.30f, 0.96f, 0.10f), DarkTrim);
         AddPart(CubeMesh, TEXT("CNG_FrontMask"), FVector(91.0f, 0.0f, -5.0f), FVector(0.055f, 0.54f, 0.24f), FLinearColor(0.10f, 0.34f, 0.22f, 1.0f));
@@ -194,9 +192,6 @@ void URITrafficVisualPolishSubsystem::EnsurePolish(ARITrafficVehicle* Traffic)
         const float WindowZ = bLarge ? 55.0f : 44.0f;
         const float HalfWidth = bLarge ? 76.0f : 69.0f;
 
-        // Layer body-colored decks over the original low collision-safe block.
-        // From chase-camera distance this produces a stepped hood/cabin/trunk
-        // silhouette instead of one rectangular moving box.
         if (bLarge)
         {
             AddBodyPart(TEXT("LargeRoofCap"), FVector(-18.0f, 0.0f, 91.0f), FVector(1.65f, 1.24f, 0.055f));
@@ -208,29 +203,12 @@ void URITrafficVisualPolishSubsystem::EnsurePolish(ARITrafficVehicle* Traffic)
             AddBodyPart(TEXT("RoofCap"), FVector(-20.0f, 0.0f, 77.0f), FVector(1.14f, 1.08f, 0.055f));
         }
 
-        AddPart(
-            CubeMesh,
-            TEXT("FrontGlass"),
-            FVector(bLarge ? 70.0f : 48.0f, 0.0f, WindowZ),
-            FVector(0.050f, bLarge ? 1.10f : 0.92f, bLarge ? 0.40f : 0.30f),
-            Glass,
-            FRotator(0.0f, 0.0f, -8.0f));
-
-        AddPart(
-            CubeMesh,
-            TEXT("RearGlass"),
-            FVector(bLarge ? -93.0f : -80.0f, 0.0f, WindowZ),
-            FVector(0.040f, bLarge ? 1.05f : 0.82f, bLarge ? 0.34f : 0.24f),
-            Glass,
-            FRotator(0.0f, 0.0f, 6.0f));
-
+        AddPart(CubeMesh, TEXT("FrontGlass"), FVector(bLarge ? 70.0f : 48.0f, 0.0f, WindowZ), FVector(0.050f, bLarge ? 1.10f : 0.92f, bLarge ? 0.40f : 0.30f), Glass, FRotator(0.0f, 0.0f, -8.0f));
+        AddPart(CubeMesh, TEXT("RearGlass"), FVector(bLarge ? -93.0f : -80.0f, 0.0f, WindowZ), FVector(0.040f, bLarge ? 1.05f : 0.82f, bLarge ? 0.34f : 0.24f), Glass, FRotator(0.0f, 0.0f, 6.0f));
         AddPart(CubeMesh, TEXT("FrontBumper"), FVector(FrontX, 0.0f, -30.0f), FVector(0.07f, bLarge ? 1.38f : 1.18f, 0.10f), Chrome);
         AddPart(CubeMesh, TEXT("RearBumper"), FVector(RearX, 0.0f, -30.0f), FVector(0.07f, bLarge ? 1.34f : 1.14f, 0.10f), DarkTrim);
         AddPart(CubeMesh, TEXT("FrontGrille"), FVector(FrontX + 2.0f, 0.0f, -4.0f), FVector(0.035f, bLarge ? 0.74f : 0.60f, 0.16f), DarkTrim);
         AddPart(CubeMesh, TEXT("RearPlate"), FVector(RearX - 2.0f, 0.0f, -5.0f), FVector(0.025f, 0.27f, 0.10f), Plate);
-
-        // Lamps and side sills are strong vehicle cues at the exact distance
-        // where the player is deciding whether to pass or brake.
         AddPart(CubeMesh, TEXT("HeadLampL"), FVector(FrontX + 3.0f, -45.0f, -5.0f), FVector(0.025f, 0.19f, 0.11f), WarmLamp);
         AddPart(CubeMesh, TEXT("HeadLampR"), FVector(FrontX + 3.0f, 45.0f, -5.0f), FVector(0.025f, 0.19f, 0.11f), WarmLamp);
         AddPart(CubeMesh, TEXT("TailLampL"), FVector(RearX - 3.0f, -44.0f, -5.0f), FVector(0.025f, 0.20f, 0.12f), TailLamp);
@@ -240,7 +218,6 @@ void URITrafficVisualPolishSubsystem::EnsurePolish(ARITrafficVehicle* Traffic)
 
         if (!bLarge)
         {
-            // Body-color rear window frame breaks up the old single gray cabin face.
             AddBodyPart(TEXT("RearPillarL"), FVector(-96.0f, -51.0f, 47.0f), FVector(0.045f, 0.095f, 0.32f));
             AddBodyPart(TEXT("RearPillarR"), FVector(-96.0f, 51.0f, 47.0f), FVector(0.045f, 0.095f, 0.32f));
             AddBodyPart(TEXT("RearHeader"), FVector(-96.0f, 0.0f, 70.0f), FVector(0.045f, 1.05f, 0.055f));
