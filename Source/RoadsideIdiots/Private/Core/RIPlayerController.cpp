@@ -1,10 +1,14 @@
 #include "Core/RIPlayerController.h"
 
 #include "Core/RIGameMode.h"
+#include "Core/RIParticipantComponent.h"
 #include "Core/RIRaceSettingsSubsystem.h"
+#include "Race/RIRaceManager.h"
+#include "Vehicle/RIBikePawn.h"
 #include "Components/InputComponent.h"
 #include "Engine/GameInstance.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
 #include "GameFramework/GameUserSettings.h"
 #include "InputCoreTypes.h"
 #include "Kismet/GameplayStatics.h"
@@ -31,8 +35,8 @@ void ARIPlayerController::BeginPlay()
         ? GameInstance->GetSubsystem<URIRaceSettingsSubsystem>()
         : nullptr;
 
-    // Pause-menu Restart Race reloads the map but carries a one-shot request in
-    // the GameInstance subsystem so the exact configured race starts directly.
+    // Pause-menu and post-finish restart reload the map but carry a one-shot
+    // request in the GameInstance subsystem so the configured race starts again.
     if (Settings && Settings->ConsumeAutoStartAfterReload())
     {
         if (ARIGameMode* GameMode = GetWorld()->GetAuthGameMode<ARIGameMode>())
@@ -48,38 +52,64 @@ void ARIPlayerController::SetupInputComponent()
     Super::SetupInputComponent();
     if (!InputComponent) return;
 
-    auto ConfigureBinding = [](FInputKeyBinding& Binding)
+    auto ConfigureMenuBinding = [](FInputKeyBinding& Binding)
     {
-        // Menu keys remain usable while paused. They do not consume gameplay
-        // input, so the existing pawn bindings keep working when no menu is open.
+        // Menu navigation remains available while paused and does not consume
+        // gameplay buttons such as A/B when no menu owns the action.
         Binding.bConsumeInput = false;
+        Binding.bExecuteWhenPaused = true;
+    };
+
+    auto ConfigureExclusiveBinding = [](FInputKeyBinding& Binding)
+    {
+        // Enter/Y used to leak through to the pawn-level RestartRace action.
+        // Consume them here so player-controller restart is the single effective
+        // owner and can preserve configured race settings/autostart behavior.
+        Binding.bConsumeInput = true;
         Binding.bExecuteWhenPaused = true;
     };
 
     auto BindMenuKey = [&](const FKey& Key, void (ARIPlayerController::*Function)())
     {
         FInputKeyBinding& Binding = InputComponent->BindKey(Key, IE_Pressed, this, Function);
-        ConfigureBinding(Binding);
+        ConfigureMenuBinding(Binding);
+    };
+
+    auto BindExclusiveKey = [&](const FKey& Key, void (ARIPlayerController::*Function)())
+    {
+        FInputKeyBinding& Binding = InputComponent->BindKey(Key, IE_Pressed, this, Function);
+        ConfigureExclusiveBinding(Binding);
     };
 
     BindMenuKey(EKeys::Up, &ARIPlayerController::MenuPrevious);
     BindMenuKey(EKeys::Down, &ARIPlayerController::MenuNext);
     BindMenuKey(EKeys::Left, &ARIPlayerController::MenuDecrease);
     BindMenuKey(EKeys::Right, &ARIPlayerController::MenuIncrease);
-    BindMenuKey(EKeys::Enter, &ARIPlayerController::MenuConfirm);
+    BindExclusiveKey(EKeys::Enter, &ARIPlayerController::MenuConfirm);
 
-    // Controller parity for a racing game: D-pad navigates setup/settings,
-    // bottom face button confirms, and Start/Menu opens pause.
+    // Controller parity: D-pad navigates; A confirms; B backs out/resumes;
+    // Start pauses; Y is a post-finish quick-restart shortcut only.
     BindMenuKey(EKeys::Gamepad_DPad_Up, &ARIPlayerController::MenuPrevious);
     BindMenuKey(EKeys::Gamepad_DPad_Down, &ARIPlayerController::MenuNext);
     BindMenuKey(EKeys::Gamepad_DPad_Left, &ARIPlayerController::MenuDecrease);
     BindMenuKey(EKeys::Gamepad_DPad_Right, &ARIPlayerController::MenuIncrease);
     BindMenuKey(EKeys::Gamepad_FaceButton_Bottom, &ARIPlayerController::MenuConfirm);
+    BindMenuKey(EKeys::Gamepad_FaceButton_Right, &ARIPlayerController::MenuBack);
+
+    // Support both the keyboard Y key and the physical controller Y/top-face
+    // button because the player-facing finish prompt historically says "Y".
+    BindExclusiveKey(EKeys::Y, &ARIPlayerController::FinishQuickRestart);
+    BindExclusiveKey(EKeys::Gamepad_FaceButton_Top, &ARIPlayerController::FinishQuickRestart);
 
     BindMenuKey(EKeys::Escape, &ARIPlayerController::TogglePauseMenu);
     // PIE often reserves Escape, so P is an editor-friendly equivalent.
     BindMenuKey(EKeys::P, &ARIPlayerController::TogglePauseMenu);
     BindMenuKey(EKeys::Gamepad_Special_Right, &ARIPlayerController::TogglePauseMenu);
+
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("RI INPUT FLOW confirm=ENTER/A finish_restart=ENTER/A/Y back=B pause=START restart_owner=player_controller"));
 }
 
 int32 ARIPlayerController::GetCurrentMenuRowCount() const
@@ -91,6 +121,30 @@ int32 ARIPlayerController::GetCurrentMenuRowCount() const
     case ERIMenuMode::Settings: return 4;
     default: return 0;
     }
+}
+
+bool ARIPlayerController::IsPlayerRaceFinished() const
+{
+    UWorld* World = GetWorld();
+    ARIBikePawn* Bike = Cast<ARIBikePawn>(GetPawn());
+    if (!World || !Bike || !Bike->GetParticipantComponent()) return false;
+
+    const FName PlayerId = Bike->GetParticipantComponent()->GetParticipantId();
+    if (PlayerId.IsNone()) return false;
+
+    for (TActorIterator<ARIRaceManager> It(World); It; ++It)
+    {
+        ARIRaceManager* RaceManager = *It;
+        if (!RaceManager) continue;
+
+        FRIRaceProgress Progress;
+        if (RaceManager->GetProgress(PlayerId, Progress))
+        {
+            return Progress.bFinished;
+        }
+    }
+
+    return false;
 }
 
 void ARIPlayerController::MenuPrevious()
@@ -115,6 +169,26 @@ void ARIPlayerController::MenuDecrease()
 void ARIPlayerController::MenuIncrease()
 {
     AdjustSelectedSetting(1);
+}
+
+void ARIPlayerController::MenuBack()
+{
+    if (MenuMode == ERIMenuMode::Settings)
+    {
+        ReturnFromSettings();
+    }
+    else if (MenuMode == ERIMenuMode::Pause)
+    {
+        ResumeGame();
+    }
+}
+
+void ARIPlayerController::FinishQuickRestart()
+{
+    if (MenuMode != ERIMenuMode::None || !IsPlayerRaceFinished()) return;
+
+    UE_LOG(LogTemp, Display, TEXT("RI INPUT FINISH_RESTART source=Y"));
+    RestartConfiguredRace();
 }
 
 void ARIPlayerController::AdjustSelectedSetting(const int32 Delta)
@@ -184,6 +258,16 @@ void ARIPlayerController::AdjustSelectedSetting(const int32 Delta)
 void ARIPlayerController::MenuConfirm()
 {
     if (!GetWorld()) return;
+
+    if (MenuMode == ERIMenuMode::None)
+    {
+        if (IsPlayerRaceFinished())
+        {
+            UE_LOG(LogTemp, Display, TEXT("RI INPUT FINISH_RESTART source=CONFIRM"));
+            RestartConfiguredRace();
+        }
+        return;
+    }
 
     if (MenuMode == ERIMenuMode::RaceSetup)
     {
