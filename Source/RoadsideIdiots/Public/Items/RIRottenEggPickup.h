@@ -38,4 +38,6 @@ private:
 
     UPROPERTY(VisibleAnywhere)
     TObjectPtr<UPointLightComponent> Glow;
+
+    bool bConsumed = false;
 };
