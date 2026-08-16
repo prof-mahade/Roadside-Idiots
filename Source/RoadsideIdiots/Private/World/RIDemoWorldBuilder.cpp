@@ -17,6 +17,8 @@
 #include "Components/DirectionalLightComponent.h"
 #include "Components/SkyLightComponent.h"
 #include "GameFramework/PlayerController.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "Materials/MaterialInterface.h"
 
 namespace
 {
@@ -51,6 +53,7 @@ void ARIDemoWorldBuilder::BuildWorld(ARIRaceManager* InRaceManager, APlayerContr
     // cannot catch the bike chassis on internal segment seams/overlaps.
     SpawnBox(FVector(0.0f, 0.0f, -40.0f), FRotator::ZeroRotator, FVector(300.0f, 300.0f, 0.8f));
     BuildTrackGeometry();
+    BuildRoadsideIdentity();
     BuildCheckpoints(InRaceManager);
     SpawnPrototypePickups();
     SpawnRacers(InRaceManager, PlayerController);
@@ -167,6 +170,229 @@ void ARIDemoWorldBuilder::BuildTrackGeometry()
             FVector(RightBarrier.X, RightBarrier.Y, 60.0f),
             Rotation,
             FVector((Length + BarrierSegmentPadding) / 100.0f, 0.65f, 1.20f));
+    }
+}
+
+void ARIDemoWorldBuilder::BuildRoadsideIdentity()
+{
+    if (!GetWorld() || !CubeMesh || RoutePoints.Num() < 16) return;
+
+    UMaterialInterface* BaseMaterial = LoadObject<UMaterialInterface>(
+        nullptr,
+        TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial"));
+
+    auto SpawnDecoration = [this, BaseMaterial](
+        const FVector& Location,
+        const FRotator& Rotation,
+        const FVector& Scale,
+        const FLinearColor& Color) -> AStaticMeshActor*
+    {
+        AStaticMeshActor* Actor = SpawnBox(Location, Rotation, Scale);
+        if (!Actor) return nullptr;
+
+        if (UStaticMeshComponent* Mesh = Actor->GetStaticMeshComponent())
+        {
+            // Roadside identity is presentation only. Keeping every decorative
+            // piece non-colliding guarantees this pass cannot change the frozen
+            // bike/road/AI handling baseline.
+            Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+            Mesh->SetCollisionProfileName(TEXT("NoCollision"));
+
+            if (BaseMaterial)
+            {
+                if (UMaterialInstanceDynamic* Material = UMaterialInstanceDynamic::Create(BaseMaterial, Mesh))
+                {
+                    Material->SetVectorParameterValue(TEXT("Color"), Color);
+                    Mesh->SetMaterial(0, Material);
+                }
+            }
+        }
+        return Actor;
+    };
+
+    auto GetRouteFrame = [this](const int32 Index, FVector& OutForward, FVector& OutOutward)
+    {
+        const int32 Count = RoutePoints.Num();
+        const int32 PrevIndex = (Index - 1 + Count) % Count;
+        const int32 NextIndex = (Index + 1) % Count;
+        OutForward = (RoutePoints[NextIndex] - RoutePoints[PrevIndex]).GetSafeNormal2D();
+        OutOutward = RoutePoints[Index].GetSafeNormal2D();
+    };
+
+    const FLinearColor PoleColor(0.20f, 0.18f, 0.15f, 1.0f);
+    const FLinearColor WireColor(0.055f, 0.055f, 0.05f, 1.0f);
+    const FLinearColor TrunkColor(0.24f, 0.14f, 0.07f, 1.0f);
+    const FLinearColor LeafColor(0.10f, 0.34f, 0.10f, 1.0f);
+
+    // A sparse utility line gives the lap a recognizable roadside rhythm and
+    // makes speed easier to perceive. Ten poles are enough to read as a place
+    // without turning the prototype into a prop forest.
+    TArray<FVector> WirePoints;
+    for (int32 Index = 0; Index < RoutePoints.Num(); Index += 8)
+    {
+        FVector Forward;
+        FVector Outward;
+        GetRouteFrame(Index, Forward, Outward);
+
+        FVector PoleBase = RoutePoints[Index] + Outward * (RoadWidth * 0.5f + 760.0f);
+        PoleBase.Z = 0.0f;
+
+        SpawnDecoration(
+            PoleBase + FVector::UpVector * 245.0f,
+            FRotator::ZeroRotator,
+            FVector(0.13f, 0.13f, 4.90f),
+            PoleColor);
+
+        SpawnDecoration(
+            PoleBase + FVector::UpVector * 455.0f,
+            Outward.Rotation(),
+            FVector(0.82f, 0.09f, 0.09f),
+            PoleColor);
+
+        WirePoints.Add(PoleBase + FVector::UpVector * 478.0f);
+    }
+
+    for (int32 Index = 0; Index < WirePoints.Num(); ++Index)
+    {
+        const FVector A = WirePoints[Index];
+        const FVector B = WirePoints[(Index + 1) % WirePoints.Num()];
+        FVector Direction = B - A;
+        const float Length = Direction.Size();
+        if (Length < 1.0f) continue;
+
+        SpawnDecoration(
+            (A + B) * 0.5f,
+            Direction.Rotation(),
+            FVector(Length / 100.0f, 0.035f, 0.035f),
+            WireColor);
+    }
+
+    // Lightweight tea-stall / roadside-shop silhouettes. These are deliberately
+    // clean, colorful and affectionate rather than poverty caricatures. They are
+    // far outside the race corridor and exist only to make the course feel less
+    // like a generic test oval.
+    const int32 StallIndices[] = {6, 25, 44, 63};
+    const FLinearColor StallWalls[] = {
+        FLinearColor(0.82f, 0.37f, 0.12f, 1.0f),
+        FLinearColor(0.16f, 0.48f, 0.62f, 1.0f),
+        FLinearColor(0.67f, 0.18f, 0.25f, 1.0f),
+        FLinearColor(0.18f, 0.55f, 0.30f, 1.0f)};
+    const FLinearColor RoofColors[] = {
+        FLinearColor(0.12f, 0.28f, 0.42f, 1.0f),
+        FLinearColor(0.52f, 0.16f, 0.10f, 1.0f),
+        FLinearColor(0.12f, 0.36f, 0.24f, 1.0f),
+        FLinearColor(0.48f, 0.31f, 0.09f, 1.0f)};
+
+    for (int32 Stall = 0; Stall < UE_ARRAY_COUNT(StallIndices); ++Stall)
+    {
+        const int32 Index = StallIndices[Stall] % RoutePoints.Num();
+        FVector Forward;
+        FVector Outward;
+        GetRouteFrame(Index, Forward, Outward);
+        const FRotator Rotation = Forward.Rotation();
+
+        FVector Center = RoutePoints[Index] + Outward * (RoadWidth * 0.5f + 1450.0f);
+        Center.Z = 0.0f;
+        const FVector RoadFacing = -Outward;
+
+        SpawnDecoration(
+            Center + FVector::UpVector * 135.0f,
+            Rotation,
+            FVector(3.8f, 2.6f, 2.7f),
+            StallWalls[Stall]);
+
+        SpawnDecoration(
+            Center + FVector::UpVector * 292.0f,
+            Rotation,
+            FVector(4.25f, 3.05f, 0.16f),
+            RoofColors[Stall]);
+
+        SpawnDecoration(
+            Center + RoadFacing * 170.0f + FVector::UpVector * 82.0f,
+            Rotation,
+            FVector(2.20f, 0.48f, 0.82f),
+            FLinearColor(0.38f, 0.19f, 0.08f, 1.0f));
+
+        SpawnDecoration(
+            Center + RoadFacing * 205.0f + FVector::UpVector * 224.0f,
+            Rotation,
+            FVector(3.10f, 1.15f, 0.12f),
+            RoofColors[Stall]);
+
+        SpawnDecoration(
+            Center + RoadFacing * 148.0f + FVector::UpVector * 350.0f,
+            Rotation,
+            FVector(1.65f, 0.13f, 0.48f),
+            FLinearColor(0.92f, 0.78f, 0.24f, 1.0f));
+
+        SpawnDecoration(
+            Center + RoadFacing * 345.0f + Forward * 155.0f + FVector::UpVector * 36.0f,
+            Rotation,
+            FVector(1.30f, 0.34f, 0.36f),
+            FLinearColor(0.32f, 0.18f, 0.09f, 1.0f));
+
+        SpawnDecoration(
+            Center + RoadFacing * 345.0f - Forward * 155.0f + FVector::UpVector * 36.0f,
+            Rotation,
+            FVector(1.30f, 0.34f, 0.36f),
+            FLinearColor(0.32f, 0.18f, 0.09f, 1.0f));
+    }
+
+    // Small roadside signboards provide landmarks around the lap. No generated
+    // text is used; the color blocks are intentional prototype placeholders.
+    const int32 SignIndices[] = {14, 34, 54, 74};
+    const FLinearColor SignColors[] = {
+        FLinearColor(0.10f, 0.48f, 0.72f, 1.0f),
+        FLinearColor(0.86f, 0.45f, 0.08f, 1.0f),
+        FLinearColor(0.16f, 0.62f, 0.34f, 1.0f),
+        FLinearColor(0.68f, 0.16f, 0.24f, 1.0f)};
+
+    for (int32 Sign = 0; Sign < UE_ARRAY_COUNT(SignIndices); ++Sign)
+    {
+        const int32 Index = SignIndices[Sign] % RoutePoints.Num();
+        FVector Forward;
+        FVector Outward;
+        GetRouteFrame(Index, Forward, Outward);
+
+        FVector Base = RoutePoints[Index] + Outward * (RoadWidth * 0.5f + 990.0f);
+        Base.Z = 0.0f;
+
+        SpawnDecoration(
+            Base + FVector::UpVector * 150.0f,
+            FRotator::ZeroRotator,
+            FVector(0.10f, 0.10f, 3.0f),
+            PoleColor);
+
+        SpawnDecoration(
+            Base + FVector::UpVector * 292.0f,
+            Forward.Rotation(),
+            FVector(1.75f, 0.14f, 0.62f),
+            SignColors[Sign]);
+    }
+
+    // Simple tropical tree silhouettes fill only selected empty stretches. Their
+    // large offset preserves sight lines for traffic, pickups and rival attacks.
+    for (int32 Index = 3; Index < RoutePoints.Num(); Index += 7)
+    {
+        FVector Forward;
+        FVector Outward;
+        GetRouteFrame(Index, Forward, Outward);
+
+        FVector TreeBase = RoutePoints[Index] + Outward * (RoadWidth * 0.5f + 2150.0f);
+        TreeBase.Z = 0.0f;
+
+        const float HeightVariation = 0.88f + 0.10f * static_cast<float>(Index % 3);
+        SpawnDecoration(
+            TreeBase + FVector::UpVector * (155.0f * HeightVariation),
+            FRotator::ZeroRotator,
+            FVector(0.24f, 0.24f, 3.10f * HeightVariation),
+            TrunkColor);
+
+        SpawnDecoration(
+            TreeBase + FVector::UpVector * (350.0f * HeightVariation),
+            FRotator(0.0f, static_cast<float>(Index * 17), 0.0f),
+            FVector(2.1f, 1.7f, 1.25f) * HeightVariation,
+            LeafColor);
     }
 }
 
