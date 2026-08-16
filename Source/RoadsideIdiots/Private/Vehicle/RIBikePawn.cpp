@@ -397,7 +397,7 @@ bool ARIBikePawn::ThrowRottenEggAt(ARIBikePawn* TargetBike)
         ESpawnActorCollisionHandlingMethod::AlwaysSpawn,
         this);
 
-    if (ARIRottenEggProjectile* Projectile = Cast<ARIBottenEggProjectile>(DeferredActor))
+    if (ARIRottenEggProjectile* Projectile = Cast<ARIRottenEggProjectile>(DeferredActor))
     {
         Projectile->ConfigureSource(this);
         Projectile->ConfigureTarget(TargetBike);
