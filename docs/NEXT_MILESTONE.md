@@ -1,4 +1,4 @@
-# Next milestone — Demo 1 Presentation / Player-Test Gate
+# Next milestone — Demo 1 Input / Free-Asset / Player-Test Gate
 
 ## Demo 1 status — FUNCTIONALLY COMPLETE
 
@@ -6,7 +6,7 @@ The standalone Windows demo has already been packaged and played outside Unreal 
 - configurable 2–6 AI opponents
 - selectable 1–5 laps and 0–6 traffic
 - CLEAN / BALANCED / MAYHEM race-chaos selection
-- stable countdown / lap / place / finish / restart flow
+- stable countdown / lap / place / finish flow
 - motorcycle + Manny presentation
 - stable Pure-Pursuit racing AI without the old recurring wall oscillation
 - accepted professional-pace / predictive-overtaking racecraft pass
@@ -62,168 +62,158 @@ Local UE 5.8 playtests have verified:
 
 ---
 
-## Major presentation passes 1–3 — VERIFIED
+# Major presentation passes 1–4 — VERIFIED
 
-### Pass 1
-Added:
-- start/finish gantry
-- quarter-lap landmarks
-- market / tea-stop cluster
-- bus-stop / parked-bus silhouette
-- pond / field section
-- road edge/center/checker markings
-- first rival color identity
-- finish confetti
+## Pass 1
+Added start/finish gantry, quarter-lap landmarks, market/tea-stop, bus stop, pond/field section, road markings, first rival identity and finish confetti.
 
 Screenshot review caught an oversized rival flag and physics-driven `NoCollision` confetti. Both were corrected rather than accepted just because logging passed.
 
-### Pass 2 — verified at `9148a6b`
+## Pass 2 — verified at `9148a6b`
 Added/corrected:
-- kinematic confetti; warning spam gone
+- kinematic warning-free confetti
 - compact rival body accents
 - first traffic windows/trim/mirrors/plates
 - barrier reflectors
 - built-in `ROADSIDE IDIOTS`, `TEA STOP`, `BUS STOP` signage
 
-### Pass 3 — verified at `c8024cd`
-User compiled and ran in UE 5.8 with 5 opponents / 5 traffic. Runtime verification passed all required hooks and warning regression checks.
-
-Pass 3 added:
+## Pass 3 — verified at `c8024cd`
+Added:
 - layered traffic shell details
-- smaller integrated rival tail/fairing accents
+- smaller integrated rival accents
 - dark backing boards behind landmark text
-- distant built-up skyline
-- distant rural tree belt
-- rooftop water-tank silhouettes
+- distant built-up skyline / rural tree belt
+- rooftop water tanks
 
-Observed screenshots show the world is clearly more complete than the earlier bare oval. The remaining weaknesses are art/presentation quality rather than racing-system failures.
+## Pass 4 — verified at `f64fe86`
+The user compiled and ran Pass 4 in UE 5.8. Runtime verification passed all required hooks and the warning regression scan.
+
+Verified Pass 4 features:
+- sedan traffic uses the tapered presentation shell (`style=tapered_shell`)
+- old cube cabin no longer dominates normal sedan traffic
+- 18 road repair patches + 40 skid streaks render as `NoCollision` presentation only
+- close market/bus-stop facade details render
+- distant backdrop has window bands / roof trims
+- mild post-process grade (`contrast=1.05`, `saturation=1.03`, `vignette=0.08`) renders
+- race completed normally
+- damage telemetry remained clean (`unknown=0`)
+- no presentation physics/collision warning regression
+- bike / flat road / AI foundation remained stable
+
+User then reported one real functional issue: **the Y race-again button did not work reliably**.
 
 ---
 
-# CURRENT AUTONOMOUS BLOCK 4 — PENDING LOCAL UE 5.8 COMPILE / VISUAL CHECK
+# CURRENT AUTONOMOUS BLOCK 5 — PENDING LOCAL COMPILE / INPUT / FREE-ASSET CHECK
 
-Block 4 is deliberately a larger presentation batch before asking for another user verification.
+This block intentionally combines the functional Y fix with the first real approved-free environment replacement and player-test tooling.
 
-## A. Sedan traffic silhouette replacement
+## A. Finish/restart input ownership fix
 
-`URITrafficVisualPolishSubsystem` now goes beyond attaching trim.
+Root cause found:
+- HUD advertised `ENTER / Y RACE AGAIN`;
+- `ARIPlayerController` had no top-face/Y finish binding;
+- `MenuConfirm()` had no post-finish branch;
+- `DefaultInput.ini` also mapped Enter/Y to pawn-level `RestartRace`, creating duplicate restart ownership and a raw map-reload path that did not preserve configured race autostart behavior.
 
-For sedan-like traffic (`TAXI`, `SUNDAY DRIVER`, `LOST DRIVER`):
-- the old visible cube `CabinVisual` is hidden;
-- the separate authoritative `ImpactVolume` is NOT changed;
-- the visible cabin is rebuilt from:
-  - body-color roof cap
-  - sloped A-pillars
-  - B-pillars
-  - sloped C-pillars
-  - front glass
-  - rear glass
-  - split side glass
-  - hood / trunk layers
-  - lamps / mirrors / bumpers / sills / plate
+Block 5 changes:
+- player controller is the effective restart/menu owner;
+- Enter is an exclusive controller confirm/restart key;
+- A / bottom face confirms menus and restarts after finish;
+- keyboard Y and gamepad Y/top-face are finish-only quick-restart keys;
+- B / right face returns from Settings and resumes from Pause;
+- Start/Menu continues to pause/resume;
+- Y during an unfinished race intentionally does nothing;
+- restart uses `RestartConfiguredRace()` so opponent/lap/traffic/chaos setup is preserved;
+- legacy `RestartRace` action mappings were removed from `DefaultInput.ini`.
 
-Large vans/microbuses retain a naturally boxier shell; CNG keeps its separate three-wheeler silhouette.
+Expected startup hook:
+`RI INPUT FLOW confirm=ENTER/A finish_restart=ENTER/A/Y back=B pause=START restart_owner=player_controller`
 
-Expected traffic log now includes:
-`style=tapered_shell`
+Expected after pressing Y on the finish screen:
+`RI INPUT FINISH_RESTART source=Y`
 
-## B. Road surface detail
+## B. Static input regression guard
 
-New `URIRoadSurfaceDetailSubsystem` adds a restrained, visual-only asphalt wear layer:
-- 18 dark repair patches
-- paired skid streaks in four braking zones
-- instanced Engine cube geometry
-- only a few centimeters above the visual road
-- `NoCollision`
-- navigation off
-- shadows off
+New `tools/verify_input_contract.ps1` checks:
+- no legacy `ActionName="RestartRace"` mapping exists;
+- Enter binding exists;
+- A confirm exists;
+- B menu-back exists;
+- keyboard Y + controller Y finish-restart bindings exist;
+- Start pause exists;
+- finish-state guard / configured-race restart path exist.
 
-This layer must NEVER become an authoritative road surface and must not recreate the old road-bump problem.
+This converts the Y-button regression into a pre-package contract instead of relying on memory.
 
-Expected hook:
-`RI ROAD SURFACE_DETAIL patches=18 skid_streaks=40 collision=off navigation=off`
+## C. First approved-free vegetation replacement
 
-## C. Near roadside facade details
+New `URIFreeVegetationSubsystem` uses exact asset paths already recognized by package preflight:
+- `/Game/PN_tropicalGroundPlants/Meshes/tropicalPlant_01_04`
+- `/Game/PN_tropicalGroundPlants/Meshes/tropicalPlant_05_04`
+- `/Game/PN_Banana/Meshes/plants/banana_01_07`
+- `/Game/PN_Banana/Meshes/plants/banana_02_05`
 
-New `URIRoadsideFacadeDetailSubsystem` improves the closest blockout landmarks:
-- market shop doors
-- dark storefront windows
-- awning valance edges
-- facade separators / trim
-- bus side windows
-- bus belt / door outline
-
-All are instanced, shadow-free, `NoCollision`, and outside gameplay ownership.
-
-Expected hook:
-`RI WORLD FACADE_DETAILS ... collision=off navigation=off`
-
-## D. Distant skyline facade rhythm
-
-`URIRoadsideBackdropSubsystem` now adds to the existing 22-building / 30-tree distant backdrop:
-- dark facade window bands
-- roof trims
-- existing rooftop water tanks remain
-
-This should make the skyline read as low-rise buildings instead of a row of plain cubes while keeping it deliberately low-detail and low-contrast.
-
-## E. Mild presentation color grade
-
-New `URIPresentationGradeSubsystem` creates one unbound `APostProcessVolume` after the race world exists.
-
-Values are intentionally restrained:
-- global contrast: `1.05`
-- global saturation: `1.03`
-- vignette: `0.08`
-
-It does NOT change:
-- camera transforms
-- sun/skylight actors
-- exposure settings
-- physics
-- AI
-- race state
-
-The implementation was checked against Unreal Engine 5.8 `APostProcessVolume` / `FPostProcessSettings` API.
+Presentation behavior:
+- roughly 38 tropical ground-plant instances around the full course;
+- roughly 10 banana-plant instances concentrated on market/rural sections;
+- instanced meshes;
+- outside the racing corridor;
+- `NoCollision`;
+- navigation off;
+- no AI/road/traffic ownership.
 
 Expected hook:
-`RI PRESENTATION GRADE contrast=1.05 saturation=1.03 vignette=0.08 gameplay=unchanged`
+`RI FREE VEGETATION tropical=... banana=... tropical_assets=... banana_assets=... collision=off navigation=off source=approved_free`
 
-## F. Runtime verifier
+If approved local assets are missing, the subsystem skips them instead of breaking the game.
+
+## D. Runtime/package verification hardening
 
 `tools/verify_polish_runtime.ps1` now requires:
-- landmark layer
-- world signage
-- near facade details
-- distant backdrop
-- road markings
-- road surface detail
-- presentation grade
-- rival identity
-- item balance
-- playtest start
+- `RI INPUT FLOW`
+- `RI FREE VEGETATION`
+- all previously accepted presentation hooks
 
-It also reports the tapered traffic-shell hook when traffic is present and retains the physics/collision warning regression scan.
+and reports `RI INPUT FINISH_RESTART` when a finish-restart action occurred.
+
+`tools/package_demo1.ps1` now:
+- runs `verify_input_contract.ps1` before cooking;
+- records input preflight PASS in `DEMO1_BUILD_INFO.txt`;
+- writes current Enter/A/B/Y/Start behavior into the packaged README;
+- copies `docs/PLAYER_TEST_PLAN.md` into the package.
+
+`tools/verify_demo1_package.ps1` now checks:
+- packaged test plan exists;
+- manifest records input preflight PASS;
+- README contains current B/Y/Start controller guidance;
+- ZIP/checksum/container/executable checks still pass.
+
+`docs/PLAYER_TEST_PLAN.md` now includes a packaged smoke gate for:
+- Enter/A/Y post-finish restart;
+- Y not restarting mid-race;
+- B back/resume;
+- gameplay A/B/X/LB/RB actions;
+- road patches having zero physical effect;
+- wall-safe AI / flat-road regression;
+- approved free vegetation loading.
 
 ---
 
-## Block 4 isolation check
+## Block 5 isolation check
 
-Compared with the user-verified `c8024cd` state, Block 4 changes presentation/tooling only:
-- `RIPresentationGradeSubsystem` (new)
-- `RITrafficVisualPolishSubsystem`
-- `RIRoadSurfaceDetailSubsystem` (new)
-- `RIRoadsideFacadeDetailSubsystem` (new)
-- `RIRoadsideBackdropSubsystem`
-- `tools/verify_polish_runtime.ps1`
-- this milestone document
+Compared with verified `f64fe86`, Block 5 touches only:
+- `RIPlayerController` input/menu flow;
+- removal of two legacy restart mappings in `DefaultInput.ini`;
+- new `RIFreeVegetationSubsystem`;
+- player-test/package/runtime verification tooling/docs.
 
 Do NOT touch during this gate unless a reproducible regression appears:
 - `ARIAIController`
 - `ARIRacingLineFollower`
 - `URIBikeMovementComponent`
 - authoritative road collision floor
-- checkpoints/lap/place rules
+- checkpoint/lap/place rules
 - traffic route/movement behavior
 - traffic `ImpactVolume` / damage tuning
 
@@ -231,42 +221,45 @@ Do NOT touch during this gate unless a reproducible regression appears:
 
 ## Immediate gate — next justified user intervention
 
-The next user action is justified because the remaining uncertainty is local compile/render/perception:
+The next user action is justified because remaining unknowns are local compile/input/asset rendering:
 1. sync latest `dev/mvp-foundation`;
-2. compile `RoadsideIdiotsEditor Win64 Development` on UE 5.8.1;
-3. run a race with 4+ traffic;
-4. judge sedan-like traffic from behind and alongside — it should no longer have the old cube cabin;
-5. confirm vans/CNG still read coherently;
-6. judge whether road patches/skid marks add texture without looking cluttered or producing any physical bump;
-7. judge market/bus facade details and the improved distant skyline;
-8. judge whether the mild color grade improves separation without looking overprocessed;
-9. confirm flat-road / bike / AI / traffic collision behavior is unchanged;
-10. finish and run `tools/verify_polish_runtime.ps1`;
-11. watch Message Log for new warnings.
+2. run `tools/verify_input_contract.ps1`;
+3. compile `RoadsideIdiotsEditor Win64 Development` on UE 5.8.1;
+4. launch and start a configured race;
+5. press keyboard/controller Y during the unfinished race: it must NOT reload;
+6. finish the race;
+7. press Y on the finish screen;
+8. verify the race reloads and auto-starts with the same setup;
+9. visually judge approved PN tropical/banana vegetation scale/density;
+10. verify vegetation never enters the race corridor and causes no collision;
+11. finish a race and run `tools/verify_polish_runtime.ps1`;
+12. watch Message Log for new warnings.
 
-If compile fails, fix compile before visual judgment.
+If compile fails, fix compile before input/visual judgment.
 
-If one presentation element looks wrong, correct only that layer; do not reopen the frozen racing foundation.
+If vegetation scale/placement is poor, tune only the presentation layer; do not reopen the frozen racing foundation.
 
 ---
 
-## After Block 4 passes
+## After Block 5 passes
 
 Highest-value remaining Demo 1 work:
 
-### Asset-first art replacement
-- use verified free local vegetation/props when exact package paths are known
-- never guess local asset paths
-- replace procedural blockout gradually rather than importing collision-heavy packs
+### Fresh standalone player-test build
+- package Shipping build with current input preflight;
+- run `verify_demo1_package.ps1`;
+- launch packaged build, not PIE;
+- run the smoke gate in `PLAYER_TEST_PLAN.md`;
+- then share with a small outside tester group.
 
 ### Asset-first audio replacement
-- replace synthetic fallback engine/load, impacts, countdown/GO/lap/finish/horn/item cues with verified free/custom assets where practical
-- keep one audio owner per event category
+- replace synthetic fallback engine/load, impacts, countdown/GO/lap/finish/horn/item cues with verified free/custom assets where practical;
+- keep one audio owner per event category.
 
-### Player-test build
-- create a fresh standalone Shipping package after the presentation gate
-- run packaging preflight and runtime verification
-- use `docs/PLAYER_TEST_PLAN.md` with outside players
+### Environment replacement after tester feedback
+- continue replacing blockout only where testers notice it;
+- do not add collision-heavy decorative packs;
+- preserve Bangladesh/South-Asian roadside identity.
 
 ### Demo 2 only after player-test feedback
 Potential themes:
@@ -283,5 +276,5 @@ Not current blockers:
 - traffic can still collide in dense conditions
 - physics are arcade/prototype rather than commercial motorcycle simulation
 - one main course/mode is acceptable for Demo 1
-- local procedural art/audio remains prototype quality until verified free assets replace it
+- some procedural/blockout art and generated audio remain prototype quality
 - multiplayer is deferred
