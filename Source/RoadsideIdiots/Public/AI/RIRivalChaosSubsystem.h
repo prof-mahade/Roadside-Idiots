@@ -20,7 +20,12 @@ public:
 
 private:
     void IssueDirectives();
-    ARIBikePawn* FindTargetFor(ARIAIController* Controller, ARIBikePawn* ControlledBike, int32 BotIndex, const TSet<const ARIBikePawn*>& ReservedTargets) const;
+    ARIBikePawn* FindTargetFor(
+        ARIAIController* Controller,
+        ARIBikePawn* ControlledBike,
+        int32 BotIndex,
+        ERITacticalIntent Intent,
+        const TSet<const ARIBikePawn*>& ReservedTargets) const;
     float GetDirectiveInterval(int32 BotIndex) const;
     float GetDirectiveChance(int32 BotIndex) const;
     ERITacticalIntent ChooseIntent(const ARIBikePawn* ControlledBike, int32 BotIndex) const;
