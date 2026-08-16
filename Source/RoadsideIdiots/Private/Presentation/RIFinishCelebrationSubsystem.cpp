@@ -13,7 +13,7 @@
 bool URIFinishCelebrationSubsystem::IsTickable() const
 {
     const UWorld* World = GetWorld();
-    return !bCelebrated && !IsTemplate() && World && World->IsGameWorld();
+    return !IsTemplate() && World && World->IsGameWorld() && (!bCelebrated || ConfettiPieces.Num() > 0);
 }
 
 TStatId URIFinishCelebrationSubsystem::GetStatId() const
@@ -52,6 +52,8 @@ ARIRaceManager* URIFinishCelebrationSubsystem::FindRaceManager() const
 
 void URIFinishCelebrationSubsystem::Tick(const float DeltaTime)
 {
+    UpdateConfetti(FMath::Max(0.0f, DeltaTime));
+
     if (bCelebrated) return;
 
     ARIBikePawn* HumanBike = FindHumanBike();
@@ -68,6 +70,44 @@ void URIFinishCelebrationSubsystem::Tick(const float DeltaTime)
         HumanBike->GetActorLocation() + FVector::UpVector * 230.0f,
         HumanBike->GetActorForwardVector().GetSafeNormal2D());
     bCelebrated = true;
+}
+
+void URIFinishCelebrationSubsystem::UpdateConfetti(const float DeltaTime)
+{
+    if (DeltaTime <= 0.0f || ConfettiPieces.Num() == 0) return;
+
+    const FVector GravityLikeAcceleration(0.0f, 0.0f, -470.0f);
+
+    for (int32 Index = ConfettiPieces.Num() - 1; Index >= 0; --Index)
+    {
+        FRIConfettiPiece& Piece = ConfettiPieces[Index];
+        AStaticMeshActor* Actor = Piece.Actor.Get();
+        if (!Actor)
+        {
+            ConfettiPieces.RemoveAtSwap(Index, 1, EAllowShrinking::No);
+            continue;
+        }
+
+        Piece.AgeSeconds += DeltaTime;
+        if (Piece.AgeSeconds >= Piece.LifetimeSeconds)
+        {
+            Actor->Destroy();
+            ConfettiPieces.RemoveAtSwap(Index, 1, EAllowShrinking::No);
+            continue;
+        }
+
+        // Kinematic confetti keeps collision genuinely disabled. A light flutter
+        // and drag gives enough motion for a prototype celebration without asking
+        // Chaos to simulate a body that intentionally has no collision shape.
+        Piece.Velocity += GravityLikeAcceleration * DeltaTime;
+        const float Flutter = FMath::Sin(Piece.AgeSeconds * 9.0f + Piece.FlutterPhase);
+        Piece.Velocity.X += Flutter * 22.0f * DeltaTime;
+        Piece.Velocity.Y += FMath::Cos(Piece.AgeSeconds * 7.5f + Piece.FlutterPhase) * 26.0f * DeltaTime;
+        Piece.Velocity *= FMath::Clamp(1.0f - 0.30f * DeltaTime, 0.0f, 1.0f);
+
+        Actor->AddActorWorldOffset(Piece.Velocity * DeltaTime, false, nullptr, ETeleportType::TeleportPhysics);
+        Actor->AddActorLocalRotation(Piece.AngularVelocityDegrees * DeltaTime, false, nullptr, ETeleportType::TeleportPhysics);
+    }
 }
 
 void URIFinishCelebrationSubsystem::SpawnCelebration(const FVector& Origin, const FVector& Forward)
@@ -93,6 +133,8 @@ void URIFinishCelebrationSubsystem::SpawnCelebration(const FVector& Origin, cons
         FLinearColor(0.96f, 0.96f, 0.90f, 1.0f)};
 
     constexpr int32 PieceCount = 30;
+    ConfettiPieces.Reserve(ConfettiPieces.Num() + PieceCount);
+
     for (int32 Index = 0; Index < PieceCount; ++Index)
     {
         const float Side = FMath::FRandRange(-1.0f, 1.0f);
@@ -103,29 +145,35 @@ void URIFinishCelebrationSubsystem::SpawnCelebration(const FVector& Origin, cons
             SafeForward * (Along * 180.0f) +
             FVector::UpVector * FMath::FRandRange(-30.0f, 120.0f);
 
-        AStaticMeshActor* Piece = World->SpawnActor<AStaticMeshActor>(
+        AStaticMeshActor* Actor = World->SpawnActor<AStaticMeshActor>(
             SpawnLocation,
             FRotator(
                 FMath::FRandRange(-35.0f, 35.0f),
                 FMath::FRandRange(0.0f, 360.0f),
                 FMath::FRandRange(-35.0f, 35.0f)));
-        if (!Piece) continue;
+        if (!Actor) continue;
 
-        Piece->SetActorEnableCollision(false);
-        Piece->SetLifeSpan(FMath::FRandRange(2.8f, 4.2f));
-        Piece->SetActorScale3D(FVector(
+        Actor->SetActorEnableCollision(false);
+        Actor->SetActorScale3D(FVector(
             FMath::FRandRange(0.08f, 0.16f),
             FMath::FRandRange(0.035f, 0.075f),
             FMath::FRandRange(0.015f, 0.035f)));
 
-        UStaticMeshComponent* Mesh = Piece->GetStaticMeshComponent();
-        if (!Mesh) continue;
+        UStaticMeshComponent* Mesh = Actor->GetStaticMeshComponent();
+        if (!Mesh)
+        {
+            Actor->Destroy();
+            continue;
+        }
 
         Mesh->SetMobility(EComponentMobility::Movable);
         Mesh->SetStaticMesh(ConfettiMesh);
         Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
         Mesh->SetCollisionProfileName(TEXT("NoCollision"));
         Mesh->SetGenerateOverlapEvents(false);
+        Mesh->SetCanEverAffectNavigation(false);
+        Mesh->SetSimulatePhysics(false);
+        Mesh->SetEnableGravity(false);
 
         if (BaseMaterial)
         {
@@ -136,26 +184,23 @@ void URIFinishCelebrationSubsystem::SpawnCelebration(const FVector& Origin, cons
             }
         }
 
-        // Physics is used only to animate the confetti itself. Collision is off,
-        // so these bodies cannot push the rider, rivals, traffic or road props.
-        Mesh->SetSimulatePhysics(true);
-        Mesh->SetEnableGravity(true);
-        Mesh->SetLinearDamping(0.18f);
-        Mesh->SetAngularDamping(0.08f);
-        Mesh->AddImpulse(
+        FRIConfettiPiece& Piece = ConfettiPieces.AddDefaulted_GetRef();
+        Piece.Actor = Actor;
+        Piece.Velocity =
             SafeForward * FMath::FRandRange(45.0f, 155.0f) +
             Right * FMath::FRandRange(-240.0f, 240.0f) +
-            FVector::UpVector * FMath::FRandRange(310.0f, 620.0f),
-            NAME_None,
-            true);
-        Mesh->AddAngularImpulseInRadians(
-            FVector(
-                FMath::FRandRange(-7.0f, 7.0f),
-                FMath::FRandRange(-7.0f, 7.0f),
-                FMath::FRandRange(-9.0f, 9.0f)),
-            NAME_None,
-            true);
+            FVector::UpVector * FMath::FRandRange(310.0f, 620.0f);
+        Piece.AngularVelocityDegrees = FRotator(
+            FMath::FRandRange(-380.0f, 380.0f),
+            FMath::FRandRange(-520.0f, 520.0f),
+            FMath::FRandRange(-620.0f, 620.0f));
+        Piece.LifetimeSeconds = FMath::FRandRange(2.8f, 4.2f);
+        Piece.FlutterPhase = FMath::FRandRange(0.0f, 2.0f * PI);
     }
 
-    UE_LOG(LogTemp, Display, TEXT("RI FINISH CELEBRATION confetti=%d collision=off"), PieceCount);
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("RI FINISH CELEBRATION confetti=%d collision=off simulation=kinematic"),
+        ConfettiPieces.Num());
 }
