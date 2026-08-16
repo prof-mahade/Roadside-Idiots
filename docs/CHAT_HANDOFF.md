@@ -17,12 +17,14 @@ Permanent core fantasy:
 
 The game is **drive-first, chaos-second**. Chaos should create readable decisions/stories around skilled riding; the controls, camera, road-following AI and UI should not feel like the real idiots.
 
-## CURRENT STATUS — DEMO 1 FUNCTIONALLY COMPLETE
+## CURRENT STATUS — DEMO 1 FUNCTIONALLY COMPLETE / POLISH CONTINUING
 On 2026-08-16 the user explicitly accepted Demo 1 as functionally complete.
 
 A standalone packaged Windows build has launched outside Unreal Editor with the expected motorcycle/rider presentation, track/environment, HUD/minimap, race flow and traffic present.
 
-The active branch has since received a research-informed player-experience polish batch that is **pending local Windows compile/package verification**.
+The user subsequently accepted the `05c2604` AI/racecraft state as a good improvement and accepted the first player engine/skid feedback slice. Those systems are now treated as stable baselines.
+
+The latest autonomous batch adds collision-free roadside identity geometry and passive playtest telemetry. That latest batch is **pending local UE 5.8 compile and visual/gameplay verification**.
 
 Do not reopen solved foundation problems merely for theoretical improvement.
 
@@ -46,13 +48,23 @@ Removed and forbidden:
 - Unreal Engine 5.8.1
 - imported binary presentation assets are intentionally local and may appear as untracked `Content/`
 
+## Working style with the user
+The productive workflow is intentionally incremental:
+1. inspect the current repository state
+2. make one coherent technical slice
+3. give exact PowerShell sync/build/launch commands when user execution is required
+4. ask the user only for observations that genuinely require human visual/audio/gameplay judgment
+5. freeze accepted systems instead of repeatedly retuning them
+
+When the user says to work autonomously, continue through safe additive work and repository bookkeeping until local compile or human play-feel verification is actually needed.
+
 ## Accepted Demo 1 gameplay baseline
 - W/S throttle/brake-reverse, A/D steer
 - Q/E slap, F banana peel, G rotten egg, R recovery
 - P/Esc pause, Enter restart/confirm
-- Xbox-style gamepad gameplay/menu mapping added in latest polish batch
+- Xbox-style gamepad gameplay/menu mapping
 - configurable 2–6 opponents, 1–5 laps, 0–6 traffic
-- latest polish adds CLEAN / BALANCED / MAYHEM race-chaos selection
+- CLEAN / BALANCED / MAYHEM race-chaos selection
 - countdown/input lock
 - lap/checkpoint/place/timing/finish flow
 - circular minimap and compact HUD
@@ -77,9 +89,9 @@ Do not retune without a reproducible regression:
 - oval route radii 9000 cm × 5000 cm
 - road width 1200 cm
 
-The old invisible road-bump issue was fixed by the continuous collision floor.
+The old invisible road-bump issue was fixed by the continuous collision floor. The user confirmed the flat road now feels flat.
 
-## AI driving — FROZEN DEMO 1 BASELINE
+## AI driving — FROZEN ACCEPTED BASELINE
 The successful architectural fix separated high-level chaos/race decisions from low-level road following.
 
 ### High-level `ARIAIController`
@@ -92,12 +104,13 @@ Owns:
 - stuck/recovery fallback
 
 ### Low-level `ARIRacingLineFollower`
-Owns final steering:
+Owns final racing execution:
 - adaptive speed-scaled Pure Pursuit
 - assigned race lane
 - predicted lateral drift
 - AI-only lane-stability assistance
-- curvature safety speed veto
+- road-curvature pace envelope
+- predictive rival overtaking / gap choice
 - persistent traffic pass-side planning
 - post-collision recovery priority
 
@@ -105,11 +118,13 @@ Critical rule: do not let combat/avoidance logic replace the racing path target 
 
 ### Accepted result
 The user verified:
+- rivals no longer exhibit the recurring wall-to-wall oscillation
 - Opponents 6 / Laps 2 / Traffic 0: rivals complete cleanly without recurring wall hits
 - Opponents 6 / Laps 2 / Traffic 6: traffic collisions can occur, but normal road following stays stable
-- later traffic-aware changes were reported as a little better than before
+- the later professional pace / predictive overtaking pass was a good AI-mechanism improvement
+- `05c2604` was explicitly reported good and is the accepted racecraft reference point
 
-Treat this stack as stable unless a packaged-build regression is reproducible.
+Treat this stack as stable unless a reproducible regression appears.
 
 ## Rival personalities
 - BOT_01 LEECH — blocking/line annoyance
@@ -121,7 +136,7 @@ Treat this stack as stable unless a packaged-build regression is reproducible.
 
 Player-facing UI should emphasize the personality names rather than internal BOT IDs.
 
-### Latest chaos pacing changes — pending verification
+### Chaos pacing
 - first ~6 seconds after GO suppress director-created chaos
 - CLEAN lowers incident chance/frequency and caps director concurrency at one
 - BALANCED keeps intended defaults
@@ -141,8 +156,8 @@ Research used in the design pass includes self-determination theory and GameFlow
 
 Do not add blatant rubber-banding/teleport cheating merely to keep races close. Future catch-up assistance, if any, must be subtle and bounded.
 
-## Latest player-facing polish — pending compile/package verification
-Project version: **0.1.1-demo1-polish1**.
+## Player-facing polish
+Project version remains **0.1.1-demo1-polish1** unless the project config is intentionally version-bumped later.
 
 ### Race setup
 - QUICK RACE wording
@@ -196,19 +211,42 @@ Approved local free content includes:
 
 Runtime cooking is deliberately limited to the meshes/materials/textures actually used. Old UE4 sample template Blueprints/maps bundled in those free packs are excluded because they are irrelevant and can fail UE 5.8 cooking.
 
-The environment also uses lightweight custom Engine-basic-shape structures so the game does not depend on paid building packs.
+### Latest roadside identity pass — pending visual verification
+`ARIDemoWorldBuilder` now creates lightweight presentation-only roadside silhouettes from Engine basic shapes:
+- sparse utility poles and overhead wire rhythm
+- four colorful tea-stall / roadside-shop clusters
+- simple signboards used as lap landmarks
+- sparse tropical tree silhouettes
 
-Long-term identity should grow toward recognizable South-Asian/Bangladesh-inspired roadside details (tea stalls, utility infrastructure, vegetation, local traffic silhouettes, roadside clutter) with affectionate humor rather than ridicule.
+All of these new pieces explicitly use `NoCollision` and sit outside the racing corridor. They must never become authoritative road collision or AI obstacles.
+
+Humor and environment identity should remain affectionate and recognizable rather than mocking people or poverty.
 
 ## Audio
 `RIAudioEvents` is asset-first and can use free imported SFX with generated fallbacks for prototype coverage.
 
-Audio priority should be gameplay readability: engine/load, impacts, item throw/hit, skid/slip, countdown/GO/lap/finish and traffic horn before decorative comedy noise.
+The player bike now drives the existing `EnginePulse` and `TireSkid` events from speed/load/braking/sliding. The user tested this first slice and called the improvement acceptable. It is feedback-only and did not change physics.
+
+Audio priority remains gameplay readability: engine/load, impacts, item throw/hit, skid/slip, countdown/GO/lap/finish and traffic horn before decorative comedy noise.
 
 A UE-owned `SoundWaveProcedural.h` C4996 warning has appeared during successful builds and is non-fatal for the current UE 5.8 build.
 
+## Passive playtest telemetry — pending local compile verification
+`URIRaceTelemetrySubsystem` passively samples the human player's already-public state about five times per second and writes summaries through `UE_LOG`.
+
+Current metrics:
+- final place and finish time
+- average / maximum speed
+- overtakes and positions lost (place transitions)
+- condition-loss event count and total condition lost
+- approximate incident density per minute
+- banana pickups / peel uses
+- egg pickups / egg uses
+
+The subsystem must remain observer-only. It must never influence steering, throttle, physics, AI, item behavior or race rules.
+
 ## Packaging
-`tools/package_demo1.ps1` defaults to Shipping and now:
+`tools/package_demo1.ps1` defaults to Shipping and:
 - recursively blocks forbidden Sankool/CompoundWall content
 - blocks Source/Config references to it
 - records commit/dirty state
@@ -221,14 +259,18 @@ A UE-owned `SoundWaveProcedural.h` C4996 warning has appeared during successful 
 `tools/verify_demo1_package.ps1` performs static checks and can launch the newest package.
 
 ## CURRENT ACTIVE GATE
-Before more feature work:
-1. sync latest branch
-2. compile on the user's UE 5.8 Windows machine
-3. visually verify Quick Race / Chaos / Settings / cleaned HUD / finish UI
-4. package Shipping build
-5. verify the shareable ZIP
+The next user intervention is justified because the latest work requires local compilation and human visual judgment.
 
-If this batch passes, continue autonomously with feedback/audio, environment identity, traffic/chaos readability and playtest instrumentation. Do not rewrite the accepted riding foundation.
+Required next verification:
+1. sync latest `dev/mvp-foundation`
+2. compile `RoadsideIdiotsEditor Win64 Development` on the user's UE 5.8 machine
+3. launch with `UnrealEditor.exe <uproject> -log`
+4. confirm the new roadside props feel like useful environment identity rather than clutter
+5. confirm none of the new props affect collision/driving
+6. finish one race and confirm `RI PLAYTEST SUMMARY` lines appear in the log
+7. briefly watch for any regression in the accepted AI/wall behavior
+
+If this gate passes, continue autonomously with traffic/chaos readability and richer asset-first audio, without rewriting accepted driving systems.
 
 ## Player testing
 Use `docs/PLAYER_TEST_PLAN.md` when sharing builds. Important questions include:
@@ -254,4 +296,4 @@ Use `docs/PLAYER_TEST_PLAN.md` when sharing builds. Important questions include:
 4. Read `docs/PLAYER_TEST_PLAN.md`.
 5. Inspect current `dev/mvp-foundation` head.
 6. Treat GitHub as more current than old chat text.
-7. Preserve the frozen Demo 1 driving foundation.
+7. Preserve the frozen bike/road/AI racecraft baseline.
