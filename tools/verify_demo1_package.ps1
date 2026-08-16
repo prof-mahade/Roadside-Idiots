@@ -122,6 +122,7 @@ $BugfixText = Get-Content $BugfixEvidence -Raw
 $RequiredBugfixPhrases = @(
     'Input contract verification PASSED.',
     'Audio contract verification PASSED.',
+    'Cook contract verification PASSED.',
     '[PASS] BUGFIX CONTRACT PREFLIGHT'
 )
 foreach ($Phrase in $RequiredBugfixPhrases) {
