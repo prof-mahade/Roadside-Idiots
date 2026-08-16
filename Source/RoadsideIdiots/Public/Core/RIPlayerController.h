@@ -35,8 +35,11 @@ private:
     void MenuDecrease();
     void MenuIncrease();
     void MenuConfirm();
+    void MenuBack();
+    void FinishQuickRestart();
     void TogglePauseMenu();
 
+    bool IsPlayerRaceFinished() const;
     void AdjustSelectedSetting(int32 Delta);
     int32 GetCurrentMenuRowCount() const;
     void OpenSettingsMenu();
