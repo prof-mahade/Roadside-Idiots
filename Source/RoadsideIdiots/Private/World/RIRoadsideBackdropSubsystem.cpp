@@ -134,6 +134,14 @@ void URIRoadsideBackdropSubsystem::BuildBackdrop()
         TEXT("BackdropLightBuildings"),
         CubeMesh,
         FLinearColor(0.53f, 0.50f, 0.40f, 1.0f));
+    UInstancedStaticMeshComponent* WindowBands = CreateLayer(
+        TEXT("BackdropWindowBands"),
+        CubeMesh,
+        FLinearColor(0.055f, 0.085f, 0.095f, 1.0f));
+    UInstancedStaticMeshComponent* RoofTrims = CreateLayer(
+        TEXT("BackdropRoofTrims"),
+        CubeMesh,
+        FLinearColor(0.16f, 0.17f, 0.17f, 1.0f));
     UInstancedStaticMeshComponent* TreeTrunks = CreateLayer(
         TEXT("BackdropTreeTrunks"),
         CubeMesh,
@@ -147,13 +155,15 @@ void URIRoadsideBackdropSubsystem::BuildBackdrop()
         CylinderMesh,
         FLinearColor(0.085f, 0.095f, 0.105f, 1.0f));
 
-    if (!WarmBuildings || !CoolBuildings || !LightBuildings || !TreeTrunks || !TreeCanopies)
+    if (!WarmBuildings || !CoolBuildings || !LightBuildings || !WindowBands || !RoofTrims || !TreeTrunks || !TreeCanopies)
     {
         RootActor->Destroy();
         return;
     }
 
     int32 BuildingCount = 0;
+    int32 WindowBandCount = 0;
+    int32 RoofTrimCount = 0;
     int32 TreeCount = 0;
     int32 TankCount = 0;
 
@@ -166,6 +176,7 @@ void URIRoadsideBackdropSubsystem::BuildBackdrop()
         const float Angle = 0.08f * PI + T * 0.98f * PI;
         const FVector Base = RIBackdropPoint(Angle);
         const FVector Forward = RIBackdropTangent(Angle);
+        const FVector Inward = -Base.GetSafeNormal2D();
         const FRotator Rotation = Forward.Rotation();
 
         const float Width = 2.8f + 0.55f * static_cast<float>((Slot * 7) % 5);
@@ -184,6 +195,31 @@ void URIRoadsideBackdropSubsystem::BuildBackdrop()
 
         Layer->AddInstance(FTransform(Rotation, Center, FVector(Width, Depth, Height)), true);
         ++BuildingCount;
+
+        // Two dark facade bands are enough to read as windows at racing distance
+        // without paying for dozens of individual window meshes per building.
+        const float FacadeOffset = Depth * 50.0f + 2.5f;
+        const int32 BandRows = Height > 4.0f ? 2 : 1;
+        for (int32 Row = 0; Row < BandRows; ++Row)
+        {
+            const float RowFraction = BandRows == 1 ? 0.57f : (0.38f + static_cast<float>(Row) * 0.30f);
+            const float Z = Height * 100.0f * RowFraction;
+            WindowBands->AddInstance(
+                FTransform(
+                    Rotation,
+                    Base + Forward * AlongJitter + Inward * FacadeOffset + FVector::UpVector * Z,
+                    FVector(Width * 0.76f, 0.035f, 0.14f)),
+                true);
+            ++WindowBandCount;
+        }
+
+        RoofTrims->AddInstance(
+            FTransform(
+                Rotation,
+                Base + Forward * AlongJitter + FVector::UpVector * (Height * 100.0f + 9.0f),
+                FVector(Width * 1.03f, Depth * 1.03f, 0.08f)),
+            true);
+        ++RoofTrimCount;
 
         // Occasional dark rooftop tanks add a familiar low-rise rooftop rhythm
         // without introducing detailed cultural props or extra asset dependencies.
@@ -233,8 +269,10 @@ void URIRoadsideBackdropSubsystem::BuildBackdrop()
     UE_LOG(
         LogTemp,
         Display,
-        TEXT("RI WORLD BACKDROP buildings=%d trees=%d tanks=%d collision=off navigation=off"),
+        TEXT("RI WORLD BACKDROP buildings=%d window_bands=%d roof_trims=%d trees=%d tanks=%d collision=off navigation=off"),
         BuildingCount,
+        WindowBandCount,
+        RoofTrimCount,
         TreeCount,
         TankCount);
 }
