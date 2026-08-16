@@ -59,13 +59,16 @@ void URITrafficWorldSubsystem::TrySpawnTraffic()
         const TCHAR* Label;
     };
 
+    // The mix is intentionally heterogeneous. At race speed the player should be
+    // able to read different silhouettes and closing speeds rather than seeing six
+    // identical boxes. Everything remains custom/Engine-basic-shape content.
     const FTrafficSeed Seeds[] =
     {
         {0.78f, 42.0f, -255.0f, FLinearColor(0.95f, 0.72f, 0.08f, 1.0f), false, 0.0f, TEXT("SUNDAY DRIVER")},
         {2.82f, 58.0f,  245.0f, FLinearColor(0.08f, 0.38f, 0.90f, 1.0f), true,  1.4f, TEXT("TAXI")},
-        {5.02f, 72.0f,   20.0f, FLinearColor(0.92f, 0.30f, 0.06f, 1.0f), false, 2.7f, TEXT("DELIVERY VAN")},
-        {1.64f, 50.0f,  175.0f, FLinearColor(0.18f, 0.66f, 0.30f, 1.0f), true,  3.1f, TEXT("UNCLE'S CAR")},
-        {3.76f, 64.0f, -135.0f, FLinearColor(0.64f, 0.20f, 0.76f, 1.0f), false, 4.2f, TEXT("MICROBUS")},
+        {5.02f, 68.0f,   20.0f, FLinearColor(0.92f, 0.30f, 0.06f, 1.0f), false, 2.7f, TEXT("DELIVERY VAN")},
+        {1.64f, 47.0f,  175.0f, FLinearColor(0.10f, 0.62f, 0.33f, 1.0f), true,  3.1f, TEXT("CNG AUTO")},
+        {3.76f, 62.0f, -135.0f, FLinearColor(0.64f, 0.20f, 0.76f, 1.0f), false, 4.2f, TEXT("MICROBUS")},
         {5.86f, 54.0f,  285.0f, FLinearColor(0.12f, 0.68f, 0.72f, 1.0f), true,  5.4f, TEXT("LOST DRIVER")}
     };
 
