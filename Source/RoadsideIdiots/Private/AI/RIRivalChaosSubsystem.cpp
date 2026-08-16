@@ -3,6 +3,8 @@
 #include "AI/RIAIController.h"
 #include "Vehicle/RIBikePawn.h"
 #include "Core/RIParticipantComponent.h"
+#include "Core/RIRaceSettingsSubsystem.h"
+#include "Engine/GameInstance.h"
 #include "EngineUtils.h"
 
 namespace
@@ -28,6 +30,44 @@ namespace
         case 6: return TEXT("TRYHARD");
         default: return TEXT("IDIOT");
         }
+    }
+
+    struct FRIChaosTuning
+    {
+        float IntervalScale = 1.0f;
+        float ChanceScale = 1.0f;
+        int32 MaxConcurrentOverride = 0;
+    };
+
+    FRIChaosTuning RIChaos_GetTuning(UWorld* World)
+    {
+        FRIChaosTuning Tuning;
+        if (!World) return Tuning;
+
+        UGameInstance* GameInstance = World->GetGameInstance();
+        const URIRaceSettingsSubsystem* Settings = GameInstance
+            ? GameInstance->GetSubsystem<URIRaceSettingsSubsystem>()
+            : nullptr;
+        const int32 ChaosLevel = Settings ? Settings->GetChaosLevel() : 1;
+
+        if (ChaosLevel <= 0)
+        {
+            // CLEAN still allows personalities to exist and retaliation to happen,
+            // but director-created incidents are intentionally uncommon.
+            Tuning.IntervalScale = 1.45f;
+            Tuning.ChanceScale = 0.55f;
+            Tuning.MaxConcurrentOverride = 1;
+        }
+        else if (ChaosLevel >= 2)
+        {
+            // MAYHEM increases frequency, not steering authority. We deliberately
+            // keep the concurrency cap conservative so the whole pack never turns
+            // back into one permanent brawl.
+            Tuning.IntervalScale = 0.72f;
+            Tuning.ChanceScale = 1.35f;
+        }
+
+        return Tuning;
     }
 }
 
@@ -166,6 +206,7 @@ void URIRivalChaosSubsystem::IssueDirectives()
     if (!World) return;
 
     const double Now = World->GetTimeSeconds();
+    const FRIChaosTuning ChaosTuning = RIChaos_GetTuning(World);
     TArray<ARIAIController*> Controllers;
     TSet<const ARIBikePawn*> ReservedTargets;
     int32 ActiveTroublemakers = 0;
@@ -187,9 +228,13 @@ void URIRivalChaosSubsystem::IssueDirectives()
         }
     }
 
-    // With 2-3 opponents allow only one deliberate chaos event at once. With
-    // larger fields allow at most two. Retaliation can still happen naturally.
-    const int32 MaxActiveTroublemakers = Controllers.Num() >= 5 ? 2 : 1;
+    // With 2-4 opponents allow only one deliberate chaos event at once. With
+    // larger fields allow at most two. CLEAN always caps the director at one.
+    int32 MaxActiveTroublemakers = Controllers.Num() >= 5 ? 2 : 1;
+    if (ChaosTuning.MaxConcurrentOverride > 0)
+    {
+        MaxActiveTroublemakers = FMath::Min(MaxActiveTroublemakers, ChaosTuning.MaxConcurrentOverride);
+    }
     if (ActiveTroublemakers >= MaxActiveTroublemakers) return;
 
     for (ARIAIController* Controller : Controllers)
@@ -203,12 +248,14 @@ void URIRivalChaosSubsystem::IssueDirectives()
 
         const TWeakObjectPtr<ARIAIController> Key(Controller);
         const double LastTime = LastDirectiveTime.FindRef(Key);
-        if (LastTime > 0.0 && Now - LastTime < GetDirectiveInterval(BotIndex)) continue;
+        const float EffectiveInterval = GetDirectiveInterval(BotIndex) * ChaosTuning.IntervalScale;
+        if (LastTime > 0.0 && Now - LastTime < EffectiveInterval) continue;
 
         // Record the attempt even when it elects to keep racing; otherwise a
         // failed chance would be retried every director tick and become 100%.
         LastDirectiveTime.Add(Key, Now);
-        if (FMath::FRand() > GetDirectiveChance(BotIndex)) continue;
+        const float EffectiveChance = FMath::Clamp(GetDirectiveChance(BotIndex) * ChaosTuning.ChanceScale, 0.0f, 0.85f);
+        if (FMath::FRand() > EffectiveChance) continue;
 
         ARIBikePawn* Target = FindTargetFor(Controller, ControlledBike, BotIndex, ReservedTargets);
         if (!Target) continue;
@@ -247,6 +294,33 @@ void URIRivalChaosSubsystem::IssueDirectives()
 
 void URIRivalChaosSubsystem::Tick(const float DeltaTime)
 {
+    UWorld* World = GetWorld();
+    if (!World) return;
+
+    bool bRaceActive = false;
+    for (TActorIterator<ARIBikePawn> It(World); It; ++It)
+    {
+        if (*It && It->AreRaceControlsEnabled())
+        {
+            bRaceActive = true;
+            break;
+        }
+    }
+
+    if (!bRaceActive)
+    {
+        ActiveRaceSeconds = 0.0f;
+        DecisionRemaining = 1.0f;
+        return;
+    }
+
+    ActiveRaceSeconds += DeltaTime;
+
+    // Give the player a few seconds after GO to establish speed, road position,
+    // traffic and rival context. The comedy lands better after competence has
+    // been established than when the starting grid instantly becomes a brawl.
+    if (ActiveRaceSeconds < 6.0f) return;
+
     DecisionRemaining -= DeltaTime;
     if (DecisionRemaining > 0.0f) return;
 
