@@ -25,6 +25,12 @@ public:
     UFUNCTION(BlueprintPure, Category="Roadside Idiots|Race Setup")
     int32 GetChaosLevel() const { return ChaosLevel; }
 
+    // Player-only analog response curve. Keyboard full-left/full-right remains
+    // unchanged and AI bypasses this path entirely.
+    // 0 = CALM, 1 = NORMAL, 2 = QUICK.
+    UFUNCTION(BlueprintPure, Category="Roadside Idiots|Settings")
+    int32 GetSteeringFeel() const { return SteeringFeel; }
+
     UFUNCTION(BlueprintCallable, Category="Roadside Idiots|Race Setup")
     void SetOpponentCount(int32 Value) { OpponentCount = FMath::Clamp(Value, MinOpponents, MaxOpponents); }
 
@@ -37,6 +43,22 @@ public:
     UFUNCTION(BlueprintCallable, Category="Roadside Idiots|Race Setup")
     void SetChaosLevel(int32 Value) { ChaosLevel = FMath::Clamp(Value, MinChaosLevel, MaxChaosLevel); }
 
+    UFUNCTION(BlueprintCallable, Category="Roadside Idiots|Settings")
+    void SetSteeringFeel(int32 Value) { SteeringFeel = FMath::Clamp(Value, MinSteeringFeel, MaxSteeringFeel); }
+
+    // Shapes an analog steering value without changing the vehicle physics.
+    // CALM gives finer center-stick control, NORMAL is linear, QUICK responds
+    // earlier. At |input|=1 all three still produce full steering authority.
+    float ShapePlayerSteeringInput(float RawValue) const
+    {
+        const float Clamped = FMath::Clamp(RawValue, -1.0f, 1.0f);
+        const float Magnitude = FMath::Abs(Clamped);
+        float Exponent = 1.0f;
+        if (SteeringFeel <= 0) Exponent = 1.45f;
+        else if (SteeringFeel >= 2) Exponent = 0.78f;
+        return FMath::Sign(Clamped) * FMath::Pow(Magnitude, Exponent);
+    }
+
     UFUNCTION(BlueprintCallable, Category="Roadside Idiots|Race Setup")
     void ResetToDemoDefaults()
     {
@@ -44,6 +66,7 @@ public:
         LapCount = 3;
         TrafficCount = 3;
         ChaosLevel = 1;
+        SteeringFeel = 1;
     }
 
     // A direct pause-menu restart should rebuild the same configured race instead
@@ -65,6 +88,8 @@ public:
     static constexpr int32 MaxTraffic = 6;
     static constexpr int32 MinChaosLevel = 0;
     static constexpr int32 MaxChaosLevel = 2;
+    static constexpr int32 MinSteeringFeel = 0;
+    static constexpr int32 MaxSteeringFeel = 2;
 
 private:
     UPROPERTY()
@@ -78,6 +103,9 @@ private:
 
     UPROPERTY()
     int32 ChaosLevel = 1;
+
+    UPROPERTY()
+    int32 SteeringFeel = 1;
 
     UPROPERTY()
     bool bAutoStartAfterReload = false;
