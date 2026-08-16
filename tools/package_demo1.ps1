@@ -202,6 +202,14 @@ CLEAN          mostly racing, fewer deliberate rival incidents
 BALANCED       intended mix of racing and petty chaos
 MAYHEM         more frequent rival trouble; core driving AI is unchanged
 
+SETTINGS
+Graphics Quality    LOW / MEDIUM / HIGH / EPIC
+VSync               ON / OFF
+Steering Feel       CALM / NORMAL / QUICK
+                    CALM gives finer center-stick control.
+                    QUICK responds earlier to analog-stick movement.
+                    Keyboard full-left/full-right is unchanged.
+
 DEMO NOTES
 - This is a solo prototype/demo build.
 - Multiplayer, additional maps, final art and deeper progression are future work.
