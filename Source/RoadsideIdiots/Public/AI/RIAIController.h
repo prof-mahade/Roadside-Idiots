@@ -33,6 +33,40 @@ public:
     ERITacticalIntent GetTacticalIntent() const { return TacticalIntent; }
     ARIBikePawn* GetTacticalTarget() const { return TacticalTarget.Get(); }
 
+    /**
+     * High-level maneuver request consumed by ARIRacingLineFollower.
+     *
+     * This deliberately exposes a lane target rather than a steering command.
+     * The low-level Pure-Pursuit follower remains the only authority that can
+     * actually steer the motorcycle. Pickup seeking, obstacle awareness and
+     * tactical behavior therefore influence racecraft without reopening the old
+     * competing-steering / wall-oscillation failure mode.
+     */
+    bool GetStrategicLaneRequest(float& OutLaneOffset, float& OutStrength) const
+    {
+        OutLaneOffset = SmoothedLaneOffset;
+        OutStrength = 0.0f;
+
+        if (IsTacticalIntentActive())
+        {
+            OutStrength = 0.86f;
+        }
+        else if (bHasCachedPickupTarget && GrudgeTimeRemaining <= 0.0f)
+        {
+            OutStrength = 0.42f;
+        }
+
+        // Existing perception already predicts traffic, rivals and road hazards.
+        // Give that information a moderate influence only; the racing follower's
+        // persistent pass planner and stability recovery still have final say.
+        if (FMath::Abs(CachedAvoidanceShift) > 28.0f)
+        {
+            OutStrength = FMath::Max(OutStrength, 0.58f);
+        }
+
+        return OutStrength > KINDA_SMALL_NUMBER;
+    }
+
     FString GetPersonalityLabel() const { return PersonalityLabel; }
     float GetGrudgeTimeRemaining() const { return GrudgeTimeRemaining; }
     bool IsHoldingGrudgeAgainst(const ARIBikePawn* Target) const;
