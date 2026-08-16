@@ -10,6 +10,12 @@ function Fail([string]$Message) {
     throw "DEMO 1 VERIFY FAILED: $Message"
 }
 
+function RequireLiteral([string]$Text, [string]$Phrase, [string]$FailureMessage) {
+    if ([string]::IsNullOrEmpty($Text) -or -not $Text.Contains($Phrase)) {
+        Fail $FailureMessage
+    }
+}
+
 if ([string]::IsNullOrWhiteSpace($PackagePath)) {
     if (-not (Test-Path $ArchiveRoot)) {
         Fail "Archive root does not exist: $ArchiveRoot"
@@ -103,9 +109,7 @@ $RequiredEvidencePhrases = @(
     'Tester feedback form included: YES'
 )
 foreach ($Phrase in $RequiredEvidencePhrases) {
-    if ($EvidenceText -notlike "*$Phrase*") {
-        Fail "PLAYER_TEST_BUILD_INFO.txt is missing reproducibility evidence: $Phrase"
-    }
+    RequireLiteral $EvidenceText $Phrase "PLAYER_TEST_BUILD_INFO.txt is missing reproducibility evidence: $Phrase"
 }
 
 $BugfixText = Get-Content $BugfixEvidence -Raw
@@ -115,9 +119,7 @@ $RequiredBugfixPhrases = @(
     '[PASS] BUGFIX CONTRACT PREFLIGHT'
 )
 foreach ($Phrase in $RequiredBugfixPhrases) {
-    if ($BugfixText -notlike "*$Phrase*") {
-        Fail "BUGFIX_PREFLIGHT.txt is missing required result: $Phrase"
-    }
+    RequireLiteral $BugfixText $Phrase "BUGFIX_PREFLIGHT.txt is missing required result: $Phrase"
 }
 
 $ReadmeText = Get-Content $Readme -Raw
@@ -127,16 +129,12 @@ $RequiredReadmePhrases = @(
     'Menu / Start   pause / resume'
 )
 foreach ($Phrase in $RequiredReadmePhrases) {
-    if ($ReadmeText -notlike "*$Phrase*") {
-        Fail "Packaged README is missing current controller guidance: $Phrase"
-    }
+    RequireLiteral $ReadmeText $Phrase "Packaged README is missing current controller guidance: $Phrase"
 }
 
 $FeedbackText = Get-Content $FeedbackForm -Raw
 foreach ($Phrase in @('Engine remains audible while horn/item/crash sounds play', 'Y after finish restarts the same configured race', 'Would you voluntarily play another race right now?')) {
-    if ($FeedbackText -notlike "*$Phrase*") {
-        Fail "Packaged feedback form is missing a required test question: $Phrase"
-    }
+    RequireLiteral $FeedbackText $Phrase "Packaged feedback form is missing a required test question: $Phrase"
 }
 
 $ZipInfo = Get-Item $ZipPath
