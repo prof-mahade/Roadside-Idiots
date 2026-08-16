@@ -137,6 +137,40 @@ FVector ARIRacingLineFollower::SampleRouteAhead(
     return Current;
 }
 
+float ARIRacingLineFollower::ComputeRoutePreviewCurvature(
+    const int32 SegmentIndex,
+    const float SegmentAlpha,
+    const float PreviewDistanceCm) const
+{
+    if (RoutePoints.Num() < 3) return 0.0f;
+
+    const float Distance = FMath::Max(1000.0f, PreviewDistanceCm);
+    const FVector P0 = SampleRouteAhead(SegmentIndex, SegmentAlpha, 0.0f, 0.0f, nullptr);
+    const FVector P1 = SampleRouteAhead(SegmentIndex, SegmentAlpha, Distance * 0.33f, 0.0f, nullptr);
+    const FVector P2 = SampleRouteAhead(SegmentIndex, SegmentAlpha, Distance * 0.66f, 0.0f, nullptr);
+    const FVector P3 = SampleRouteAhead(SegmentIndex, SegmentAlpha, Distance, 0.0f, nullptr);
+
+    auto CurvatureFromThree = [](const FVector& A, const FVector& B, const FVector& C)
+    {
+        const float AB = FVector::Dist2D(A, B);
+        const float BC = FVector::Dist2D(B, C);
+        const float AC = FVector::Dist2D(A, C);
+        const float Denominator = AB * BC * AC;
+        if (Denominator <= KINDA_SMALL_NUMBER) return 0.0f;
+
+        FVector BA = B - A;
+        FVector CA = C - A;
+        BA.Z = 0.0f;
+        CA.Z = 0.0f;
+        const float DoubleArea = FMath::Abs(FVector::CrossProduct(BA, CA).Z);
+        return (2.0f * DoubleArea) / Denominator;
+    };
+
+    return FMath::Max(
+        CurvatureFromThree(P0, P1, P2),
+        CurvatureFromThree(P1, P2, P3));
+}
+
 void ARIRacingLineFollower::UpdateRivalPassPlan(
     const float DeltaSeconds,
     const FVector& BikeLocation,
@@ -153,6 +187,7 @@ void ARIRacingLineFollower::UpdateRivalPassPlan(
 
     RivalPassHoldRemaining = FMath::Max(0.0f, RivalPassHoldRemaining - DeltaSeconds);
     RivalPassCooldownRemaining = FMath::Max(0.0f, RivalPassCooldownRemaining - DeltaSeconds);
+    const FVector RouteRight = FVector::CrossProduct(FVector::UpVector, RouteTangent).GetSafeNormal();
 
     auto GetRivalFrame = [&](ARIBikePawn* Rival, float& OutAlong, float& OutLateral, float& OutRelativeSpeed)
     {
@@ -203,9 +238,9 @@ void ARIRacingLineFollower::UpdateRivalPassPlan(
         }
     }
 
-    // A deliberate combat/pickup lane request is a higher-level decision than a
-    // routine overtake. Do not start a second maneuver on top of it. Existing
-    // passes may finish if already side-by-side, but they do not fight the brain.
+    // A deliberate combat lane request is a higher-level decision than a routine
+    // overtake. Pickup/hazard hints are weak enough that normal racecraft can
+    // continue around them rather than freezing the pass planner.
     const bool bStrategicManeuverOwnsLane = StrategicLaneStrength > 0.70f;
     if (bStrategicManeuverOwnsLane && ActiveRivalPassTarget.IsValid() && RivalPassHoldRemaining <= 0.0f)
     {
@@ -242,19 +277,30 @@ void ARIRacingLineFollower::UpdateRivalPassPlan(
             // efficient line instead of making decorative side-to-side moves.
             if (RelativeSpeed < RivalMinimumClosingSpeedCmS && Along > 850.0f) continue;
 
+            const float TTC = Along / FMath::Max(RelativeSpeed, 180.0f);
+            if (UpcomingTurnSeverity > 0.34f && TTC > 1.20f && Along > 700.0f)
+            {
+                // The gap will not realistically be completed before the bend.
+                // Follow for a moment and attack after the corner instead.
+                continue;
+            }
+
             const float LaneThreat = 1.0f - FMath::Clamp(
                 LaneGap / FMath::Max(1.0f, RivalLaneConflictCm * 1.70f),
                 0.0f,
                 1.0f);
             const float DistanceUrgency = 1.0f - FMath::Clamp(Along / RivalDetectionDistanceCm, 0.0f, 1.0f);
             const float ClosingUrgency = FMath::Clamp(
-                (RelativeSpeed - RivalMinimumClosingSpeedCmS) / 900.0f,
+                (RelativeSpeed - RivalMinimumClosingSpeedCmS) / 850.0f,
                 0.0f,
                 1.0f);
-            const float TTC = Along / FMath::Max(RelativeSpeed, 180.0f);
             const float TTCUrgency = 1.0f - FMath::Clamp(TTC / 2.2f, 0.0f, 1.0f);
-            const float Score = LaneThreat * 0.38f + DistanceUrgency * 0.24f +
-                ClosingUrgency * 0.18f + TTCUrgency * 0.32f;
+            const float StraightConfidence = 1.0f - FMath::Clamp(
+                UpcomingTurnSeverity / FMath::Max(0.01f, RivalPassMaxTurnSeverity),
+                0.0f,
+                1.0f);
+            const float Score = LaneThreat * 0.34f + DistanceUrgency * 0.24f +
+                ClosingUrgency * 0.18f + TTCUrgency * 0.32f + StraightConfidence * 0.10f;
 
             if (Score > BestScore)
             {
@@ -264,7 +310,7 @@ void ARIRacingLineFollower::UpdateRivalPassPlan(
             }
         }
 
-        if (BestRival && BestScore > 0.34f)
+        if (BestRival && BestScore > 0.31f)
         {
             const float LaneLimit = SafeCorridorHalfWidthCm - 48.0f;
             const float LeftCandidate = FMath::Clamp(
@@ -288,8 +334,8 @@ void ARIRacingLineFollower::UpdateRivalPassPlan(
                 Score += FMath::Square(FMath::Abs(Candidate) / FMath::Max(1.0f, LaneLimit)) * 190.0f;
                 Score += FMath::Abs(Candidate - BaseLaneOffset) * 0.08f;
 
-                // Gap awareness: prefer the side that is not already occupied by
-                // another rider in the near-ahead corridor.
+                // Predict where nearby riders will be when this lane change is
+                // actually established, not merely where they are this frame.
                 for (TActorIterator<ARIBikePawn> OtherIt(GetWorld()); OtherIt; ++OtherIt)
                 {
                     ARIBikePawn* Other = *OtherIt;
@@ -299,14 +345,24 @@ void ARIRacingLineFollower::UpdateRivalPassPlan(
                     float OtherLateral = 0.0f;
                     float OtherRelativeSpeed = 0.0f;
                     if (!GetRivalFrame(Other, OtherAlong, OtherLateral, OtherRelativeSpeed)) continue;
-                    if (OtherAlong < 60.0f || OtherAlong > RivalDetectionDistanceCm * 0.72f) continue;
 
-                    const float CorridorGap = FMath::Abs(OtherLateral - Candidate);
-                    if (CorridorGap < RivalLaneConflictCm * 1.35f)
+                    const FVector OtherVelocity = Other->GetChassis()
+                        ? Other->GetChassis()->GetPhysicsLinearVelocity()
+                        : FVector::ZeroVector;
+                    const float PredictedAlong = OtherAlong - OtherRelativeSpeed * RivalPredictionSeconds;
+                    const float PredictedLateral = OtherLateral +
+                        FVector::DotProduct(OtherVelocity, RouteRight) * RivalPredictionSeconds;
+
+                    if (PredictedAlong < -120.0f || PredictedAlong > RivalDetectionDistanceCm * 0.72f) continue;
+
+                    const float CorridorGap = FMath::Abs(PredictedLateral - Candidate);
+                    if (CorridorGap < RivalLaneConflictCm * 1.40f)
                     {
                         const float LongitudinalPenalty = 1.0f - FMath::Clamp(
-                            OtherAlong / (RivalDetectionDistanceCm * 0.72f), 0.0f, 1.0f);
-                        Score += 520.0f * LongitudinalPenalty;
+                            FMath::Abs(PredictedAlong) / (RivalDetectionDistanceCm * 0.72f),
+                            0.0f,
+                            1.0f);
+                        Score += 560.0f * LongitudinalPenalty;
                     }
                 }
 
@@ -338,7 +394,7 @@ void ARIRacingLineFollower::UpdateRivalPassPlan(
         const bool bTooLateForNewMove = UpcomingTurnSeverity > RivalPassMaxTurnSeverity && Along > 620.0f;
         if (!bTooLateForNewMove || CurrentSeparation > RivalLaneConflictCm * 0.75f)
         {
-            const float LaneCommitStrength = Along > 2000.0f ? 0.48f : (Along > 650.0f ? 0.76f : 0.88f);
+            const float LaneCommitStrength = Along > 2000.0f ? 0.50f : (Along > 650.0f ? 0.78f : 0.90f);
             InOutDesiredLaneOffset = FMath::Lerp(
                 InOutDesiredLaneOffset,
                 RivalPassLaneOffset,
@@ -346,22 +402,22 @@ void ARIRacingLineFollower::UpdateRivalPassPlan(
         }
         else
         {
-            OutRivalSpeedScale = FMath::Min(OutRivalSpeedScale, 0.88f);
+            OutRivalSpeedScale = FMath::Min(OutRivalSpeedScale, 0.95f);
         }
 
-        // A professional-looking bot concedes speed when the gap has not opened.
-        // It should not simply ram the bike ahead because an overtake was planned.
+        // Follow the rider ahead instead of throwing away half our speed. The
+        // progressively stronger reductions are only for genuinely closing gaps.
         if (Along < 1050.0f && CurrentSeparation < RivalLaneConflictCm * 1.10f)
         {
-            OutRivalSpeedScale = FMath::Min(OutRivalSpeedScale, 0.88f);
+            OutRivalSpeedScale = FMath::Min(OutRivalSpeedScale, 0.96f);
         }
         if (Along < 650.0f && CurrentSeparation < RivalLaneConflictCm * 0.92f)
         {
-            OutRivalSpeedScale = FMath::Min(OutRivalSpeedScale, 0.70f);
+            OutRivalSpeedScale = FMath::Min(OutRivalSpeedScale, 0.86f);
         }
         if (Along < 360.0f && CurrentSeparation < RivalLaneConflictCm * 0.78f)
         {
-            OutRivalSpeedScale = FMath::Min(OutRivalSpeedScale, 0.52f);
+            OutRivalSpeedScale = FMath::Min(OutRivalSpeedScale, 0.70f);
         }
     }
 }
@@ -510,26 +566,26 @@ void ARIRacingLineFollower::UpdateTrafficPassPlan(
 
     if (Along > -360.0f && Along < TrafficDetectionDistanceCm * 1.35f)
     {
-        const float LaneCommitStrength = Along > 2500.0f ? 0.52f : 0.88f;
+        const float LaneCommitStrength = Along > 2600.0f ? 0.48f : (Along > 1200.0f ? 0.76f : 0.90f);
         InOutDesiredLaneOffset = FMath::Lerp(
             InOutDesiredLaneOffset,
             TrafficPassLaneOffset,
             LaneCommitStrength);
 
-        // Passing is preferred over braking. Brakes only become aggressive when
-        // the bike has not yet achieved enough lateral separation from the car.
+        // Passing is preferred over braking. Braking is progressive and remains
+        // much less destructive to race pace than the previous double safety cap.
         const float CurrentSeparation = FMath::Abs(CurrentLateralOffset - TrafficLateral);
         if (Along < 1550.0f && CurrentSeparation < TrafficLaneConflictCm * 1.18f)
         {
-            OutTrafficSpeedScale = FMath::Min(OutTrafficSpeedScale, 0.84f);
+            OutTrafficSpeedScale = FMath::Min(OutTrafficSpeedScale, 0.94f);
         }
         if (Along < 980.0f && CurrentSeparation < TrafficLaneConflictCm)
         {
-            OutTrafficSpeedScale = FMath::Min(OutTrafficSpeedScale, 0.64f);
+            OutTrafficSpeedScale = FMath::Min(OutTrafficSpeedScale, 0.82f);
         }
         if (Along < 520.0f && CurrentSeparation < TrafficLaneConflictCm * 0.82f)
         {
-            OutTrafficSpeedScale = FMath::Min(OutTrafficSpeedScale, 0.40f);
+            OutTrafficSpeedScale = FMath::Min(OutTrafficSpeedScale, 0.60f);
         }
     }
 }
@@ -608,11 +664,12 @@ void ARIRacingLineFollower::Tick(const float DeltaSeconds)
 
     // Connect the high-level brain to the stable driver through a bounded lane
     // request. It can ask for a maneuver, but it still cannot issue steering.
+    const ARIAIController* AIController = Cast<ARIAIController>(Bike->GetController());
     float StrategicLaneStrength = 0.0f;
-    if (const ARIAIController* AI = Cast<ARIAIController>(Bike->GetController()))
+    if (AIController)
     {
         float StrategicLaneOffset = BaseLaneOffset;
-        if (AI->GetStrategicLaneRequest(StrategicLaneOffset, StrategicLaneStrength))
+        if (AIController->GetStrategicLaneRequest(StrategicLaneOffset, StrategicLaneStrength))
         {
             const float LaneLimit = SafeCorridorHalfWidthCm - 55.0f;
             StrategicLaneOffset = FMath::Clamp(StrategicLaneOffset, -LaneLimit, LaneLimit);
@@ -744,31 +801,35 @@ void ARIRacingLineFollower::Tick(const float DeltaSeconds)
         Chassis->AddForce(RouteRight * AssistAccel, NAME_None, true);
     }
 
-    // Curvature regulation is a second safety net. The high-level AI still owns
-    // normal throttle/brake decisions, but the racing driver may veto excessive
-    // speed when the currently required tracking arc cannot be held safely.
-    const float AbsCurvature = FMath::Abs(PursuitCurvature);
+    // Pace uses ROAD curvature, not Pure-Pursuit curvature. A lane change can
+    // create a large temporary pursuit curvature on a straight; treating that as
+    // a corner was one of the reasons overtaking bots unnecessarily lost speed.
+    const float PaceSpeedAlpha = FMath::Clamp(SpeedKph / 150.0f, 0.0f, 1.0f);
+    const float PacePreviewDistance = FMath::Lerp(PacePreviewMinCm, PacePreviewMaxCm, PaceSpeedAlpha);
+    const float RoadCurvature = ComputeRoutePreviewCurvature(RouteSegment, RouteAlpha, PacePreviewDistance);
+
     float TrackingSpeedLimitKph = 155.0f;
-    if (AbsCurvature > 0.000001f)
+    if (RoadCurvature > 0.000001f)
     {
         TrackingSpeedLimitKph = FMath::Clamp(
-            FMath::Sqrt(MaxTrackingLateralAccelCmS2 / AbsCurvature) * 0.036f,
-            45.0f,
+            FMath::Sqrt(MaxTrackingLateralAccelCmS2 / RoadCurvature) * 0.036f,
+            MinimumTrackingSpeedKph,
             155.0f);
     }
 
-    // The most restrictive nearby interaction wins. These are safety caps, not
-    // hidden pace boosts, so race position still comes from genuine driving.
+    // The most restrictive nearby interaction wins. These are now mild following
+    // caps rather than a second complete speed planner, so a bot can stay in a
+    // pack without repeatedly falling tens of km/h below the rider it is chasing.
     TrackingSpeedLimitKph *= FMath::Clamp(
         FMath::Min(RivalSpeedScale, TrafficSpeedScale),
-        0.38f,
+        0.58f,
         1.0f);
 
     if (StabilityRisk > 0.0f)
     {
         TrackingSpeedLimitKph = FMath::Min(
             TrackingSpeedLimitKph,
-            FMath::Lerp(100.0f, 36.0f, StabilityRisk));
+            FMath::Lerp(108.0f, 38.0f, StabilityRisk));
     }
 
     if (LocalForward < 250.0f)
@@ -776,11 +837,54 @@ void ARIRacingLineFollower::Tick(const float DeltaSeconds)
         TrackingSpeedLimitKph = FMath::Min(TrackingSpeedLimitKph, 34.0f);
     }
 
-    const float SpeedExcess = SpeedKph - TrackingSpeedLimitKph;
-    if (SpeedExcess > 2.0f)
+    const float RequestedRacePaceKph = AIController
+        ? AIController->GetProfessionalPaceTargetKph()
+        : 150.0f;
+    const float DesiredPaceKph = FMath::Min(RequestedRacePaceKph, TrackingSpeedLimitKph);
+
+    // The high-level controller runs first and may still contain conservative
+    // legacy throttle logic. The racing driver owns the FINAL forward pace just
+    // like it owns final steering. Preserve explicit reverse recovery, otherwise
+    // target the safe race pace with a simple closed-loop throttle/brake request.
+    const float ExistingThrottle = Movement->GetThrottleInput();
+    const float ExistingBrake = Movement->GetBrakeInput();
+    if (ExistingThrottle >= -0.08f)
     {
-        const float BrakeRequest = FMath::Clamp(SpeedExcess / 32.0f, 0.12f, 0.82f);
-        Movement->SetThrottleInput(FMath::Min(Movement->GetThrottleInput(), 0.08f));
-        Movement->SetBrakeInput(FMath::Max(Movement->GetBrakeInput(), BrakeRequest));
+        const float PaceError = DesiredPaceKph - SpeedKph;
+        float ThrottleRequest = 0.0f;
+        float BrakeRequest = 0.0f;
+
+        if (PaceError > 2.0f)
+        {
+            ThrottleRequest = FMath::Clamp(0.58f + PaceError / 20.0f, 0.58f, 1.0f);
+        }
+        else if (PaceError < -2.0f)
+        {
+            BrakeRequest = FMath::Clamp((-PaceError) / 30.0f, 0.10f, 0.86f);
+        }
+        else
+        {
+            // Small maintenance throttle prevents the old saw-tooth behavior of
+            // coasting below the target and then accelerating hard again.
+            ThrottleRequest = FMath::Clamp(0.30f + PaceError * 0.035f, 0.20f, 0.40f);
+        }
+
+        // If the high-level brain has a non-routine lane request and no active
+        // moving-object pass, retain some of its emergency braking. This mainly
+        // protects static peel/poop avoidance without restoring double braking
+        // for normal rivals and civilian traffic.
+        if (StrategicLaneStrength > 0.31f &&
+            !ActiveRivalPassTarget.IsValid() &&
+            !ActiveTrafficTarget.IsValid())
+        {
+            BrakeRequest = FMath::Max(BrakeRequest, ExistingBrake * 0.55f);
+            if (BrakeRequest > 0.18f)
+            {
+                ThrottleRequest = FMath::Min(ThrottleRequest, 0.12f);
+            }
+        }
+
+        Movement->SetThrottleInput(ThrottleRequest);
+        Movement->SetBrakeInput(BrakeRequest);
     }
 }
