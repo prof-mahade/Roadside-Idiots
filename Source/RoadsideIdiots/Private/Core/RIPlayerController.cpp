@@ -80,7 +80,6 @@ void ARIPlayerController::SetupInputComponent()
     // PIE often reserves Escape, so P is an editor-friendly equivalent.
     BindMenuKey(EKeys::P, &ARIPlayerController::TogglePauseMenu);
     BindMenuKey(EKeys::Gamepad_Special_Right, &ARIPlayerController::TogglePauseMenu);
-    BindMenuKey(EKeys::Gamepad_FaceButton_Right, &ARIPlayerController::TogglePauseMenu);
 }
 
 int32 ARIPlayerController::GetCurrentMenuRowCount() const
