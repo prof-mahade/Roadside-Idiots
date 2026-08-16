@@ -5,7 +5,25 @@
 #include "Race/RIRaceManager.h"
 #include "Vehicle/RIBikeMovementComponent.h"
 #include "Vehicle/RIBikePawn.h"
+#include "Components/AudioComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "EngineUtils.h"
+#include "Kismet/GameplayStatics.h"
+#include "Sound/SoundWaveProcedural.h"
+
+namespace
+{
+    constexpr uint32 RIEngineSampleRate = 22050;
+    constexpr float RIEngineChunkSeconds = 0.12f;
+    constexpr float RIEngineBufferedSeconds = 0.30f;
+
+    float RIEngineNoise(uint32& State)
+    {
+        State = State * 1664525u + 1013904223u;
+        const uint32 Bits = (State >> 8u) & 0xFFFFu;
+        return static_cast<float>(Bits) / 32767.5f - 1.0f;
+    }
+}
 
 bool URIPresentationWorldSubsystem::IsTickable() const
 {
@@ -16,6 +34,12 @@ bool URIPresentationWorldSubsystem::IsTickable() const
 TStatId URIPresentationWorldSubsystem::GetStatId() const
 {
     RETURN_QUICK_DECLARE_CYCLE_STAT(URIPresentationWorldSubsystem, STATGROUP_Tickables);
+}
+
+void URIPresentationWorldSubsystem::Deinitialize()
+{
+    StopPersistentEngineChannel();
+    Super::Deinitialize();
 }
 
 ARIBikePawn* URIPresentationWorldSubsystem::FindHumanBike() const
@@ -86,6 +110,8 @@ void URIPresentationWorldSubsystem::UpdateRaceCues()
     const FName HumanId = HumanBike->GetParticipantComponent()->GetParticipantId();
     if (!CachedRaceManager->GetProgress(HumanId, HumanProgress)) return;
 
+    bHumanFinished = HumanProgress.bFinished;
+
     if (!bLapStateInitialized)
     {
         LastHumanCompletedLaps = HumanProgress.CompletedLaps;
@@ -114,6 +140,8 @@ void URIPresentationWorldSubsystem::UpdateCrashCues()
     if (!World) return;
 
     TSet<TWeakObjectPtr<ARIBikePawn>> SeenBikes;
+    ARIBikePawn* HumanBike = FindHumanBike();
+    const double Now = World->GetTimeSeconds();
 
     for (TActorIterator<ARIBikePawn> It(World); It; ++It)
     {
@@ -127,7 +155,30 @@ void URIPresentationWorldSubsystem::UpdateCrashCues()
 
         if (bTipped && !bWasTipped && Bike->AreRaceControlsEnabled())
         {
-            RIAudioEvents::Play(this, TEXT("Crash"), Bike->GetActorLocation(), 1.0f, FMath::FRandRange(0.92f, 1.05f));
+            if (Bike == HumanBike)
+            {
+                RIAudioEvents::Play(
+                    this,
+                    TEXT("Crash"),
+                    Bike->GetActorLocation(),
+                    0.95f,
+                    FMath::FRandRange(0.92f, 1.05f));
+            }
+            else if (
+                HumanBike &&
+                FVector::DistSquared2D(HumanBike->GetActorLocation(), Bike->GetActorLocation()) <= FMath::Square(2200.0f) &&
+                Now - LastRivalCrashCueTime >= 0.22)
+            {
+                // Nearby rival crashes remain audible, but one pack pile-up can no
+                // longer spawn a chorus of crash voices in the same audio frame.
+                RIAudioEvents::Play(
+                    this,
+                    TEXT("Crash"),
+                    Bike->GetActorLocation(),
+                    0.48f,
+                    FMath::FRandRange(0.94f, 1.07f));
+                LastRivalCrashCueTime = Now;
+            }
         }
 
         LastTippedState.Add(Key, bTipped);
@@ -142,13 +193,149 @@ void URIPresentationWorldSubsystem::UpdateCrashCues()
     }
 }
 
+void URIPresentationWorldSubsystem::QueueEngineAudioIfNeeded()
+{
+    if (!EngineProceduralWave) return;
+
+    const int32 TargetBufferedBytes = FMath::RoundToInt(
+        static_cast<float>(RIEngineSampleRate) *
+        RIEngineBufferedSeconds *
+        static_cast<float>(sizeof(int16)));
+
+    int32 SafetyChunks = 0;
+    while (EngineProceduralWave->GetAvailableAudioByteCount() < TargetBufferedBytes && SafetyChunks < 4)
+    {
+        const int32 SampleCount = FMath::Max(
+            1,
+            FMath::RoundToInt(RIEngineChunkSeconds * static_cast<float>(RIEngineSampleRate)));
+
+        TArray<int16> PCM;
+        PCM.SetNumUninitialized(SampleCount);
+
+        for (int32 SampleIndex = 0; SampleIndex < SampleCount; ++SampleIndex)
+        {
+            constexpr float BaseFrequency = 92.0f;
+            EngineWavePhase += 2.0f * PI * BaseFrequency / static_cast<float>(RIEngineSampleRate);
+            if (EngineWavePhase > 2.0f * PI)
+            {
+                EngineWavePhase = FMath::Fmod(EngineWavePhase, 2.0f * PI);
+            }
+
+            const float Noise = RIEngineNoise(EngineNoiseState);
+            const float Fundamental = FMath::Sin(EngineWavePhase);
+            const float Harmonic2 = FMath::Sin(EngineWavePhase * 2.0f);
+            const float Harmonic3 = FMath::Sin(EngineWavePhase * 3.0f);
+            const float MechanicalPulse = FMath::Sin(EngineWavePhase * 0.50f);
+            const float Value =
+                0.54f * Fundamental +
+                0.23f * Harmonic2 +
+                0.10f * Harmonic3 +
+                0.08f * MechanicalPulse +
+                0.05f * Noise;
+
+            PCM[SampleIndex] = static_cast<int16>(FMath::Clamp(Value * 0.42f, -0.95f, 0.95f) * 32767.0f);
+        }
+
+        EngineProceduralWave->QueueAudio(
+            reinterpret_cast<const uint8*>(PCM.GetData()),
+            PCM.Num() * static_cast<int32>(sizeof(int16)));
+        ++SafetyChunks;
+    }
+}
+
+void URIPresentationWorldSubsystem::EnsurePersistentEngineChannel(ARIBikePawn* HumanBike)
+{
+    if (!HumanBike || !HumanBike->GetChassis()) return;
+
+    if (EngineAudioComponent && EngineProceduralWave)
+    {
+        QueueEngineAudioIfNeeded();
+        if (!EngineAudioComponent->IsPlaying())
+        {
+            EngineAudioComponent->Play(0.0f);
+        }
+        return;
+    }
+
+    StopPersistentEngineChannel();
+
+    EngineProceduralWave = NewObject<USoundWaveProcedural>(this, TEXT("RIEngineProceduralWave"));
+    if (!EngineProceduralWave) return;
+
+    EngineProceduralWave->NumChannels = 1;
+    EngineProceduralWave->SampleByteSize = sizeof(int16);
+    EngineProceduralWave->SetSampleRate(RIEngineSampleRate, false);
+    // The FIFO is continuously replenished below. A long duration keeps the
+    // component alive instead of treating each engine beat as a new sound.
+    EngineProceduralWave->Duration = 3600.0f;
+
+    EngineWavePhase = 0.0f;
+    EngineNoiseState = 0x51A7C3D9u;
+    QueueEngineAudioIfNeeded();
+
+    EngineAudioComponent = UGameplayStatics::SpawnSoundAttached(
+        EngineProceduralWave,
+        HumanBike->GetChassis(),
+        NAME_None,
+        FVector::ZeroVector,
+        EAttachLocation::KeepRelativeOffset,
+        true,
+        0.0f,
+        EngineCurrentPitch,
+        0.0f,
+        nullptr,
+        nullptr,
+        false);
+
+    if (!EngineAudioComponent)
+    {
+        EngineProceduralWave = nullptr;
+        return;
+    }
+
+    // Protect the foundational vehicle note from voice stealing by short-lived
+    // horns, impacts and item sounds. Those effects layer on top; they do not own
+    // or restart this component.
+    EngineAudioComponent->bOverridePriority = true;
+    EngineAudioComponent->Priority = 4.0f;
+    EngineAudioComponent->bShouldRemainActiveIfDropped = true;
+    EngineAudioComponent->SetUISound(false);
+    EngineAudioComponent->SetVolumeMultiplier(0.0f);
+    EngineAudioComponent->SetPitchMultiplier(EngineCurrentPitch);
+
+    if (!bLoggedPersistentEngine)
+    {
+        bLoggedPersistentEngine = true;
+        UE_LOG(
+            LogTemp,
+            Display,
+            TEXT("RI AUDIO ENGINE channel=persistent_procedural priority=4 remain_active_if_dropped=1 transient_owner=RIAudioEvents"));
+    }
+}
+
+void URIPresentationWorldSubsystem::StopPersistentEngineChannel()
+{
+    if (EngineAudioComponent)
+    {
+        EngineAudioComponent->Stop();
+        EngineAudioComponent = nullptr;
+    }
+
+    if (EngineProceduralWave)
+    {
+        EngineProceduralWave->ResetAudio();
+        EngineProceduralWave = nullptr;
+    }
+
+    EngineCurrentVolume = 0.0f;
+    EngineCurrentPitch = 0.82f;
+}
+
 void URIPresentationWorldSubsystem::UpdateVehicleAudio(const float DeltaTime)
 {
     ARIBikePawn* HumanBike = FindHumanBike();
-    if (!HumanBike || !HumanBike->AreRaceControlsEnabled())
+    if (!HumanBike)
     {
-        EnginePulseAccumulator = 0.0f;
-        SkidCueCooldown = FMath::Max(0.0f, SkidCueCooldown - DeltaTime);
         return;
     }
 
@@ -158,29 +345,37 @@ void URIPresentationWorldSubsystem::UpdateVehicleAudio(const float DeltaTime)
         return;
     }
 
+    EnsurePersistentEngineChannel(HumanBike);
+    QueueEngineAudioIfNeeded();
+
     const float SpeedKph = FMath::Abs(Movement->GetForwardSpeedKph());
     const float SpeedAlpha = FMath::Clamp(SpeedKph / 140.0f, 0.0f, 1.0f);
     const float Throttle = FMath::Abs(Movement->GetThrottleInput());
     const float Steering = FMath::Abs(Movement->GetSteeringInput());
     const float Brake = Movement->GetBrakeInput();
 
-    // Asset-free prototype engine note. A real looping motorcycle asset can later
-    // replace SFX_EnginePulse without changing this gameplay/presentation code.
-    // Slightly louder than the first single-owner pass, per player feedback,
-    // while keeping headroom for impacts, race cues and traffic warnings.
-    EnginePulseAccumulator += DeltaTime;
-    const float PulseInterval = FMath::Lerp(0.18f, 0.095f, SpeedAlpha);
-    if (EnginePulseAccumulator >= PulseInterval)
+    const bool bRaceRunning = HumanBike->AreRaceControlsEnabled() && !bHumanFinished;
+    const bool bCountdownIdle = CachedRaceManager && !bHumanFinished && CachedRaceManager->GetSecondsUntilStart() > 0.0f;
+
+    const float TargetVolume = bRaceRunning
+        ? 0.23f + 0.21f * SpeedAlpha + 0.07f * Throttle
+        : (bCountdownIdle ? 0.11f : 0.0f);
+    const float TargetPitch = bRaceRunning
+        ? 0.78f + 0.70f * SpeedAlpha + 0.08f * Throttle
+        : 0.78f;
+
+    EngineCurrentVolume = FMath::FInterpTo(EngineCurrentVolume, TargetVolume, DeltaTime, 7.5f);
+    EngineCurrentPitch = FMath::FInterpTo(EngineCurrentPitch, TargetPitch, DeltaTime, 8.5f);
+
+    if (EngineAudioComponent)
     {
-        EnginePulseAccumulator = FMath::Fmod(EnginePulseAccumulator, PulseInterval);
-        const float Volume = 0.19f + 0.23f * SpeedAlpha + 0.06f * Throttle;
-        const float Pitch = 0.78f + 0.68f * SpeedAlpha + 0.08f * Throttle;
-        RIAudioEvents::Play(this, TEXT("EnginePulse"), HumanBike->GetActorLocation(), Volume, Pitch);
+        EngineAudioComponent->SetVolumeMultiplier(FMath::Clamp(EngineCurrentVolume, 0.0f, 0.62f));
+        EngineAudioComponent->SetPitchMultiplier(FMath::Clamp(EngineCurrentPitch, 0.65f, 1.62f));
     }
 
     SkidCueCooldown = FMath::Max(0.0f, SkidCueCooldown - DeltaTime);
-    const bool bHardTurn = SpeedKph > 38.0f && Steering > 0.76f;
-    const bool bHardBrake = SpeedKph > 32.0f && Brake > 0.72f;
+    const bool bHardTurn = bRaceRunning && SpeedKph > 38.0f && Steering > 0.76f;
+    const bool bHardBrake = bRaceRunning && SpeedKph > 32.0f && Brake > 0.72f;
     if ((bHardTurn || bHardBrake) && SkidCueCooldown <= 0.0f)
     {
         const float Severity = FMath::Clamp(
