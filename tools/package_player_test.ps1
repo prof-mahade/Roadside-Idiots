@@ -28,9 +28,10 @@ Write-Host "Roadside Idiots - Standalone Player-Test Pipeline" -ForegroundColor 
 Write-Host ""
 
 # A distributable build must correspond to a reproducible tracked source state.
-# Untracked imported Content is intentionally allowed because approved Fab/free
-# binary assets are local and are not stored in Git. Tracked modifications are
-# not allowed because they would make the package differ from the recorded SHA.
+# Tracked modifications are never allowed. Untracked local binary presentation
+# content is intentionally allowed only under Content/; Build/ is also tolerated
+# for project-local generated/import support files. Any other untracked path is
+# suspicious and must be inspected before a shareable build is created.
 $TrackedChanges = @(& git -C $RepoRoot status --porcelain --untracked-files=no 2>$null)
 if ($LASTEXITCODE -ne 0) {
     Fail "could not inspect tracked Git working-tree state."
@@ -40,10 +41,40 @@ if ($TrackedChanges.Count -gt 0) {
     Write-Host "[FAIL] Tracked working-tree changes must be stashed/committed before a player-test package:" -ForegroundColor Red
     $TrackedChanges | ForEach-Object { Write-Host "       $_" -ForegroundColor Red }
     Write-Host ""
-    Write-Host "Untracked local Content is allowed; do not delete it." -ForegroundColor Yellow
+    Write-Host "Untracked approved local Content is allowed; do not delete it." -ForegroundColor Yellow
     Fail "tracked working tree is not clean."
 }
 Write-Host "[PASS] Tracked source/config/tooling tree is clean" -ForegroundColor Green
+
+$AllStatus = @(& git -C $RepoRoot status --porcelain --untracked-files=all 2>$null)
+if ($LASTEXITCODE -ne 0) {
+    Fail "could not inspect untracked Git working-tree state."
+}
+
+$UnexpectedUntracked = @()
+foreach ($StatusLine in $AllStatus) {
+    if (-not $StatusLine.StartsWith('?? ')) { continue }
+
+    $RelativePath = $StatusLine.Substring(3).Trim().Trim('"')
+    $NormalizedPath = $RelativePath.Replace('/', '\')
+    $Allowed =
+        $NormalizedPath -eq 'Content' -or
+        $NormalizedPath.StartsWith('Content\', [System.StringComparison]::OrdinalIgnoreCase) -or
+        $NormalizedPath -eq 'Build' -or
+        $NormalizedPath.StartsWith('Build\', [System.StringComparison]::OrdinalIgnoreCase)
+
+    if (-not $Allowed) {
+        $UnexpectedUntracked += $RelativePath
+    }
+}
+
+if ($UnexpectedUntracked.Count -gt 0) {
+    Write-Host "[FAIL] Unexpected untracked paths found outside approved local Content/Build locations:" -ForegroundColor Red
+    $UnexpectedUntracked | ForEach-Object { Write-Host "       $_" -ForegroundColor Red }
+    Write-Host "Inspect these paths. Do not delete them blindly." -ForegroundColor Yellow
+    Fail "unexpected untracked project-root files make the package source state ambiguous."
+}
+Write-Host "[PASS] Untracked paths are limited to approved local Content/Build locations" -ForegroundColor Green
 
 $Branch = (& git -C $RepoRoot rev-parse --abbrev-ref HEAD 2>$null).Trim()
 $FullCommit = (& git -C $RepoRoot rev-parse HEAD 2>$null).Trim()
@@ -121,6 +152,7 @@ Git commit (full): $FullCommit
 Git commit (short): $ShortCommit
 Configuration: $Configuration
 Tracked working tree clean before packaging: YES
+Unexpected untracked paths outside Content/Build before packaging: none
 Approved free vegetation assets present before packaging: 4/4
 Combined input/audio/lifecycle preflight: PASSED
 Packaging pipeline: tools/package_player_test.ps1
