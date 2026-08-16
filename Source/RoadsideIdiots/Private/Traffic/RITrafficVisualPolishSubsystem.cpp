@@ -87,11 +87,9 @@ void URITrafficVisualPolishSubsystem::EnsurePolish(ARITrafficVehicle* Traffic)
 {
     if (!Traffic || !Traffic->GetRootComponent() || !CubeMesh) return;
 
-    UMaterialInterface* TrafficBodyMaterial = nullptr;
-    if (UStaticMeshComponent* BodyVisual = RIFindTrafficPart(Traffic, FName(TEXT("BodyVisual"))))
-    {
-        TrafficBodyMaterial = BodyVisual->GetMaterial(0);
-    }
+    UStaticMeshComponent* BodyVisual = RIFindTrafficPart(Traffic, FName(TEXT("BodyVisual")));
+    UStaticMeshComponent* OriginalCabin = RIFindTrafficPart(Traffic, FName(TEXT("CabinVisual")));
+    UMaterialInterface* TrafficBodyMaterial = BodyVisual ? BodyVisual->GetMaterial(0) : nullptr;
 
     int32 PartIndex = 0;
     auto AddPart = [this, Traffic, &PartIndex](
@@ -192,6 +190,14 @@ void URITrafficVisualPolishSubsystem::EnsurePolish(ARITrafficVehicle* Traffic)
         const float WindowZ = bLarge ? 55.0f : 44.0f;
         const float HalfWidth = bLarge ? 76.0f : 69.0f;
 
+        // Vans retain their naturally boxier upper body. Sedan-like traffic hides
+        // only the old visual cube cabin and rebuilds it as a tapered shell. The
+        // separate ImpactVolume remains untouched and continues to own collision.
+        if (OriginalCabin && !bLarge)
+        {
+            OriginalCabin->SetVisibility(false, true);
+        }
+
         if (bLarge)
         {
             AddBodyPart(TEXT("LargeRoofCap"), FVector(-18.0f, 0.0f, 91.0f), FVector(1.65f, 1.24f, 0.055f));
@@ -200,7 +206,28 @@ void URITrafficVisualPolishSubsystem::EnsurePolish(ARITrafficVehicle* Traffic)
         {
             AddBodyPart(TEXT("HoodDeck"), FVector(103.0f, 0.0f, 12.0f), FVector(0.72f, 1.32f, 0.14f));
             AddBodyPart(TEXT("TrunkDeck"), FVector(-111.0f, 0.0f, 15.0f), FVector(0.48f, 1.30f, 0.13f));
-            AddBodyPart(TEXT("RoofCap"), FVector(-20.0f, 0.0f, 77.0f), FVector(1.14f, 1.08f, 0.055f));
+            AddBodyPart(TEXT("RoofCap"), FVector(-19.0f, 0.0f, 75.0f), FVector(0.98f, 1.03f, 0.055f));
+
+            // Sloped body-color pillars make a readable car roofline from the rear
+            // instead of restoring another rectangular cabin block.
+            for (const float Side : {-1.0f, 1.0f})
+            {
+                const float Y = Side * 55.0f;
+                AddBodyPart(
+                    Side < 0.0f ? TEXT("APillarL") : TEXT("APillarR"),
+                    FVector(47.0f, Y, 52.0f),
+                    FVector(0.42f, 0.055f, 0.055f),
+                    FRotator(-27.0f, 0.0f, 0.0f));
+                AddBodyPart(
+                    Side < 0.0f ? TEXT("BPillarL") : TEXT("BPillarR"),
+                    FVector(-22.0f, Y, 48.0f),
+                    FVector(0.055f, 0.055f, 0.34f));
+                AddBodyPart(
+                    Side < 0.0f ? TEXT("CPillarL") : TEXT("CPillarR"),
+                    FVector(-77.0f, Y, 51.0f),
+                    FVector(0.36f, 0.055f, 0.055f),
+                    FRotator(29.0f, 0.0f, 0.0f));
+            }
         }
 
         AddPart(CubeMesh, TEXT("FrontGlass"), FVector(bLarge ? 70.0f : 48.0f, 0.0f, WindowZ), FVector(0.050f, bLarge ? 1.10f : 0.92f, bLarge ? 0.40f : 0.30f), Glass, FRotator(0.0f, 0.0f, -8.0f));
@@ -218,11 +245,12 @@ void URITrafficVisualPolishSubsystem::EnsurePolish(ARITrafficVehicle* Traffic)
 
         if (!bLarge)
         {
-            AddBodyPart(TEXT("RearPillarL"), FVector(-96.0f, -51.0f, 47.0f), FVector(0.045f, 0.095f, 0.32f));
-            AddBodyPart(TEXT("RearPillarR"), FVector(-96.0f, 51.0f, 47.0f), FVector(0.045f, 0.095f, 0.32f));
-            AddBodyPart(TEXT("RearHeader"), FVector(-96.0f, 0.0f, 70.0f), FVector(0.045f, 1.05f, 0.055f));
-            AddPart(CubeMesh, TEXT("SideGlassL"), FVector(-28.0f, -63.0f, 45.0f), FVector(0.52f, 0.022f, 0.25f), Glass);
-            AddPart(CubeMesh, TEXT("SideGlassR"), FVector(-28.0f, 63.0f, 45.0f), FVector(0.52f, 0.022f, 0.25f), Glass);
+            // Split side windows reinforce the A/B/C pillar structure and keep the
+            // upper shell visually open rather than turning back into a solid cube.
+            AddPart(CubeMesh, TEXT("FrontSideGlassL"), FVector(18.0f, -56.0f, 49.0f), FVector(0.36f, 0.022f, 0.24f), Glass, FRotator(0.0f, -2.0f, 0.0f));
+            AddPart(CubeMesh, TEXT("FrontSideGlassR"), FVector(18.0f, 56.0f, 49.0f), FVector(0.36f, 0.022f, 0.24f), Glass, FRotator(0.0f, 2.0f, 0.0f));
+            AddPart(CubeMesh, TEXT("RearSideGlassL"), FVector(-54.0f, -56.0f, 49.0f), FVector(0.30f, 0.022f, 0.23f), Glass, FRotator(0.0f, 2.0f, 0.0f));
+            AddPart(CubeMesh, TEXT("RearSideGlassR"), FVector(-54.0f, 56.0f, 49.0f), FVector(0.30f, 0.022f, 0.23f), Glass, FRotator(0.0f, -2.0f, 0.0f));
         }
 
         if (SphereMesh)
@@ -233,7 +261,7 @@ void URITrafficVisualPolishSubsystem::EnsurePolish(ARITrafficVehicle* Traffic)
 
         if (Label.Equals(TEXT("TAXI"), ESearchCase::IgnoreCase))
         {
-            AddPart(CubeMesh, TEXT("TaxiRoofSign"), FVector(-8.0f, 0.0f, 91.0f), FVector(0.38f, 0.22f, 0.12f), WarmLamp);
+            AddPart(CubeMesh, TEXT("TaxiRoofSign"), FVector(-8.0f, 0.0f, 88.0f), FVector(0.36f, 0.21f, 0.11f), WarmLamp);
             AddPart(CubeMesh, TEXT("TaxiStripeL"), FVector(-5.0f, -72.0f, 4.0f), FVector(1.55f, 0.020f, 0.070f), DarkTrim);
             AddPart(CubeMesh, TEXT("TaxiStripeR"), FVector(-5.0f, 72.0f, 4.0f), FVector(1.55f, 0.020f, 0.070f), DarkTrim);
         }
@@ -268,7 +296,7 @@ void URITrafficVisualPolishSubsystem::EnsurePolish(ARITrafficVehicle* Traffic)
     UE_LOG(
         LogTemp,
         Display,
-        TEXT("RI TRAFFIC VISUAL label=%s parts=%d style=layered_shell collision=off"),
+        TEXT("RI TRAFFIC VISUAL label=%s parts=%d style=tapered_shell collision=off"),
         *Label,
         PartIndex);
 }
