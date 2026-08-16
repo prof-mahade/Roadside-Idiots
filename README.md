@@ -22,7 +22,7 @@ The project can build and package a standalone Windows race with:
 - title/setup, pause, settings, restart and quit
 - keyboard and Xbox-style gamepad controls
 - free/custom presentation content only
-- Shipping Windows packaging with a player README and shareable ZIP
+- Shipping Windows packaging with a player README, shareable ZIP and SHA-256 checksum
 
 Current project version: **0.1.1-demo1-polish1**
 
@@ -72,8 +72,10 @@ Settings include graphics quality, VSync and player-only **Steering Feel** (`CAL
 
 ## Start here
 
-- [`docs/GAME_DESIGN_BIBLE.md`](docs/GAME_DESIGN_BIBLE.md) — current product fantasy, audience, psychology and design rules
-- [`docs/NEXT_MILESTONE.md`](docs/NEXT_MILESTONE.md) — current development priority
+- [`docs/GAME_DESIGN_BIBLE.md`](docs/GAME_DESIGN_BIBLE.md) — product fantasy, audience psychology and permanent design rules
+- [`docs/PLAYER_TEST_PLAN.md`](docs/PLAYER_TEST_PLAN.md) — how to test fairness, control, replay desire and chaos readability with players
+- [`docs/ENVIRONMENT_STYLE_GUIDE.md`](docs/ENVIRONMENT_STYLE_GUIDE.md) — respectful Bangladesh/South-Asian-inspired world identity and free/custom environment direction
+- [`docs/NEXT_MILESTONE.md`](docs/NEXT_MILESTONE.md) — current development priority and verification gate
 - [`docs/CHAT_HANDOFF.md`](docs/CHAT_HANDOFF.md) — current state for a new development conversation
 - [`docs/PROJECT_BLUEPRINT.md`](docs/PROJECT_BLUEPRINT.md) — original architecture/product blueprint
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — system boundaries and ownership
@@ -101,7 +103,7 @@ Verify and launch the newest package:
 .\tools\verify_demo1_package.ps1 -Launch
 ```
 
-The packaging preflight rejects known forbidden paid/licensing-risk content, builds/cooks/stages the Win64 game, writes build metadata and player controls, and creates a shareable ZIP.
+The packaging preflight rejects known forbidden paid/licensing-risk content, builds/cooks/stages the Win64 game, writes build metadata and player controls, creates a versioned shareable ZIP, and writes/verifies its SHA-256 checksum.
 
 ## Permanent project rules
 
