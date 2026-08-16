@@ -56,42 +56,38 @@ void ARIPlayerController::SetupInputComponent()
         Binding.bExecuteWhenPaused = true;
     };
 
+    auto BindMenuKey = [&](const FKey& Key, void (ARIPlayerController::*Function)())
     {
-        FInputKeyBinding& Binding = InputComponent->BindKey(EKeys::Up, IE_Pressed, this, &ARIPlayerController::MenuPrevious);
+        FInputKeyBinding& Binding = InputComponent->BindKey(Key, IE_Pressed, this, Function);
         ConfigureBinding(Binding);
-    }
-    {
-        FInputKeyBinding& Binding = InputComponent->BindKey(EKeys::Down, IE_Pressed, this, &ARIPlayerController::MenuNext);
-        ConfigureBinding(Binding);
-    }
-    {
-        FInputKeyBinding& Binding = InputComponent->BindKey(EKeys::Left, IE_Pressed, this, &ARIPlayerController::MenuDecrease);
-        ConfigureBinding(Binding);
-    }
-    {
-        FInputKeyBinding& Binding = InputComponent->BindKey(EKeys::Right, IE_Pressed, this, &ARIPlayerController::MenuIncrease);
-        ConfigureBinding(Binding);
-    }
-    {
-        FInputKeyBinding& Binding = InputComponent->BindKey(EKeys::Enter, IE_Pressed, this, &ARIPlayerController::MenuConfirm);
-        ConfigureBinding(Binding);
-    }
-    {
-        FInputKeyBinding& Binding = InputComponent->BindKey(EKeys::Escape, IE_Pressed, this, &ARIPlayerController::TogglePauseMenu);
-        ConfigureBinding(Binding);
-    }
-    {
-        // PIE often reserves Escape, so P is an editor-friendly equivalent.
-        FInputKeyBinding& Binding = InputComponent->BindKey(EKeys::P, IE_Pressed, this, &ARIPlayerController::TogglePauseMenu);
-        ConfigureBinding(Binding);
-    }
+    };
+
+    BindMenuKey(EKeys::Up, &ARIPlayerController::MenuPrevious);
+    BindMenuKey(EKeys::Down, &ARIPlayerController::MenuNext);
+    BindMenuKey(EKeys::Left, &ARIPlayerController::MenuDecrease);
+    BindMenuKey(EKeys::Right, &ARIPlayerController::MenuIncrease);
+    BindMenuKey(EKeys::Enter, &ARIPlayerController::MenuConfirm);
+
+    // Controller parity for a racing game: D-pad navigates setup/settings,
+    // bottom face button confirms, and Start/Menu opens pause.
+    BindMenuKey(EKeys::Gamepad_DPad_Up, &ARIPlayerController::MenuPrevious);
+    BindMenuKey(EKeys::Gamepad_DPad_Down, &ARIPlayerController::MenuNext);
+    BindMenuKey(EKeys::Gamepad_DPad_Left, &ARIPlayerController::MenuDecrease);
+    BindMenuKey(EKeys::Gamepad_DPad_Right, &ARIPlayerController::MenuIncrease);
+    BindMenuKey(EKeys::Gamepad_FaceButton_Bottom, &ARIPlayerController::MenuConfirm);
+
+    BindMenuKey(EKeys::Escape, &ARIPlayerController::TogglePauseMenu);
+    // PIE often reserves Escape, so P is an editor-friendly equivalent.
+    BindMenuKey(EKeys::P, &ARIPlayerController::TogglePauseMenu);
+    BindMenuKey(EKeys::Gamepad_Special_Right, &ARIPlayerController::TogglePauseMenu);
+    BindMenuKey(EKeys::Gamepad_FaceButton_Right, &ARIPlayerController::TogglePauseMenu);
 }
 
 int32 ARIPlayerController::GetCurrentMenuRowCount() const
 {
     switch (MenuMode)
     {
-    case ERIMenuMode::RaceSetup: return 6;
+    case ERIMenuMode::RaceSetup: return 7;
     case ERIMenuMode::Pause: return 5;
     case ERIMenuMode::Settings: return 3;
     default: return 0;
@@ -128,7 +124,7 @@ void ARIPlayerController::AdjustSelectedSetting(const int32 Delta)
 
     if (MenuMode == ERIMenuMode::RaceSetup)
     {
-        if (SelectedMenuRow >= 3 || !GetWorld()) return;
+        if (SelectedMenuRow >= 4 || !GetWorld()) return;
 
         UGameInstance* GameInstance = GetWorld()->GetGameInstance();
         URIRaceSettingsSubsystem* Settings = GameInstance
@@ -147,6 +143,10 @@ void ARIPlayerController::AdjustSelectedSetting(const int32 Delta)
         else if (SelectedMenuRow == 2)
         {
             Settings->SetTrafficCount(Settings->GetTrafficCount() + Delta);
+        }
+        else if (SelectedMenuRow == 3)
+        {
+            Settings->SetChaosLevel(Settings->GetChaosLevel() + Delta);
         }
         return;
     }
@@ -181,7 +181,7 @@ void ARIPlayerController::MenuConfirm()
 
     if (MenuMode == ERIMenuMode::RaceSetup)
     {
-        if (SelectedMenuRow == 3)
+        if (SelectedMenuRow == 4)
         {
             ARIGameMode* GameMode = GetWorld()->GetAuthGameMode<ARIGameMode>();
             if (!GameMode) return;
@@ -191,11 +191,11 @@ void ARIPlayerController::MenuConfirm()
             GameMode->StartConfiguredRace();
             SetInputMode(FInputModeGameOnly());
         }
-        else if (SelectedMenuRow == 4)
+        else if (SelectedMenuRow == 5)
         {
             OpenSettingsMenu();
         }
-        else if (SelectedMenuRow == 5)
+        else if (SelectedMenuRow == 6)
         {
             QuitToDesktop();
         }
