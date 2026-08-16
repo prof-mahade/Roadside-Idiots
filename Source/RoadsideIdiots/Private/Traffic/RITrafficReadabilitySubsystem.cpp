@@ -97,6 +97,7 @@ void URITrafficReadabilitySubsystem::Tick(const float DeltaTime)
         Pitch);
 
     LastWarningTime = Now;
+    ++WarningCount;
 
     UE_LOG(
         LogTemp,
