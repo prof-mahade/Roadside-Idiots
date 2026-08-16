@@ -10,6 +10,43 @@ The test plan therefore measures both function and player experience.
 
 ---
 
+## Pre-test packaged-build smoke gate
+
+Do this once on the exact ZIP that will be handed to outside testers. Do not use the Editor build for this gate.
+
+### Input/controller contract
+- keyboard arrows navigate setup/settings;
+- Enter confirms menu selections;
+- Xbox-style D-pad navigates setup/settings;
+- A confirms menu selections;
+- B returns from Settings and resumes from Pause;
+- Menu/Start opens and closes Pause;
+- during gameplay A still drops a peel, B still throws an egg, X recovers, LB/RB slap;
+- finish a race and verify **Enter**, **A**, and **Y/top-face** can start the same configured race again;
+- pressing Y during an unfinished race must **not** unexpectedly reload the map;
+- after a finish restart, opponent/lap/traffic/chaos settings must be preserved.
+
+Run `tools\verify_input_contract.ps1` before packaging. During a runtime test, `RI INPUT FLOW` should appear in the log and using Y after the finish should produce `RI INPUT FINISH_RESTART source=Y`.
+
+### Frozen-driving regression gate
+- run at least one 5-opponent / 4+ traffic race;
+- no recurring AI wall oscillation;
+- no new flat-road bump/jump behavior;
+- intentionally ride across several visible asphalt repair patches/skid streaks: they must have **zero** physical effect;
+- traffic visual changes must not alter the existing impact volume/route behavior;
+- finish the race and confirm no presentation physics/collision warning spam.
+
+### Presentation/content gate
+- approved free tropical/banana vegetation is visible and does not enter the racing corridor;
+- `RI FREE VEGETATION` reports loaded approved assets;
+- market/bus-stop facade details and distant backdrop load;
+- road markings/surface wear remain readable without overpowering hazards/items;
+- no SankoolArts / `CompoundWall_Kit` content or references are present.
+
+If any smoke-gate item fails, fix it before recruiting outside testers. Do not ask testers to evaluate fun while basic input/build integrity is broken.
+
+---
+
 ## Who to test with
 
 Do not overfit to one age or one existing fanbase. Recruit by play preference when possible.
