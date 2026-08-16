@@ -166,12 +166,14 @@ void URIPresentationWorldSubsystem::UpdateVehicleAudio(const float DeltaTime)
 
     // Asset-free prototype engine note. A real looping motorcycle asset can later
     // replace SFX_EnginePulse without changing this gameplay/presentation code.
+    // Slightly louder than the first single-owner pass, per player feedback,
+    // while keeping headroom for impacts, race cues and traffic warnings.
     EnginePulseAccumulator += DeltaTime;
     const float PulseInterval = FMath::Lerp(0.18f, 0.095f, SpeedAlpha);
     if (EnginePulseAccumulator >= PulseInterval)
     {
         EnginePulseAccumulator = FMath::Fmod(EnginePulseAccumulator, PulseInterval);
-        const float Volume = 0.16f + 0.20f * SpeedAlpha + 0.05f * Throttle;
+        const float Volume = 0.19f + 0.23f * SpeedAlpha + 0.06f * Throttle;
         const float Pitch = 0.78f + 0.68f * SpeedAlpha + 0.08f * Throttle;
         RIAudioEvents::Play(this, TEXT("EnginePulse"), HumanBike->GetActorLocation(), Volume, Pitch);
     }
