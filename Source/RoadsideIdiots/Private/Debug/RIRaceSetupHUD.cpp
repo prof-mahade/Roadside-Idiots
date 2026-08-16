@@ -40,6 +40,16 @@ namespace
         default: return TEXT("BALANCED: the intended mix of racing, traffic and petty chaos.");
         }
     }
+
+    FString RISteeringFeelLabel(const int32 SteeringFeel)
+    {
+        switch (SteeringFeel)
+        {
+        case 0: return TEXT("CALM");
+        case 2: return TEXT("QUICK");
+        default: return TEXT("NORMAL");
+        }
+    }
 }
 
 void ARIRaceSetupHUD::DrawHUD()
@@ -160,8 +170,8 @@ void ARIRaceSetupHUD::DrawPauseMenu()
     ARIPlayerController* RIController = Cast<ARIPlayerController>(PlayerOwner);
     if (!Font || !RIController) return;
 
-    const float PanelW = FMath::Min(500.0f, Canvas->SizeX * 0.62f);
-    const float PanelH = 390.0f;
+    const float PanelW = FMath::Min(520.0f, Canvas->SizeX * 0.64f);
+    const float PanelH = 420.0f;
     const float PanelX = (Canvas->SizeX - PanelW) * 0.5f;
     const float PanelY = (Canvas->SizeY - PanelH) * 0.46f;
 
@@ -187,20 +197,25 @@ void ARIRaceSetupHUD::DrawPauseMenu()
         DrawText(Rows[Row], Color, PanelX + 42.0f, Y, Font, 1.12f, false);
     }
 
-    DrawText(TEXT("P / ESC / MENU resume    D-PAD / ARROWS select    A / ENTER confirm"), FLinearColor(0.68f, 0.74f, 0.80f), PanelX + 34.0f, PanelY + PanelH - 36.0f, Font, 0.76f, false);
+    DrawText(TEXT("W/S drive  A/D steer | Q/E slap  F peel  G egg  R recover"), FLinearColor(0.60f, 0.72f, 0.82f), PanelX + 34.0f, PanelY + PanelH - 60.0f, Font, 0.70f, false);
+    DrawText(TEXT("P / ESC / MENU resume    D-PAD / ARROWS select    A / ENTER confirm"), FLinearColor(0.68f, 0.74f, 0.80f), PanelX + 34.0f, PanelY + PanelH - 35.0f, Font, 0.73f, false);
 }
 
 void ARIRaceSetupHUD::DrawSettingsMenu()
 {
-    if (!Canvas || !PlayerOwner) return;
+    if (!Canvas || !PlayerOwner || !GetWorld()) return;
 
     UFont* Font = GEngine ? GEngine->GetSmallFont() : nullptr;
     ARIPlayerController* RIController = Cast<ARIPlayerController>(PlayerOwner);
     UGameUserSettings* UserSettings = UGameUserSettings::GetGameUserSettings();
-    if (!Font || !RIController || !UserSettings) return;
+    UGameInstance* GameInstance = GetWorld()->GetGameInstance();
+    URIRaceSettingsSubsystem* RaceSettings = GameInstance
+        ? GameInstance->GetSubsystem<URIRaceSettingsSubsystem>()
+        : nullptr;
+    if (!Font || !RIController || !UserSettings || !RaceSettings) return;
 
-    const float PanelW = FMath::Min(540.0f, Canvas->SizeX * 0.66f);
-    const float PanelH = 315.0f;
+    const float PanelW = FMath::Min(560.0f, Canvas->SizeX * 0.68f);
+    const float PanelH = 365.0f;
     const float PanelX = (Canvas->SizeX - PanelW) * 0.5f;
     const float PanelY = (Canvas->SizeY - PanelH) * 0.46f;
 
@@ -209,16 +224,17 @@ void ARIRaceSetupHUD::DrawSettingsMenu()
     DrawText(TEXT("SETTINGS"), FLinearColor(0.55f, 0.82f, 1.0f), PanelX + 34.0f, PanelY + 28.0f, Font, 1.75f, false);
 
     const int32 Quality = UserSettings->GetOverallScalabilityLevel();
-    const FString Rows[3] =
+    const FString Rows[4] =
     {
         FString::Printf(TEXT("GRAPHICS QUALITY     <  %s  >"), *RIQualityLabel(Quality)),
         FString::Printf(TEXT("VSYNC                <  %s  >"), UserSettings->IsVSyncEnabled() ? TEXT("ON") : TEXT("OFF")),
+        FString::Printf(TEXT("STEERING FEEL        <  %s  >"), *RISteeringFeelLabel(RaceSettings->GetSteeringFeel())),
         TEXT("BACK")
     };
 
-    constexpr float RowHeight = 56.0f;
-    const float RowStartY = PanelY + 91.0f;
-    for (int32 Row = 0; Row < 3; ++Row)
+    constexpr float RowHeight = 54.0f;
+    const float RowStartY = PanelY + 90.0f;
+    for (int32 Row = 0; Row < 4; ++Row)
     {
         const float Y = RowStartY + Row * RowHeight;
         const bool bSelected = RIController->GetSelectedMenuRow() == Row;
@@ -228,8 +244,9 @@ void ARIRaceSetupHUD::DrawSettingsMenu()
         }
 
         const FLinearColor Color = bSelected ? FLinearColor(0.55f, 0.88f, 1.0f) : FLinearColor(0.90f, 0.94f, 0.98f);
-        DrawText(Rows[Row], Color, PanelX + 42.0f, Y, Font, Row == 2 ? 1.12f : 1.02f, false);
+        DrawText(Rows[Row], Color, PanelX + 42.0f, Y, Font, Row == 3 ? 1.12f : 1.00f, false);
     }
 
-    DrawText(TEXT("LEFT/RIGHT or D-PAD change    ENTER / A on BACK    P/ESC/MENU back"), FLinearColor(0.68f, 0.74f, 0.80f), PanelX + 34.0f, PanelY + PanelH - 34.0f, Font, 0.74f, false);
+    DrawText(TEXT("CALM = finer stick control     NORMAL = linear     QUICK = earlier response"), FLinearColor(0.57f, 0.70f, 0.79f), PanelX + 34.0f, PanelY + PanelH - 58.0f, Font, 0.68f, false);
+    DrawText(TEXT("LEFT/RIGHT or D-PAD change    ENTER / A on BACK    P/ESC/MENU back"), FLinearColor(0.68f, 0.74f, 0.80f), PanelX + 34.0f, PanelY + PanelH - 33.0f, Font, 0.72f, false);
 }
