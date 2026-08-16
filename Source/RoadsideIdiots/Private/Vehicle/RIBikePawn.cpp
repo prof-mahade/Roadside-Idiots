@@ -135,7 +135,32 @@ void ARIBikePawn::BeginPlay()
 
 bool ARIBikePawn::IsRaceInputEnabled() const
 {
-    return !CachedRaceManager || CachedRaceManager->IsRaceStarted();
+    if (!CachedRaceManager)
+    {
+        return true;
+    }
+
+    if (!CachedRaceManager->IsRaceStarted())
+    {
+        return false;
+    }
+
+    // Preserve the accepted AI finish/coast behavior. This lifecycle guard is
+    // specifically for the human rider so finish-screen menu buttons cannot also
+    // leak through to throttle/items/recovery behind the result panel.
+    if (!Participant || !Participant->IsHumanControlled())
+    {
+        return true;
+    }
+
+    const FName ParticipantId = Participant->GetParticipantId();
+    if (ParticipantId.IsNone())
+    {
+        return true;
+    }
+
+    FRIRaceProgress Progress;
+    return !CachedRaceManager->GetProgress(ParticipantId, Progress) || !Progress.bFinished;
 }
 
 void ARIBikePawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -150,7 +175,6 @@ void ARIBikePawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponen
     PlayerInputComponent->BindAction(TEXT("UseItem"), IE_Pressed, this, &ARIBikePawn::UseItem);
     PlayerInputComponent->BindAction(TEXT("ThrowEgg"), IE_Pressed, this, &ARIBikePawn::UseEgg);
     PlayerInputComponent->BindAction(TEXT("Recover"), IE_Pressed, this, &ARIBikePawn::RecoverBike);
-    PlayerInputComponent->BindAction(TEXT("RestartRace"), IE_Pressed, this, &ARIBikePawn::RestartRace);
 }
 
 void ARIBikePawn::InputThrottle(float Value)
@@ -373,7 +397,7 @@ bool ARIBikePawn::ThrowRottenEggAt(ARIBikePawn* TargetBike)
         ESpawnActorCollisionHandlingMethod::AlwaysSpawn,
         this);
 
-    if (ARIRottenEggProjectile* Projectile = Cast<ARIRottenEggProjectile>(DeferredActor))
+    if (ARIRottenEggProjectile* Projectile = Cast<ARIBottenEggProjectile>(DeferredActor))
     {
         Projectile->ConfigureSource(this);
         Projectile->ConfigureTarget(TargetBike);
@@ -397,17 +421,6 @@ void ARIBikePawn::UseEgg()
     ThrowRottenEggAt(FindNearestEggTarget(1000.0f));
 }
 
-void ARIBikePawn::RestartRace()
-{
-    if (!GetWorld()) return;
-
-    const FString LevelName = UGameplayStatics::GetCurrentLevelName(this, true);
-    if (!LevelName.IsEmpty())
-    {
-        UGameplayStatics::OpenLevel(this, FName(*LevelName), false);
-    }
-}
-
 void ARIBikePawn::SetRecoveryTransform(const FTransform& InTransform)
 {
     RecoveryTransform = InTransform;
@@ -420,7 +433,7 @@ void ARIBikePawn::SetRecoveryTransform(const FTransform& InTransform)
 
 void ARIBikePawn::HandleChassisHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
-    if (!HasAuthority() || !GetWorld()) return;
+    if (!HasAuthority() || !GetWorld() || !IsRaceInputEnabled()) return;
 
     const double Now = GetWorld()->GetTimeSeconds();
     if (Now < DamageEnabledAfterTime) return;
@@ -440,6 +453,18 @@ void ARIBikePawn::Tick(float DeltaSeconds)
     Super::Tick(DeltaSeconds);
 
     RIPrototypeVisuals::Update(this);
+
+    // Axis callbacks normally clear held inputs, but the finish transition can
+    // happen between input frames. Explicitly zero human controls so the result
+    // screen cannot leave residual throttle/brake/steer active underneath it.
+    if (Participant && Participant->IsHumanControlled() && !IsRaceInputEnabled() && BikeMovement)
+    {
+        PlayerThrottleInput = 0.0f;
+        PlayerBrakeInput = 0.0f;
+        BikeMovement->SetThrottleInput(0.0f);
+        BikeMovement->SetBrakeInput(0.0f);
+        BikeMovement->SetSteeringInput(0.0f);
+    }
 
     DizzyTimeRemaining = FMath::Max(0.0f, DizzyTimeRemaining - DeltaSeconds);
     CameraKickYaw = FMath::FInterpTo(CameraKickYaw, 0.0f, DeltaSeconds, 10.0f);
@@ -470,7 +495,7 @@ void ARIBikePawn::Tick(float DeltaSeconds)
         TriggerComicImpact(1.0f, TEXT("DIZZY!"), 1.35f);
         RIPrototypeVisuals::PlayReaction(this, 1.0f);
 
-        if (HasAuthority() && GetWorld() && GetWorld()->GetTimeSeconds() >= DamageEnabledAfterTime)
+        if (HasAuthority() && GetWorld() && IsRaceInputEnabled() && GetWorld()->GetTimeSeconds() >= DamageEnabledAfterTime)
         {
             Health->ApplyImpactFromSource(3.0f, FName(TEXT("CrashTip")));
         }
@@ -510,7 +535,7 @@ void ARIBikePawn::RecoverUprightHere()
 
 void ARIBikePawn::RecoverBike()
 {
-    if (!Chassis) return;
+    if (!Chassis || !IsRaceInputEnabled()) return;
 
     FTransform TargetTransform = bHasRecoveryTransform ? RecoveryTransform : GetActorTransform();
     FVector Location = TargetTransform.GetLocation();
