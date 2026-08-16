@@ -29,6 +29,7 @@ private:
     void BeginObservation(ARIBikePawn* PlayerBike, ARIRaceManager* RaceManager);
     void SampleRace(ARIBikePawn* PlayerBike, ARIRaceManager* RaceManager);
     void RecordComicIncident(const FString& ImpactText);
+    void RecordDamageSource(FName SourceTag);
     void WriteSummary(const TCHAR* Reason);
 
     TWeakObjectPtr<ARIRaceManager> CachedRaceManager;
@@ -48,6 +49,8 @@ private:
     int32 PeelUses = 0;
     int32 EggUses = 0;
 
+    // Player-facing comic incident counts. These include non-damaging events
+    // such as poop, so they are intentionally separate from damage-source data.
     int32 CrashIncidents = 0;
     int32 TrafficIncidents = 0;
     int32 SlapIncidents = 0;
@@ -56,10 +59,19 @@ private:
     int32 PoopIncidents = 0;
     int32 OtherIncidents = 0;
 
+    // Accepted health-loss sources. Untagged legacy callers remain visible as
+    // UNKNOWN rather than being guessed from presentation text.
+    int32 CrashDamageEvents = 0;
+    int32 TrafficDamageEvents = 0;
+    int32 SlapDamageEvents = 0;
+    int32 PeelDamageEvents = 0;
+    int32 EggDamageEvents = 0;
+    int32 UnknownDamageEvents = 0;
+
     int32 LastPlace = 0;
     int32 LastBananaCount = 0;
     int32 LastEggCount = 0;
-    float LastCondition = 0.0f;
+    uint32 LastImpactSerial = 0;
 
     FString LastImpactText;
     bool bImpactWasActive = false;
