@@ -49,22 +49,37 @@ public:
 
         if (IsTacticalIntentActive())
         {
-            OutStrength = 0.86f;
+            OutStrength = 0.82f;
         }
         else if (bHasCachedPickupTarget && GrudgeTimeRemaining <= 0.0f)
         {
-            OutStrength = 0.42f;
+            OutStrength = 0.36f;
         }
 
-        // Rival/traffic passing now belongs exclusively to the persistent racing
-        // follower. CachedAvoidanceShift is therefore reserved for static road
-        // hazards (peels/poop), where a moderate lane request is still useful.
+        // The old awareness layer still sees every obstacle. It is now only a
+        // hint because persistent rival/traffic planning belongs to the follower.
+        // This avoids two planners pulling the lane target in opposite directions.
         if (FMath::Abs(CachedAvoidanceShift) > 28.0f)
         {
-            OutStrength = FMath::Max(OutStrength, 0.58f);
+            OutStrength = FMath::Max(OutStrength, 0.30f);
         }
 
         return OutStrength > KINDA_SMALL_NUMBER;
+    }
+
+    /**
+     * Requested unobstructed race pace. The low-level driver owns the final
+     * curvature/proximity safety cap, so this can be assertive without being a
+     * hidden speed boost or a second physics controller.
+     */
+    float GetProfessionalPaceTargetKph() const
+    {
+        float Pace = FMath::Clamp(TargetSpeedKph + 5.0f, 148.0f, 155.0f);
+        if (GrudgeTimeRemaining > 0.0f || IsTacticalIntentActive())
+        {
+            Pace = FMath::Max(Pace, FMath::Clamp(GrudgeCatchupSpeedKph + 1.0f, 150.0f, 155.0f));
+        }
+        return Pace;
     }
 
     FString GetPersonalityLabel() const { return PersonalityLabel; }
