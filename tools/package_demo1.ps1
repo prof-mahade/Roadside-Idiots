@@ -13,6 +13,7 @@ $RunUAT = Join-Path $EngineRoot "Engine\Build\BatchFiles\RunUAT.bat"
 $ContentDir = Join-Path $RepoRoot "Content"
 $SourceDir = Join-Path $RepoRoot "Source"
 $ConfigDir = Join-Path $RepoRoot "Config"
+$DefaultGameIni = Join-Path $ConfigDir "DefaultGame.ini"
 
 function Fail([string]$Message) {
     throw "DEMO 1 PREFLIGHT FAILED: $Message"
@@ -25,6 +26,17 @@ if (-not (Test-Path $Project)) {
 if (-not (Test-Path $RunUAT)) {
     Fail "RunUAT.bat was not found. Expected UE 5.8 at: $EngineRoot"
 }
+
+$ProjectVersion = "unknown"
+if (Test-Path $DefaultGameIni) {
+    $VersionLine = Get-Content $DefaultGameIni |
+        Where-Object { $_ -match '^ProjectVersion=' } |
+        Select-Object -First 1
+    if ($VersionLine) {
+        $ProjectVersion = ($VersionLine -replace '^ProjectVersion=', '').Trim()
+    }
+}
+$VersionTag = if ([string]::IsNullOrWhiteSpace($ProjectVersion)) { "unknown" } else { $ProjectVersion -replace '[^A-Za-z0-9._-]', '_' }
 
 if (-not (Test-Path $ContentDir)) {
     Write-Warning "Content folder is missing. Imported local presentation assets will not be available to the cook."
@@ -98,12 +110,13 @@ if ($GitStatus.Count -gt 0) {
 }
 
 $Stamp = Get-Date -Format "yyyyMMdd_HHmmss"
-$ArchiveDir = Join-Path $ArchiveRoot "RoadsideIdiots_Demo1_${Configuration}_${GitCommit}_$Stamp"
+$ArchiveDir = Join-Path $ArchiveRoot "RoadsideIdiots_Demo1_${VersionTag}_${Configuration}_${GitCommit}_$Stamp"
 New-Item -ItemType Directory -Force -Path $ArchiveDir | Out-Null
 
 Write-Host ""
 Write-Host "ROADSIDE IDIOTS - DEMO 1 WINDOWS PACKAGE" -ForegroundColor Cyan
 Write-Host "Project       : $Project"
+Write-Host "Version       : $ProjectVersion"
 Write-Host "Engine        : $EngineRoot"
 Write-Host "Configuration : $Configuration"
 Write-Host "Git commit    : $GitCommit"
@@ -149,6 +162,7 @@ $MissingText = if ($MissingApprovedAssets.Count -gt 0) { $MissingApprovedAssets 
 @"
 ROADSIDE IDIOTS - DEMO 1 BUILD
 Generated: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+Project version: $ProjectVersion
 Git commit: $GitCommit
 Working tree dirty at package time: $DirtyText
 Configuration: $Configuration
@@ -167,6 +181,7 @@ $PlayerReadmePath = Join-Path $ArchiveDir "README_ROADSIDE_IDIOTS.txt"
 @"
 ROADSIDE IDIOTS - DEMO 1
 The road is dangerous. The riders are worse.
+Version: $ProjectVersion
 
 QUICK START
 1. Run Windows\RoadsideIdiots.exe
@@ -229,12 +244,20 @@ if (-not (Test-Path $ZipPath)) {
     Fail "Package succeeded, but the shareable ZIP was not created: $ZipPath"
 }
 
+$ZipHash = Get-FileHash -Path $ZipPath -Algorithm SHA256
+$ChecksumPath = "$ZipPath.sha256.txt"
+"$($ZipHash.Hash.ToLowerInvariant())  $([System.IO.Path]::GetFileName($ZipPath))" |
+    Set-Content -Path $ChecksumPath -Encoding ASCII
+
 Write-Host ""
 Write-Host "Demo 1 package completed successfully." -ForegroundColor Green
+Write-Host "Version    : $ProjectVersion"
 Write-Host "Executable : $($Exe.FullName)"
 Write-Host "Manifest   : $ManifestPath"
 Write-Host "Readme     : $PlayerReadmePath"
 Write-Host "Package    : $ArchiveDir"
 Write-Host "Share ZIP  : $ZipPath" -ForegroundColor Green
+Write-Host "SHA-256    : $($ZipHash.Hash.ToLowerInvariant())" -ForegroundColor Green
+Write-Host "Checksum   : $ChecksumPath"
 Write-Host ""
 Write-Host "NEXT: run tools\verify_demo1_package.ps1 against this folder, then perform the manual smoke test before sharing the ZIP." -ForegroundColor Yellow
