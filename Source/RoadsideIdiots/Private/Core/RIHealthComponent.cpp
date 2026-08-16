@@ -15,10 +15,18 @@ void URIHealthComponent::BeginPlay()
     {
         CurrentHealth = MaxHealth;
         LastAppliedImpactTime = -100.0;
+        LastImpactSource = NAME_None;
+        LastImpactAmount = 0.0f;
+        ImpactSerial = 0;
     }
 }
 
 float URIHealthComponent::ApplyImpact(float Amount)
+{
+    return ApplyImpactFromSource(Amount, FName(TEXT("Unknown")));
+}
+
+float URIHealthComponent::ApplyImpactFromSource(float Amount, FName SourceTag)
 {
     if (!GetOwner() || !GetOwner()->HasAuthority() || Amount <= 0.0f)
     {
@@ -35,7 +43,17 @@ float URIHealthComponent::ApplyImpact(float Amount)
         LastAppliedImpactTime = Now;
     }
 
+    const float PreviousHealth = CurrentHealth;
     CurrentHealth = FMath::Clamp(CurrentHealth - Amount, 0.0f, MaxHealth);
+    const float AppliedAmount = FMath::Max(0.0f, PreviousHealth - CurrentHealth);
+
+    if (AppliedAmount > KINDA_SMALL_NUMBER)
+    {
+        LastImpactSource = SourceTag.IsNone() ? FName(TEXT("Unknown")) : SourceTag;
+        LastImpactAmount = AppliedAmount;
+        ++ImpactSerial;
+    }
+
     OnHealthChanged.Broadcast(CurrentHealth, MaxHealth);
     return CurrentHealth;
 }
@@ -61,6 +79,9 @@ void URIHealthComponent::ResetHealth()
 
     CurrentHealth = MaxHealth;
     LastAppliedImpactTime = -100.0;
+    LastImpactSource = NAME_None;
+    LastImpactAmount = 0.0f;
+    ImpactSerial = 0;
     OnHealthChanged.Broadcast(CurrentHealth, MaxHealth);
 }
 
