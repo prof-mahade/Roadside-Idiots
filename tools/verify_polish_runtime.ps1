@@ -25,9 +25,11 @@ Write-Host "Modified: $($Log.LastWriteTime)"
 Write-Host ""
 
 $Checks = @(
+    @{ Label = "Controller/menu input flow"; Pattern = "RI INPUT FLOW"; Required = $true },
     @{ Label = "Landmark world layer"; Pattern = "RI WORLD LANDMARKS"; Required = $true },
     @{ Label = "World landmark signage"; Pattern = "RI WORLD SIGNAGE"; Required = $true },
     @{ Label = "Near roadside facade details"; Pattern = "RI WORLD FACADE_DETAILS"; Required = $true },
+    @{ Label = "Approved free vegetation"; Pattern = "RI FREE VEGETATION"; Required = $true },
     @{ Label = "Distant roadside backdrop"; Pattern = "RI WORLD BACKDROP"; Required = $true },
     @{ Label = "Instanced road markings"; Pattern = "RI ROAD MARKINGS"; Required = $true },
     @{ Label = "Road surface detail"; Pattern = "RI ROAD SURFACE_DETAIL"; Required = $true },
@@ -41,7 +43,8 @@ $Checks = @(
     @{ Label = "Damage-source summary"; Pattern = "RI PLAYTEST DAMAGE_SOURCES"; Required = $false },
     @{ Label = "Competition summary"; Pattern = "RI PLAYTEST COMPETITION"; Required = $false },
     @{ Label = "Advance traffic warning"; Pattern = "RI TRAFFIC WARN"; Required = $false },
-    @{ Label = "Finish celebration"; Pattern = "RI FINISH CELEBRATION"; Required = $false }
+    @{ Label = "Finish celebration"; Pattern = "RI FINISH CELEBRATION"; Required = $false },
+    @{ Label = "Finish restart input"; Pattern = "RI INPUT FINISH_RESTART"; Required = $false }
 )
 
 $MissingRequired = @()
@@ -100,6 +103,6 @@ if ($MissingRequired.Count -gt 0 -or $WarningFailures.Count -gt 0) {
     exit 2
 }
 
-Write-Host "Required runtime presentation hooks were observed." -ForegroundColor Green
-Write-Host "Finish/traffic entries are event-dependent and may legitimately be absent if they did not occur." -ForegroundColor DarkGray
+Write-Host "Required runtime presentation/input hooks were observed." -ForegroundColor Green
+Write-Host "Finish/traffic/restart entries are event-dependent and may legitimately be absent if they did not occur." -ForegroundColor DarkGray
 exit 0
