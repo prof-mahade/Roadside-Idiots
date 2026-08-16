@@ -430,7 +430,7 @@ void ARIBikePawn::HandleChassisHit(UPrimitiveComponent* HitComponent, AActor* Ot
     if (ImpulseSize > 30000.0f)
     {
         const float Cost = FMath::Clamp((ImpulseSize - 30000.0f) / 12000.0f, 1.0f, 7.0f);
-        Health->ApplyImpact(Cost);
+        Health->ApplyImpactFromSource(Cost, FName(TEXT("CrashPhysics")));
         LastImpactTime = Now;
     }
 }
@@ -472,7 +472,7 @@ void ARIBikePawn::Tick(float DeltaSeconds)
 
         if (HasAuthority() && GetWorld() && GetWorld()->GetTimeSeconds() >= DamageEnabledAfterTime)
         {
-            Health->ApplyImpact(3.0f);
+            Health->ApplyImpactFromSource(3.0f, FName(TEXT("CrashTip")));
         }
     }
     else if (!bTipped)
