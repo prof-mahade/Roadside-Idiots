@@ -83,7 +83,6 @@ private:
     void InteractRight();
     void UseItem();
     void UseEgg();
-    void RestartRace();
     void RecoverUprightHere();
     bool IsRaceInputEnabled() const;
 
