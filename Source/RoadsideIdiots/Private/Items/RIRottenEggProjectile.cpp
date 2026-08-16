@@ -103,7 +103,7 @@ void ARIRottenEggProjectile::HandleOverlap(
     if (bResolved || !HasAuthority()) return;
 
     ARIBikePawn* Victim = Cast<ARIBikePawn>(OtherActor);
-    if (!Victim) return;
+    if (!Victim || !Victim->AreRaceControlsEnabled()) return;
 
     ARIBikePawn* Source = SourceBike.Get();
     if (Victim == Source)
@@ -117,7 +117,7 @@ void ARIRottenEggProjectile::HandleOverlap(
     SplatterBike(Victim);
 }
 
-void ARIRottenEggProjectile::SplatterBike(ARIBikePawn* Victim)
+void ARIBottenEggProjectile::SplatterBike(ARIBikePawn* Victim)
 {
     if (!Victim || bResolved) return;
     bResolved = true;
