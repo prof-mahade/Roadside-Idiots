@@ -136,7 +136,10 @@ void ARIRottenEggProjectile::SplatterBike(ARIBikePawn* Victim)
             true);
     }
 
-    if (URIHealthComponent* Health = Victim->GetHealthComponent()) Health->ApplyImpact(1.0f);
+    if (URIHealthComponent* Health = Victim->GetHealthComponent())
+    {
+        Health->ApplyImpactFromSource(1.0f, FName(TEXT("Egg")));
+    }
 
     RIAudioEvents::Play(this, TEXT("EggSplat"), Victim->GetActorLocation(), 1.0f, FMath::FRandRange(0.94f, 1.06f));
     Victim->TriggerComicImpact(SideSign, TEXT("SPLAT!"), 0.95f);
