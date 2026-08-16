@@ -4,10 +4,7 @@
 #include "Items/RIRottenEggPickup.h"
 #include "Vehicle/RIBikePawn.h"
 #include "Core/RIParticipantComponent.h"
-#include "Engine/Engine.h"
 #include "EngineUtils.h"
-#include "GameFramework/PlayerController.h"
-#include "InputCoreTypes.h"
 
 bool URIRottenEggWorldSubsystem::IsTickable() const
 {
@@ -65,77 +62,61 @@ void URIRottenEggWorldSubsystem::TrySpawnPickups()
         }
     }
 
-    if (Bananas.Num() < 3)
+    // The world builder creates eight pickup slots. Wait until they exist so we
+    // can deterministically convert three of those slots into rotten eggs.
+    // This keeps pickup density unchanged while preventing the old banana-only
+    // item economy seen in telemetry.
+    if (Bananas.Num() < 8)
     {
         return;
     }
 
     Bananas.Sort([](const ARIBananaPickup& A, const ARIBananaPickup& B)
     {
-        const FVector LA = A.GetActorLocation();
-        const FVector LB = B.GetActorLocation();
-        if (!FMath::IsNearlyEqual(LA.X, LB.X)) return LA.X < LB.X;
-        return LA.Y < LB.Y;
+        const float AngleA = FMath::Atan2(A.GetActorLocation().Y, A.GetActorLocation().X);
+        const float AngleB = FMath::Atan2(B.GetActorLocation().Y, B.GetActorLocation().X);
+        return AngleA < AngleB;
     });
 
-    const int32 DesiredPickups = FMath::Min(3, Bananas.Num());
-    for (int32 Index = 0; Index < DesiredPickups; ++Index)
+    constexpr int32 DesiredEggPickups = 3;
+    int32 EggsSpawned = 0;
+
+    for (int32 Index = 0; Index < DesiredEggPickups; ++Index)
     {
-        const int32 BananaIndex = FMath::FloorToInt((static_cast<float>(Index) + 0.5f) * Bananas.Num() / DesiredPickups);
+        const int32 BananaIndex = FMath::FloorToInt(
+            (static_cast<float>(Index) + 0.5f) *
+            static_cast<float>(Bananas.Num()) /
+            static_cast<float>(DesiredEggPickups));
+
         ARIBananaPickup* Anchor = Bananas[FMath::Clamp(BananaIndex, 0, Bananas.Num() - 1)];
         if (!Anchor) continue;
 
-        const float SideSign = (Index % 2 == 0) ? 1.0f : -1.0f;
-        const FVector SpawnLocation =
-            Anchor->GetActorLocation() +
-            Anchor->GetActorRightVector().GetSafeNormal2D() * (SideSign * 220.0f) +
-            FVector::UpVector * 20.0f;
+        const FVector SpawnLocation = Anchor->GetActorLocation();
+        const FRotator SpawnRotation = Anchor->GetActorRotation();
 
-        World->SpawnActor<ARIRottenEggPickup>(
+        if (World->SpawnActor<ARIRottenEggPickup>(
             ARIRottenEggPickup::StaticClass(),
             SpawnLocation,
-            Anchor->GetActorRotation());
-    }
-
-    bSpawnedPickups = true;
-}
-
-void URIRottenEggWorldSubsystem::TryThrowEgg()
-{
-    UWorld* World = GetWorld();
-    if (!World) return;
-
-    const double Now = World->GetTimeSeconds();
-    if (Now - LastThrowTime < 0.55)
-    {
-        return;
-    }
-
-    ARIBikePawn* Bike = FindHumanBike();
-    if (!Bike) return;
-
-    if (!Bike->ThrowRottenEggAt(nullptr))
-    {
-        if (GEngine)
+            SpawnRotation))
         {
-            GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Silver, TEXT("No rotten egg. Find the ugly green pickup first."));
+            // Replace rather than add beside the banana. The old side-offset egg
+            // pickups were easy to miss and increased total pickup clutter.
+            Anchor->Destroy();
+            ++EggsSpawned;
         }
-        return;
     }
 
-    LastThrowTime = Now;
+    if (EggsSpawned == DesiredEggPickups)
+    {
+        bSpawnedPickups = true;
+        UE_LOG(
+            LogTemp,
+            Display,
+            TEXT("RI ITEMS BALANCE banana_slots=5 egg_slots=3 input_owner=bike"));
+    }
 }
 
 void URIRottenEggWorldSubsystem::Tick(float DeltaTime)
 {
-    UWorld* World = GetWorld();
-    if (!World) return;
-
     TrySpawnPickups();
-
-    APlayerController* PlayerController = World->GetFirstPlayerController();
-    if (PlayerController && PlayerController->WasInputKeyJustPressed(EKeys::G))
-    {
-        TryThrowEgg();
-    }
 }
