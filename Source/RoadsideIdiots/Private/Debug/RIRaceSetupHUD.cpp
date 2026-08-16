@@ -83,6 +83,21 @@ void ARIRaceSetupHUD::DrawHUD()
     {
         DrawPauseMenu();
     }
+    else if (RIController->IsFinishScreenActive() && Canvas)
+    {
+        UFont* Font = GEngine ? GEngine->GetSmallFont() : nullptr;
+        if (Font)
+        {
+            DrawText(
+                TEXT("ESC / B  MAIN MENU"),
+                FLinearColor(0.70f, 0.84f, 1.0f),
+                Canvas->SizeX * 0.415f,
+                Canvas->SizeY * 0.458f,
+                Font,
+                0.94f,
+                false);
+        }
+    }
 }
 
 void ARIRaceSetupHUD::DrawGameplayMenuHints()
@@ -179,7 +194,7 @@ void ARIRaceSetupHUD::DrawPauseMenu()
     DrawRect(FLinearColor(0.95f, 0.70f, 0.10f, 0.95f), PanelX, PanelY, PanelW, 5.0f);
     DrawText(TEXT("PAUSED"), FLinearColor(1.0f, 0.78f, 0.18f), PanelX + 34.0f, PanelY + 28.0f, Font, 1.9f, false);
 
-    const FString Rows[5] = {TEXT("RESUME"), TEXT("RESTART RACE"), TEXT("CHANGE RACE SETUP"), TEXT("SETTINGS"), TEXT("QUIT GAME")};
+    const FString Rows[5] = {TEXT("RESUME"), TEXT("RESTART RACE"), TEXT("MAIN MENU"), TEXT("SETTINGS"), TEXT("QUIT GAME")};
     constexpr float RowHeight = 51.0f;
     const float RowStartY = PanelY + 91.0f;
     for (int32 Row = 0; Row < 5; ++Row)
@@ -198,7 +213,7 @@ void ARIRaceSetupHUD::DrawPauseMenu()
     }
 
     DrawText(TEXT("W/S drive  A/D steer | Q/E slap  F peel  G egg  R recover"), FLinearColor(0.60f, 0.72f, 0.82f), PanelX + 34.0f, PanelY + PanelH - 60.0f, Font, 0.70f, false);
-    DrawText(TEXT("P / ESC / MENU resume    D-PAD / ARROWS select    A / ENTER confirm"), FLinearColor(0.68f, 0.74f, 0.80f), PanelX + 34.0f, PanelY + PanelH - 35.0f, Font, 0.73f, false);
+    DrawText(TEXT("P / ESC / MENU resume    D-PAD / ARROWS select    A / ENTER confirm    B back"), FLinearColor(0.68f, 0.74f, 0.80f), PanelX + 34.0f, PanelY + PanelH - 35.0f, Font, 0.70f, false);
 }
 
 void ARIRaceSetupHUD::DrawSettingsMenu()
