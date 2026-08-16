@@ -164,7 +164,7 @@ void ARIBananaPeelHazard::HandleHazardOverlap(
         Chassis->AddAngularImpulseInRadians(AngularImpulse, NAME_None, true);
     }
 
-    OtherBike->GetHealthComponent()->ApplyImpact(2.0f);
+    OtherBike->GetHealthComponent()->ApplyImpactFromSource(2.0f, FName(TEXT("Peel")));
     OtherBike->TriggerComicImpact(SideSign, ValidSource == OtherBike ? TEXT("OWN GOAL!") : TEXT("SLIP!"), 0.95f);
     RIPrototypeVisuals::PlayReaction(OtherBike, SideSign);
     RIAudioEvents::Play(this, TEXT("PeelSlip"), OtherBike->GetActorLocation(), 1.0f, FMath::FRandRange(0.94f, 1.08f));
