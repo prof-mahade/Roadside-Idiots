@@ -10,8 +10,9 @@
 
 namespace
 {
-    const FName RIPersonalityPoleName(TEXT("RIPersonalityPole"));
-    const FName RIPersonalityFlagName(TEXT("RIPersonalityFlag"));
+    const FName RIPersonalityAccentLeftName(TEXT("RIPersonalityAccentLeft"));
+    const FName RIPersonalityAccentRightName(TEXT("RIPersonalityAccentRight"));
+    const FName RIPersonalityAccentRearName(TEXT("RIPersonalityAccentRear"));
 
     UStaticMeshComponent* RIFindStaticComponentByName(ARIBikePawn* Bike, const FName Name)
     {
@@ -27,6 +28,49 @@ namespace
             }
         }
         return nullptr;
+    }
+
+    UStaticMeshComponent* RIEnsureAccent(
+        ARIBikePawn* Bike,
+        UStaticMesh* CubeMesh,
+        UMaterialInterface* BaseMaterial,
+        const FName ComponentName,
+        const FVector& RelativeLocation,
+        const FVector& RelativeScale,
+        const FLinearColor& Color)
+    {
+        if (!Bike || !Bike->GetRootComponent() || !CubeMesh) return nullptr;
+
+        if (UStaticMeshComponent* Existing = RIFindStaticComponentByName(Bike, ComponentName))
+        {
+            return Existing;
+        }
+
+        UStaticMeshComponent* Accent = NewObject<UStaticMeshComponent>(Bike, ComponentName);
+        if (!Accent) return nullptr;
+
+        Bike->AddInstanceComponent(Accent);
+        Accent->SetupAttachment(Bike->GetRootComponent());
+        Accent->SetMobility(EComponentMobility::Movable);
+        Accent->SetStaticMesh(CubeMesh);
+        Accent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+        Accent->SetCollisionProfileName(TEXT("NoCollision"));
+        Accent->SetGenerateOverlapEvents(false);
+        Accent->SetCanEverAffectNavigation(false);
+        Accent->SetRelativeLocation(RelativeLocation);
+        Accent->SetRelativeScale3D(RelativeScale);
+        Accent->RegisterComponent();
+
+        if (BaseMaterial)
+        {
+            if (UMaterialInstanceDynamic* Material = UMaterialInstanceDynamic::Create(BaseMaterial, Accent))
+            {
+                Material->SetVectorParameterValue(TEXT("Color"), Color);
+                Accent->SetMaterial(0, Material);
+            }
+        }
+
+        return Accent;
     }
 }
 
@@ -105,67 +149,45 @@ void URIRivalIdentitySubsystem::EnsureIdentity(ARIBikePawn* Bike, const FString&
 {
     if (!Bike || !Bike->GetRootComponent() || !CubeMesh) return;
 
-    UStaticMeshComponent* Pole = RIFindStaticComponentByName(Bike, RIPersonalityPoleName);
-    if (!Pole)
+    const FLinearColor PersonalityColor = ColorForPersonality(PersonalityLabel);
+
+    // Thin body accents keep personality recognition close to the motorcycle.
+    // The original tall flag/pole was readable but visually dominated the rider
+    // and could look like it was dangling below the bike from the chase camera.
+    RIEnsureAccent(
+        Bike,
+        CubeMesh,
+        BaseMaterial,
+        RIPersonalityAccentLeftName,
+        FVector(-34.0f, -43.0f, 48.0f),
+        FVector(0.52f, 0.055f, 0.095f),
+        PersonalityColor);
+
+    RIEnsureAccent(
+        Bike,
+        CubeMesh,
+        BaseMaterial,
+        RIPersonalityAccentRightName,
+        FVector(-34.0f, 43.0f, 48.0f),
+        FVector(0.52f, 0.055f, 0.095f),
+        PersonalityColor);
+
+    const bool bHadRearAccent = RIFindStaticComponentByName(Bike, RIPersonalityAccentRearName) != nullptr;
+    RIEnsureAccent(
+        Bike,
+        CubeMesh,
+        BaseMaterial,
+        RIPersonalityAccentRearName,
+        FVector(-91.0f, 0.0f, 57.0f),
+        FVector(0.13f, 0.27f, 0.095f),
+        PersonalityColor);
+
+    if (!bHadRearAccent)
     {
-        Pole = NewObject<UStaticMeshComponent>(Bike, RIPersonalityPoleName);
-        if (Pole)
-        {
-            Bike->AddInstanceComponent(Pole);
-            Pole->SetupAttachment(Bike->GetRootComponent());
-            Pole->SetMobility(EComponentMobility::Movable);
-            Pole->SetStaticMesh(CubeMesh);
-            Pole->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-            Pole->SetCollisionProfileName(TEXT("NoCollision"));
-            Pole->SetGenerateOverlapEvents(false);
-            Pole->SetCanEverAffectNavigation(false);
-            Pole->SetRelativeLocation(FVector(-92.0f, 0.0f, 155.0f));
-            Pole->SetRelativeScale3D(FVector(0.035f, 0.035f, 1.65f));
-            Pole->RegisterComponent();
-
-            if (BaseMaterial)
-            {
-                if (UMaterialInstanceDynamic* PoleMaterial = UMaterialInstanceDynamic::Create(BaseMaterial, Pole))
-                {
-                    PoleMaterial->SetVectorParameterValue(TEXT("Color"), FLinearColor(0.075f, 0.080f, 0.085f, 1.0f));
-                    Pole->SetMaterial(0, PoleMaterial);
-                }
-            }
-        }
-    }
-
-    UStaticMeshComponent* Flag = RIFindStaticComponentByName(Bike, RIPersonalityFlagName);
-    if (!Flag)
-    {
-        Flag = NewObject<UStaticMeshComponent>(Bike, RIPersonalityFlagName);
-        if (Flag)
-        {
-            Bike->AddInstanceComponent(Flag);
-            Flag->SetupAttachment(Bike->GetRootComponent());
-            Flag->SetMobility(EComponentMobility::Movable);
-            Flag->SetStaticMesh(CubeMesh);
-            Flag->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-            Flag->SetCollisionProfileName(TEXT("NoCollision"));
-            Flag->SetGenerateOverlapEvents(false);
-            Flag->SetCanEverAffectNavigation(false);
-            Flag->SetRelativeLocation(FVector(-91.0f, 0.0f, 229.0f));
-            Flag->SetRelativeScale3D(FVector(0.055f, 0.52f, 0.28f));
-            Flag->RegisterComponent();
-
-            if (BaseMaterial)
-            {
-                if (UMaterialInstanceDynamic* FlagMaterial = UMaterialInstanceDynamic::Create(BaseMaterial, Flag))
-                {
-                    FlagMaterial->SetVectorParameterValue(TEXT("Color"), ColorForPersonality(PersonalityLabel));
-                    Flag->SetMaterial(0, FlagMaterial);
-                }
-            }
-
-            UE_LOG(
-                LogTemp,
-                Display,
-                TEXT("RI RIVAL IDENTITY personality=%s collision=off"),
-                *PersonalityLabel);
-        }
+        UE_LOG(
+            LogTemp,
+            Display,
+            TEXT("RI RIVAL IDENTITY personality=%s style=body_accents collision=off"),
+            *PersonalityLabel);
     }
 }
