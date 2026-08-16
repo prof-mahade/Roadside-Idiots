@@ -332,6 +332,14 @@ void ARIPlayerController::TogglePauseMenu()
         return;
     }
 
+    if (MenuMode == ERIMenuMode::None && IsPlayerRaceFinished())
+    {
+        // The finish panel owns the post-race state. Start/P/Escape should not
+        // replace it with the pause menu or hide the race-again action.
+        UE_LOG(LogTemp, Display, TEXT("RI INPUT FINISH_LOCK pause=blocked"));
+        return;
+    }
+
     if (MenuMode == ERIMenuMode::None && GetPawn())
     {
         if (UGameplayStatics::SetGamePaused(this, true))
