@@ -27,6 +27,7 @@ Write-Host ""
 $Checks = @(
     @{ Label = "Landmark world layer"; Pattern = "RI WORLD LANDMARKS"; Required = $true },
     @{ Label = "World landmark signage"; Pattern = "RI WORLD SIGNAGE"; Required = $true },
+    @{ Label = "Distant roadside backdrop"; Pattern = "RI WORLD BACKDROP"; Required = $true },
     @{ Label = "Instanced road markings"; Pattern = "RI ROAD MARKINGS"; Required = $true },
     @{ Label = "Rival personality identity"; Pattern = "RI RIVAL IDENTITY"; Required = $true },
     @{ Label = "Traffic visual polish"; Pattern = "RI TRAFFIC VISUAL"; Required = $false },
