@@ -14,7 +14,7 @@ $ContentDir = Join-Path $RepoRoot "Content"
 $SourceDir = Join-Path $RepoRoot "Source"
 $ConfigDir = Join-Path $RepoRoot "Config"
 $DefaultGameIni = Join-Path $ConfigDir "DefaultGame.ini"
-$InputVerifier = Join-Path $PSScriptRoot "verify_input_contract.ps1"
+$BugfixVerifier = Join-Path $PSScriptRoot "verify_bugfix_contracts.ps1"
 $PlayerTestPlanSource = Join-Path $RepoRoot "docs\PLAYER_TEST_PLAN.md"
 
 function Fail([string]$Message) {
@@ -41,27 +41,22 @@ if (Test-Path $DefaultGameIni) {
 $VersionTag = if ([string]::IsNullOrWhiteSpace($ProjectVersion)) { "unknown" } else { $ProjectVersion -replace '[^A-Za-z0-9._-]', '_' }
 
 if (-not (Test-Path $ContentDir)) {
-    Write-Warning "Content folder is missing. Imported local presentation assets will not be available to the cook."
+    Fail "Content folder is missing. Required approved local presentation assets are unavailable."
 }
-else {
-    # PERMANENT PROJECT RULE: free/custom content only.
-    # Search recursively, not just top-level folders. The paid/licensing-risk
-    # SankoolArts pack was removed at the user's request and must never enter a
-    # distributable package again.
-    $ForbiddenContent = Get-ChildItem -Path $ContentDir -Recurse -Force -ErrorAction SilentlyContinue |
-        Where-Object {
-            $_.FullName -match "(?i)Sankool" -or
-            $_.FullName -match "(?i)CompoundWall_Kit"
-        }
 
-    if ($ForbiddenContent) {
-        $Names = ($ForbiddenContent | Select-Object -First 12 | ForEach-Object { $_.FullName }) -join "`n  "
-        Fail "forbidden licensing-risk content was found:`n  $Names"
+# PERMANENT PROJECT RULE: free/custom content only.
+$ForbiddenContent = Get-ChildItem -Path $ContentDir -Recurse -Force -ErrorAction SilentlyContinue |
+    Where-Object {
+        $_.FullName -match "(?i)Sankool" -or
+        $_.FullName -match "(?i)CompoundWall_Kit"
     }
+
+if ($ForbiddenContent) {
+    $Names = ($ForbiddenContent | Select-Object -First 12 | ForEach-Object { $_.FullName }) -join "`n  "
+    Fail "forbidden licensing-risk content was found:`n  $Names"
 }
 
-# Also prevent a source/config soft reference from silently cooking a removed
-# paid asset through another dependency.
+# Prevent source/config soft references from silently cooking removed paid content.
 $ReferenceRoots = @($SourceDir, $ConfigDir) | Where-Object { Test-Path $_ }
 if ($ReferenceRoots.Count -gt 0) {
     $ForbiddenReferences = Get-ChildItem -Path $ReferenceRoots -Recurse -File -ErrorAction SilentlyContinue |
@@ -76,16 +71,14 @@ if ($ReferenceRoots.Count -gt 0) {
     }
 }
 
-# Functional preflight: restart/menu input is owned by the player controller.
-# This specifically guards against the old Enter/Y pawn RestartRace mapping that
-# made the finish prompt unreliable and could discard configured race settings.
-if (-not (Test-Path $InputVerifier)) {
-    Fail "input contract verifier is missing: $InputVerifier"
+# Functional preflight: single-owner input/restart, finish lifecycle, persistent engine.
+if (-not (Test-Path $BugfixVerifier)) {
+    Fail "combined bugfix contract verifier is missing: $BugfixVerifier"
 }
 
-& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $InputVerifier -ProjectRoot $RepoRoot
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $BugfixVerifier -ProjectRoot $RepoRoot
 if ($LASTEXITCODE -ne 0) {
-    Fail "input contract verification failed. Fix controller/restart mappings before packaging."
+    Fail "combined input/audio/lifecycle contract verification failed."
 }
 
 $ExpectedFreeAssets = @(
@@ -100,8 +93,11 @@ foreach ($RelativeAsset in $ExpectedFreeAssets) {
     $FullAssetPath = Join-Path $ContentDir $RelativeAsset
     if (-not (Test-Path $FullAssetPath)) {
         $MissingApprovedAssets += $RelativeAsset
-        Write-Warning "Expected approved free asset is missing locally: $RelativeAsset"
     }
+}
+if ($MissingApprovedAssets.Count -gt 0) {
+    $MissingApprovedAssets | ForEach-Object { Write-Host "       $_" -ForegroundColor Red }
+    Fail "required approved free presentation assets are missing."
 }
 
 $GitCommit = "unknown"
@@ -113,14 +109,16 @@ catch {
     Write-Warning "Could not read Git commit. Package will still continue."
 }
 
-$GitStatus = @()
+# Reproducibility is about tracked project state. Approved imported Content is
+# intentionally local/untracked and must not make an otherwise reproducible build DIRTY.
+$TrackedGitStatus = @()
 try {
-    $GitStatus = @(& git -C $RepoRoot status --short 2>$null)
+    $TrackedGitStatus = @(& git -C $RepoRoot status --short --untracked-files=no 2>$null)
 }
 catch {}
 
-if ($GitStatus.Count -gt 0) {
-    Write-Warning "Local working tree has changes. This is allowed because imported Content is intentionally local, but the build manifest will record it as DIRTY."
+if ($TrackedGitStatus.Count -gt 0) {
+    Write-Warning "Tracked working tree has changes; manifest will record DIRTY."
 }
 
 $Stamp = Get-Date -Format "yyyyMMdd_HHmmss"
@@ -136,7 +134,8 @@ Write-Host "Configuration : $Configuration"
 Write-Host "Git commit    : $GitCommit"
 Write-Host "Output        : $ArchiveDir"
 Write-Host "Free-only     : recursive content/source preflight PASSED" -ForegroundColor Green
-Write-Host "Input contract: controller restart/menu preflight PASSED" -ForegroundColor Green
+Write-Host "Bugfix contract: input/audio/lifecycle preflight PASSED" -ForegroundColor Green
+Write-Host "Approved assets: required local free vegetation 4/4" -ForegroundColor Green
 Write-Host ""
 
 & $RunUAT BuildCookRun `
@@ -170,22 +169,35 @@ if ($CookedContainers.Count -eq 0) {
     Fail "No cooked .pak/.utoc/.ucas container was found in the archive."
 }
 
+# Shipping testers do not need private debug symbols. Keep them in local build
+# intermediates, but remove them from the distributable before ZIP/checksum.
+$RemovedPdbCount = 0
+if ($Configuration -eq "Shipping") {
+    $PdbFiles = @(Get-ChildItem -Path $ArchiveDir -Recurse -File -Filter "*.pdb" -ErrorAction SilentlyContinue)
+    foreach ($Pdb in $PdbFiles) {
+        Remove-Item -Path $Pdb.FullName -Force
+        ++$RemovedPdbCount
+    }
+}
+
 $ManifestPath = Join-Path $ArchiveDir "DEMO1_BUILD_INFO.txt"
-$DirtyText = if ($GitStatus.Count -gt 0) { "YES" } else { "NO" }
-$MissingText = if ($MissingApprovedAssets.Count -gt 0) { $MissingApprovedAssets -join ", " } else { "none" }
+$DirtyText = if ($TrackedGitStatus.Count -gt 0) { "YES" } else { "NO" }
 
 @"
 ROADSIDE IDIOTS - DEMO 1 BUILD
 Generated: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
 Project version: $ProjectVersion
 Git commit: $GitCommit
-Working tree dirty at package time: $DirtyText
+Tracked working tree dirty at package time: $DirtyText
+Local approved Content expected/present: YES
 Configuration: $Configuration
 Engine: $EngineRoot
 Executable: $($Exe.FullName)
 Cooked containers: $($CookedContainers.Count)
-Expected approved free assets missing: $MissingText
+Required approved free assets present: 4/4
+Combined input/audio/lifecycle preflight: PASSED
 Input contract preflight: PASSED
+Shipping PDB files removed from distributable: $RemovedPdbCount
 
 CONTENT POLICY FOR THIS PROJECT
 - Free/custom content only.
@@ -247,7 +259,7 @@ Steering Feel       CALM / NORMAL / QUICK
 DEMO NOTES
 - This is a solo prototype/demo build.
 - Multiplayer, additional maps, final art and deeper progression are future work.
-- If the game is blocked on first launch, Windows may ask for Unreal prerequisites; the package includes the standard prerequisite installer.
+- If the game is blocked on first launch, Windows may ask for Unreal prerequisites; the package includes the standard prerequisite installer when generated by UAT.
 
 Build: $GitCommit ($Configuration)
 "@ | Set-Content -Path $PlayerReadmePath -Encoding UTF8
@@ -285,6 +297,7 @@ Write-Host "Readme     : $PlayerReadmePath"
 if (Test-Path $PackagedTestPlan) {
     Write-Host "Test plan  : $PackagedTestPlan"
 }
+Write-Host "PDB removed: $RemovedPdbCount"
 Write-Host "Package    : $ArchiveDir"
 Write-Host "Share ZIP  : $ZipPath" -ForegroundColor Green
 Write-Host "SHA-256    : $($ZipHash.Hash.ToLowerInvariant())" -ForegroundColor Green
