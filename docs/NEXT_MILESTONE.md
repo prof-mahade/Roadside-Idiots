@@ -1,18 +1,22 @@
-# Next milestone — Demo 1 RC Packaging Gate
+# Next milestone — Demo 1 Polish & Distribution
 
-## Current status
-The basic racing-controller crisis is no longer the active blocker.
+## Demo 1 status — FUNCTIONALLY COMPLETE
+On 2026-08-16 the user explicitly accepted **Demo 1 as functionally complete**.
 
-On 2026-08-15 the user verified the new low-level racing-line follower with:
-- Opponents = 6
-- Laps = 2
-- Traffic = 0
+The standalone Windows build has been packaged and launched outside Unreal Editor with the expected game content present. The accepted Demo 1 baseline includes:
+- configurable 2–6 AI opponents
+- selectable laps and traffic
+- stable race countdown / lap / place / finish / restart flow
+- packaged motorcycle + Manny rider presentation
+- stable Pure-Pursuit racing AI without the old left/right wall oscillation
+- traffic interaction and collision recovery at an acceptable prototype level
+- slap / banana peel / rotten egg / poop gameplay loops
+- minimap and HUD
+- free vegetation/environment presentation
+- title/setup/pause/settings/restart/quit flow
+- free/custom-content-only packaging rule
 
-Result: rivals completed the run without repeatedly hitting the barriers.
-
-A second run with Traffic = 6 was also acceptable: traffic collisions still occurred, but rivals did not resume the old left/right wall oscillation unless physically disturbed. After the VPR-25 traffic-pass/recovery pass the user reported the result was "little better than before".
-
-Treat the current racing-line follower as a frozen Demo 1 baseline. Do not retune it merely for theoretical improvement. Reopen driving only for a reproducible regression in the packaged build.
+The user also verified that six rivals can complete clean races without recurring barrier hits when traffic is disabled, and that dense traffic is playable even though collisions can still happen.
 
 ## Permanent project constraint — FREE ONLY
 Roadside Idiots must use only:
@@ -21,113 +25,72 @@ Roadside Idiots must use only:
 
 Do not recommend, plan around, purchase, or retain paid packs.
 
-The removed SankoolArts / CompoundWall_Kit content must never return. `tools/package_demo1.ps1` now recursively blocks it in Content and also blocks Source/Config references.
+The removed SankoolArts / CompoundWall_Kit content must never return. `tools/package_demo1.ps1` recursively blocks it in Content and blocks Source/Config references.
 
 ## Frozen Demo 1 systems
-Do not retune unless a real regression is observed:
-- VPR-18 physical bike movement/physics baseline
-- continuous flat authoritative road floor collision
-- VPR-24E/VPR-25 low-level Pure-Pursuit racing-line follower
+Do not retune or rewrite these merely for theoretical improvement. Reopen them only for a reproducible regression:
+- physical bike movement/physics baseline
+- continuous flat authoritative road collision floor
+- `ARIRacingLineFollower` Pure-Pursuit driving stack
 - checkpoint/lap/place/finish rules
 - player controls and assisted egg behavior
-- race setup: 2–6 opponents, 1–5 laps, 0–6 traffic
+- race setup ranges
 - title/setup/pause/settings/restart/quit flow
-- minimap/HUD layout
-- free vegetation/environment presentation baseline
+- minimap/HUD functional layout
+- free vegetation/environment functional baseline
 
-## Current AI architecture
-High-level `ARIAIController` owns:
-- personality
-- throttle/brake race pace
-- pickups/items
-- grudges and chaos directives
-- recovery fallback
+## Accepted AI architecture
+High-level `ARIAIController` owns personality, pace, items, grudges, chaos and tactical intent.
 
-Low-level `ARIRacingLineFollower` owns final steering:
-- speed-scaled Pure Pursuit look-ahead
-- stable assigned race lane
-- predicted lateral-drift recovery
-- AI-only lane stabilization force
-- curvature-based safety speed veto
-- VPR-25 persistent traffic pass side selection
-- VPR-25 collision recovery priority
+Low-level `ARIRacingLineFollower` owns final driving control:
+- speed-scaled Pure Pursuit
+- assigned racing lane
+- predicted lateral drift recovery
+- AI-only lane stabilization
+- curvature safety speed veto
+- persistent traffic pass-side planning
+- post-collision recovery priority
 
-The important rule is: tactical/comedy behavior must never be allowed to replace the road-following controller again.
+Critical rule: comedy/tactical AI must remain layered around the racing-line follower and must not replace its road-following target again.
 
-## Demo 1 RC packaging work
-`tools/package_demo1.ps1` now:
-1. verifies the Unreal 5.8 project and RunUAT path
-2. recursively rejects forbidden Sankool/CompoundWall content
-3. rejects Source/Config references to that removed content
-4. reports missing approved free vegetation assets
-5. records the Git commit and dirty-working-tree state
-6. runs Win64 BuildCookRun
-7. requires a packaged `RoadsideIdiots.exe`
-8. requires cooked `.pak/.utoc/.ucas` data
-9. writes `DEMO1_BUILD_INFO.txt` into the archive
+## Current packaging baseline
+Project version: `0.1.0-demo1-rc2`.
 
-`tools/verify_demo1_package.ps1` now performs the static package check and can launch the packaged build for the manual smoke test.
+`tools/package_demo1.ps1` defaults to **Shipping** and performs the free-only preflight before BuildCookRun.
 
-Project version is now `0.1.0-demo1-rc1`.
+Runtime asset cooking is intentionally narrowed to the actual free presentation meshes/materials/textures used by the game. Old UE4 sample Blueprint/map folders bundled with the free vegetation packs are explicitly excluded from cooking.
 
-## Local gate — do this next
-Close Unreal and sync the branch, then run:
+## Next work — polish, not survival fixes
+The next development block should improve perceived quality while preserving the working Demo 1 baseline.
 
-```powershell
-cd C:\GameDev\Roadside-Idiots
-git pull --ff-only origin dev/mvp-foundation
+Priority order:
+1. remove stale internal VPR/build strings from player-facing HUD and keep version/debug info behind a development-only path
+2. improve title/setup/results presentation and spacing
+3. improve visual readability of traffic, hazards and item pickups using free/custom content only
+4. improve lightweight audio mix/feedback without adding paid assets
+5. do a short performance/packaging audit and remove obviously unused cooked content
+6. create a clean distributable Shipping archive/ZIP with a concise README, controls and known limitations
+7. capture a small set of screenshots/video for Demo 1 presentation
 
-.\tools\package_demo1.ps1
-```
+## Known acceptable Demo 1 limitations
+These are not blockers for the completed functional Demo 1:
+- traffic is prototype/simple and collisions can still occur in dense conditions
+- motorcycle/traffic physics are not commercial-simulation quality
+- environment/art/audio are intentionally prototype quality
+- AI tactics can be expanded later
+- only one main race course/mode is required at this stage
+- multiplayer is deferred
 
-If packaging succeeds, run:
+## Demo 2 direction
+Do not begin a major Demo 2 architecture rewrite until the Demo 1 polish/distribution pass is clean.
 
-```powershell
-.\tools\verify_demo1_package.ps1 -Launch
-```
+Likely Demo 2 themes:
+- richer rival tactics and personality differentiation
+- better overtaking/traffic behavior
+- more hazards/items
+- stronger environmental identity
+- improved traffic models and presentation
+- additional race variation/map content
+- deeper menu/options progression
 
-The verifier automatically chooses the newest `RoadsideIdiots_Demo1_*` archive when `-PackagePath` is omitted.
-
-## Manual packaged-build smoke test
-### Race A — clean racing baseline
-- Opponents = 6
-- Laps = 2
-- Traffic = 0
-- verify countdown/input lock
-- verify rivals complete clean laps without recurring barrier oscillation
-- verify lap/place/minimap/finish
-
-### Race B — full prototype stress
-- Opponents = 6
-- Laps = 2
-- Traffic = 6
-- verify traffic overtaking/slowing is at least acceptable
-- verify a collision can be recovered from
-- verify traffic contact does not cause persistent wall-to-wall oscillation
-- test Q/E slap, F peel, G egg, R recovery, P pause and Enter restart
-- verify banana/egg/poop effects, audio, HUD and free vegetation
-- finish the race, start another race, then quit normally
-
-## Demo 1 definition
-Demo 1 is a packaged Windows solo build. Multiplayer is not required.
-
-Required before calling Demo 1 ready:
-1. coherent configurable race course
-2. 2–6 selectable AI opponents
-3. selectable laps and traffic
-4. competent racing AI with occasional chaos
-5. stable egg / peel / slap / poop mechanics
-6. stable traffic, recovery and finish flow
-7. readable HUD/minimap/results
-8. title/setup/pause/settings/restart/quit
-9. free/custom assets only
-10. packaged Windows executable launches outside the editor
-11. packaged two-race smoke test passes
-
-## Deferred beyond Demo 1
-- multiplayer networking
-- final commercial motorcycle/traffic physics
-- final-quality maps/assets/audio
-- sophisticated traffic simulation
-- additional maps/modes
-- major AI architecture rewrites unless required by a real bug
+Multiplayer remains deferred until the single-player core is substantially more polished.
