@@ -8,10 +8,11 @@ $InputIni = Join-Path $ProjectRoot "Config\DefaultInput.ini"
 $ControllerCpp = Join-Path $ProjectRoot "Source\RoadsideIdiots\Private\Core\RIPlayerController.cpp"
 $BikeCpp = Join-Path $ProjectRoot "Source\RoadsideIdiots\Private\Vehicle\RIBikePawn.cpp"
 $BikeHeader = Join-Path $ProjectRoot "Source\RoadsideIdiots\Public\Vehicle\RIBikePawn.h"
+$MenuHudCpp = Join-Path $ProjectRoot "Source\RoadsideIdiots\Private\Debug\RIRaceSetupHUD.cpp"
 
 Write-Host "Roadside Idiots - Input Contract Verification" -ForegroundColor Cyan
 
-foreach ($RequiredPath in @($InputIni, $ControllerCpp, $BikeCpp, $BikeHeader)) {
+foreach ($RequiredPath in @($InputIni, $ControllerCpp, $BikeCpp, $BikeHeader, $MenuHudCpp)) {
     if (-not (Test-Path $RequiredPath)) {
         Write-Host "[FAIL] Missing $RequiredPath" -ForegroundColor Red
         exit 2
@@ -53,10 +54,13 @@ $RequiredControllerTokens = @(
     @{ Label = "B menu back"; Token = "EKeys::Gamepad_FaceButton_Right" },
     @{ Label = "Keyboard Y finish restart"; Token = "EKeys::Y" },
     @{ Label = "Controller Y finish restart"; Token = "EKeys::Gamepad_FaceButton_Top" },
+    @{ Label = "Contextual Escape route"; Token = "EKeys::Escape, &ARIPlayerController::MenuEscape" },
     @{ Label = "Start pause"; Token = "EKeys::Gamepad_Special_Right" },
     @{ Label = "Controller finish-state guard"; Token = "IsPlayerRaceFinished" },
     @{ Label = "Finish screen blocks pause takeover"; Token = "RI INPUT FINISH_LOCK pause=blocked" },
-    @{ Label = "Configured-race restart"; Token = "RestartConfiguredRace" }
+    @{ Label = "Configured-race restart"; Token = "RestartConfiguredRace" },
+    @{ Label = "Main Menu return path"; Token = "ReturnToMainMenu" },
+    @{ Label = "Main Menu runtime hook"; Token = "RI INPUT MAIN_MENU source=" }
 )
 
 foreach ($Check in $RequiredControllerTokens) {
@@ -68,6 +72,30 @@ foreach ($Check in $RequiredControllerTokens) {
         Write-Host ("[FAIL] {0} - token missing: {1}" -f $Check.Label, $Check.Token) -ForegroundColor Red
         $Failures += $Check.Label
     }
+}
+
+$MenuUiChecks = @(
+    @{ Label = "Pause menu exposes MAIN MENU"; Token = 'TEXT("MAIN MENU")' },
+    @{ Label = "Finish screen exposes ESC/B Main Menu"; Token = 'TEXT("ESC / B  MAIN MENU")' }
+)
+foreach ($Check in $MenuUiChecks) {
+    $Hit = Select-String -Path $MenuHudCpp -SimpleMatch $Check.Token
+    if ($Hit) {
+        Write-Host ("[PASS] {0}" -f $Check.Label) -ForegroundColor Green
+    }
+    else {
+        Write-Host ("[FAIL] {0} - token missing: {1}" -f $Check.Label, $Check.Token) -ForegroundColor Red
+        $Failures += $Check.Label
+    }
+}
+
+$LegacyPauseLabel = Select-String -Path $MenuHudCpp -SimpleMatch 'TEXT("CHANGE RACE SETUP")'
+if ($LegacyPauseLabel) {
+    Write-Host "[FAIL] Legacy CHANGE RACE SETUP pause label still exists." -ForegroundColor Red
+    $Failures += "legacy pause setup label"
+}
+else {
+    Write-Host "[PASS] Legacy CHANGE RACE SETUP label removed" -ForegroundColor Green
 }
 
 $BikeLifecycleChecks = @(
@@ -112,5 +140,6 @@ Write-Host ""
 Write-Host "Input contract verification PASSED." -ForegroundColor Green
 Write-Host "Restart/menu ownership: player controller" -ForegroundColor DarkGray
 Write-Host "Human post-finish gameplay input: blocked" -ForegroundColor DarkGray
-Write-Host "Finish screen pause takeover: blocked" -ForegroundColor DarkGray
+Write-Host "Finish screen pause takeover: blocked for P/Start" -ForegroundColor DarkGray
+Write-Host "Main Menu return: Pause row + finish Esc/B" -ForegroundColor DarkGray
 exit 0
