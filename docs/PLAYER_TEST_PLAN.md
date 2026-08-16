@@ -20,13 +20,18 @@ Do this once on the exact ZIP that will be handed to outside testers. Do not use
 - Xbox-style D-pad navigates setup/settings;
 - A confirms menu selections;
 - B returns from Settings and resumes from Pause;
-- Menu/Start opens and closes Pause;
+- P/Start opens and closes Pause during an active race;
+- Esc opens Pause during an active race and behaves as a back action in menus;
+- the Pause menu contains an explicit **MAIN MENU** row;
+- Pause → MAIN MENU reloads the setup screen and does **not** auto-start a race;
 - during gameplay A still drops a peel, B still throws an egg, X recovers, LB/RB slap;
 - finish a race and verify **Enter**, **A**, and **Y/top-face** can start the same configured race again;
 - pressing Y during an unfinished race must **not** unexpectedly reload the map;
+- after finish, **P/Start** must not replace the result screen with Pause;
+- after finish, **Esc/B** must return to Main Menu/setup without auto-starting;
 - after a finish restart, opponent/lap/traffic/chaos settings must be preserved.
 
-Run `tools\verify_input_contract.ps1` before packaging. During a runtime test, `RI INPUT FLOW` should appear in the log and using Y after the finish should produce `RI INPUT FINISH_RESTART source=Y`.
+Run `tools\verify_input_contract.ps1` before packaging. During a runtime test, `RI INPUT FLOW` should appear in the log; using Y after finish should produce `RI INPUT FINISH_RESTART source=Y`; returning to Main Menu should produce `RI INPUT MAIN_MENU source=...` when logging is available.
 
 ### Frozen-driving regression gate
 - run at least one 5-opponent / 4+ traffic race;
@@ -38,7 +43,7 @@ Run `tools\verify_input_contract.ps1` before packaging. During a runtime test, `
 
 ### Presentation/content gate
 - approved free tropical/banana vegetation is visible and does not enter the racing corridor;
-- `RI FREE VEGETATION` reports loaded approved assets;
+- `RI FREE VEGETATION` reports loaded approved assets when logging is available;
 - market/bus-stop facade details and distant backdrop load;
 - road markings/surface wear remain readable without overpowering hazards/items;
 - no SankoolArts / `CompoundWall_Kit` content or references are present.
@@ -195,6 +200,7 @@ If future catch-up logic is introduced, keep it small, bounded and difficult to 
 ### UI
 - menu can be operated with keyboard alone,
 - menu can be operated with controller alone,
+- Pause and Finish always expose an obvious route to Main Menu,
 - focus movement is predictable,
 - the road remains the visual priority while racing,
 - permanent debug/build vocabulary is absent from Shipping UI,
