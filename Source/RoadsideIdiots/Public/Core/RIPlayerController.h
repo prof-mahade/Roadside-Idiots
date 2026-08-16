@@ -27,6 +27,7 @@ public:
     bool IsPauseMenuOpen() const { return MenuMode == ERIMenuMode::Pause; }
     bool IsSettingsMenuOpen() const { return MenuMode == ERIMenuMode::Settings; }
     bool IsAnyMenuOpen() const { return MenuMode != ERIMenuMode::None; }
+    bool IsFinishScreenActive() const;
     int32 GetSelectedMenuRow() const { return SelectedMenuRow; }
 
 private:
@@ -36,6 +37,7 @@ private:
     void MenuIncrease();
     void MenuConfirm();
     void MenuBack();
+    void MenuEscape();
     void FinishQuickRestart();
     void TogglePauseMenu();
 
@@ -46,7 +48,7 @@ private:
     void ReturnFromSettings();
     void ResumeGame();
     void RestartConfiguredRace();
-    void ReturnToRaceSetup();
+    void ReturnToMainMenu(FName Source);
     void QuitToDesktop();
     void ReloadCurrentLevel(bool bAutoStartConfiguredRace);
 
