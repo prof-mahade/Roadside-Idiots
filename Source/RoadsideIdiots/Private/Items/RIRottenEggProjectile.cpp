@@ -117,7 +117,7 @@ void ARIRottenEggProjectile::HandleOverlap(
     SplatterBike(Victim);
 }
 
-void ARIBottenEggProjectile::SplatterBike(ARIBikePawn* Victim)
+void ARIRottenEggProjectile::SplatterBike(ARIBikePawn* Victim)
 {
     if (!Victim || bResolved) return;
     bResolved = true;
