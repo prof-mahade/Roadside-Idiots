@@ -47,6 +47,7 @@ $Prereq = Get-ChildItem -Path $PackagePath -Recurse -File -ErrorAction SilentlyC
 $Manifest = Join-Path $PackagePath "DEMO1_BUILD_INFO.txt"
 $Readme = Join-Path $PackagePath "README_ROADSIDE_IDIOTS.txt"
 $ZipPath = "$PackagePath.zip"
+$ChecksumPath = "$ZipPath.sha256.txt"
 
 if (-not (Test-Path $Manifest)) {
     Fail "DEMO1_BUILD_INFO.txt is missing from the package root."
@@ -57,10 +58,20 @@ if (-not (Test-Path $Readme)) {
 if (-not (Test-Path $ZipPath)) {
     Fail "The shareable ZIP was not found: $ZipPath"
 }
+if (-not (Test-Path $ChecksumPath)) {
+    Fail "The ZIP SHA-256 checksum file was not found: $ChecksumPath"
+}
 
 $ZipInfo = Get-Item $ZipPath
 if ($ZipInfo.Length -le 0) {
     Fail "The shareable ZIP exists but is empty: $ZipPath"
+}
+
+$ExpectedHashLine = (Get-Content $ChecksumPath | Select-Object -First 1).Trim()
+$ExpectedHash = ($ExpectedHashLine -split '\s+')[0].ToLowerInvariant()
+$ActualHash = (Get-FileHash -Path $ZipPath -Algorithm SHA256).Hash.ToLowerInvariant()
+if ([string]::IsNullOrWhiteSpace($ExpectedHash) -or $ExpectedHash -ne $ActualHash) {
+    Fail "ZIP checksum mismatch. Expected $ExpectedHash but calculated $ActualHash"
 }
 
 Write-Host ""
@@ -72,6 +83,7 @@ Write-Host "Prerequisite  : $(if ($Prereq) { $Prereq.FullName } else { 'not foun
 Write-Host "Manifest      : $Manifest" -ForegroundColor Green
 Write-Host "Player README : $Readme" -ForegroundColor Green
 Write-Host "Share ZIP     : $ZipPath ($([math]::Round($ZipInfo.Length / 1MB, 1)) MB)" -ForegroundColor Green
+Write-Host "SHA-256       : $ActualHash" -ForegroundColor Green
 Write-Host ""
 
 Write-Host "----- BUILD INFO -----" -ForegroundColor DarkCyan
