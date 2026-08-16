@@ -1,4 +1,4 @@
-# Next milestone — Demo 1 Major Presentation Polish Gate
+# Next milestone — Demo 1 Presentation / Player-Test Gate
 
 ## Demo 1 status — FUNCTIONALLY COMPLETE
 
@@ -18,27 +18,17 @@ The standalone Windows demo has already been packaged and played outside Unreal 
 
 Do not reopen solved foundation systems merely because they could be more sophisticated.
 
----
-
 ## Product north star
 
 > **You are a competent motorcycle rider trying to win while surrounded by idiots.**
 
-The game is **drive-first, chaos-second**. The player, camera, controls and road-following AI must not feel more foolish than the characters.
-
-The next goal is **more readable, more distinctive and more replayable**, not “more systems at any cost.”
-
----
+Drive-first, chaos-second. The player, camera, controls and road-following AI must not feel more foolish than the characters.
 
 ## Permanent constraint — FREE ONLY
 
-Roadside Idiots may use only:
-- content/tools/assets available to the user for $0 under the applicable license, or
-- content created by this project.
+Roadside Idiots may use only content/tools/assets available to the user for $0 under the applicable license, or content created by this project.
 
 The removed SankoolArts / `CompoundWall_Kit` content must never return. Packaging preflight blocks it.
-
----
 
 ## Frozen foundation
 
@@ -50,6 +40,8 @@ Do not retune/rewrite without a reproducible regression:
 - core camera baseline
 - assisted egg targeting
 - basic road dimensions / oval route geometry
+- accepted player engine/skid feedback
+- accepted traffic warning timing/volume
 
 `05c2604` remains the accepted AI/racecraft reference state.
 
@@ -57,149 +49,183 @@ Do not retune/rewrite without a reproducible regression:
 
 ## Verified gameplay/readability polish
 
-Local UE 5.8 playtests have already verified:
-- AI/racecraft improvement remains stable
-- player engine/skid feedback is useful
+Local UE 5.8 playtests have verified:
+- AI/racecraft remains stable and wall-safe
 - item economy is five banana slots + three rotten-egg slots
 - rotten eggs enter normal player use
-- traffic advance warning fires at useful time-to-contact values
-- telemetry records race setup, finish, speed, overtakes, item use and competition gap
 - direct damage-source telemetry reaches `unknown=0`
-- repeated tests produce both wins and close losses, so there is no evidence justifying an AI difficulty rewrite
-- engine and advance-horn volumes were raised modestly after user feedback
+- repeated races produce both wins and close losses, so no AI difficulty rewrite is justified
+- traffic advance warning works at useful time-to-contact values
+- engine and warning-horn levels are acceptable after modest volume increases
+- finish celebration is kinematic / non-colliding / warning-free
+- known presentation physics/collision warning regression checks pass
 
 ---
 
-## Major presentation pass 1 — VERIFIED at `3fb92f2`
+## Major presentation passes 1–3 — VERIFIED
 
-Pass 1 established:
+### Pass 1
+Added:
 - start/finish gantry
-- quarter-lap landmark gates
-- expanded market / tea-stop cluster
-- parked CNG-style silhouette
-- bus-stop shelter and parked bus silhouette
-- pond / green-field section
-- broad-canopy framing trees
-- continuous road edge lines
-- dashed center markings
-- visible checkered start/finish stripe
-- first rival-personality color cue
+- quarter-lap landmarks
+- market / tea-stop cluster
+- bus-stop / parked-bus silhouette
+- pond / field section
+- road edge/center/checker markings
+- first rival color identity
 - finish confetti
 
-The first screenshot exposed two defects despite successful runtime hooks:
-1. the tall personality flag/pole dominated the motorcycle;
-2. physics-driven `NoCollision` confetti produced Unreal collision/physics warnings.
+Screenshot review caught an oversized rival flag and physics-driven `NoCollision` confetti. Both were corrected rather than accepted just because logging passed.
 
-Those defects were corrected in pass 2 rather than accepted just because logging passed.
+### Pass 2 — verified at `9148a6b`
+Added/corrected:
+- kinematic confetti; warning spam gone
+- compact rival body accents
+- first traffic windows/trim/mirrors/plates
+- barrier reflectors
+- built-in `ROADSIDE IDIOTS`, `TEA STOP`, `BUS STOP` signage
 
----
+### Pass 3 — verified at `c8024cd`
+User compiled and ran in UE 5.8 with 5 opponents / 5 traffic. Runtime verification passed all required hooks and warning regression checks.
 
-## Major presentation pass 2 — VERIFIED at `9148a6b`
+Pass 3 added:
+- layered traffic shell details
+- smaller integrated rival tail/fairing accents
+- dark backing boards behind landmark text
+- distant built-up skyline
+- distant rural tree belt
+- rooftop water-tank silhouettes
 
-The user compiled and ran pass 2 in UE 5.8. Runtime verification passed all required hooks:
-- landmark world layer
-- built-in world signage
-- road markings + 40 reflectors
-- five rival identity hooks
-- four traffic visual-polish hooks
-- item balance / playtest telemetry
-- traffic warnings
-- kinematic finish celebration
-- known presentation physics/collision warning regression check
-
-The previous Message Log warning spam was gone.
-
-### Pass 2 accepted technical changes
-- finish confetti is kinematic, non-colliding and warning-free
-- oversized rival flag/pole was removed
-- traffic gained first-pass windows/trim/mirrors/plates and vehicle-specific details
-- visual barriers gained sparse reflectors
-- `ROADSIDE IDIOTS`, `TEA STOP`, and `BUS STOP` use built-in TextRender
-
-### Pass 2 screenshot findings
-The second screenshot still showed several prototype-quality visual weaknesses:
-- civilian sedan traffic still read primarily as a large rectangular body/cabin block
-- rival body accents were much better than the old flag but still looked too saturated / detached below clustered bikes
-- landmark text had no backing board and could wash out against the environment
-- horizon remained mostly empty sky and flat ground beyond the near roadside props
-
-These observations justify another presentation-only pass; they do not justify reopening gameplay systems.
+Observed screenshots show the world is clearly more complete than the earlier bare oval. The remaining weaknesses are art/presentation quality rather than racing-system failures.
 
 ---
 
-## CURRENT AUTONOMOUS BLOCK 3 — PENDING LOCAL UE 5.8 COMPILE / VISUAL CHECK
+# CURRENT AUTONOMOUS BLOCK 4 — PENDING LOCAL UE 5.8 COMPILE / VISUAL CHECK
 
-Block 3 is based directly on the second screenshot and remains isolated from frozen gameplay.
+Block 4 is deliberately a larger presentation batch before asking for another user verification.
 
-### A. Civilian traffic layered-shell pass
-`URITrafficVisualPolishSubsystem` now builds a clearer visible shell around existing traffic actors while leaving `ARITrafficVehicle` movement, impact volume and damage untouched.
+## A. Sedan traffic silhouette replacement
 
-New/expanded cues include:
-- body-material-matched hood / trunk / roof layers for sedan-like traffic
-- framed rear glass instead of one large gray cabin face
-- side glass
-- headlamps and tail lamps
-- lower side sills
-- bumpers / grille / plate / mirrors
-- compact CNG rear lamps and side framing
-- existing TAXI / MICROBUS / DELIVERY VAN / SUNDAY DRIVER / LOST DRIVER identity details
+`URITrafficVisualPolishSubsystem` now goes beyond attaching trim.
 
-All added pieces use `NoCollision`, do not affect navigation, and do not cast their own shadows.
+For sedan-like traffic (`TAXI`, `SUNDAY DRIVER`, `LOST DRIVER`):
+- the old visible cube `CabinVisual` is hidden;
+- the separate authoritative `ImpactVolume` is NOT changed;
+- the visible cabin is rebuilt from:
+  - body-color roof cap
+  - sloped A-pillars
+  - B-pillars
+  - sloped C-pillars
+  - front glass
+  - rear glass
+  - split side glass
+  - hood / trunk layers
+  - lamps / mirrors / bumpers / sills / plate
 
-### B. Rival identity integration pass
-The previous body strips were shrunk and moved inward toward the tail/fairing.
+Large vans/microbuses retain a naturally boxier shell; CNG keeps its separate three-wheeler silhouette.
 
-Changes:
-- substantially smaller side accents
-- smaller rear badge
-- reduced saturation so accents do not compete with pickups/hazards
-- no accent shadows
-- log style now reports `integrated_tail_badges`
+Expected traffic log now includes:
+`style=tapered_shell`
 
-No AI personality behavior changed.
+## B. Road surface detail
 
-### C. Landmark sign backing boards
-`URIWorldSignageSubsystem` now places thin dark backing boards behind:
-- `ROADSIDE IDIOTS`
-- `TEA STOP`
-- `BUS STOP`
+New `URIRoadSurfaceDetailSubsystem` adds a restrained, visual-only asphalt wear layer:
+- 18 dark repair patches
+- paired skid streaks in four braking zones
+- instanced Engine cube geometry
+- only a few centimeters above the visual road
+- `NoCollision`
+- navigation off
+- shadows off
 
-The boards use Engine cube/material assets only and remain collision/navigation/shadow free.
+This layer must NEVER become an authoritative road surface and must not recreate the old road-bump problem.
 
-### D. Distant roadside backdrop
-New `URIRoadsideBackdropSubsystem` fills the empty horizon efficiently using instanced Engine shapes:
-- muted low-rise building belt on the more built-up half of the lap
-- occasional rooftop water-tank silhouettes
-- broad distant tree belt on the rural half
+Expected hook:
+`RI ROAD SURFACE_DETAIL patches=18 skid_streaks=40 collision=off navigation=off`
 
-The backdrop is intentionally low-detail, low-contrast, non-colliding, non-navigable and well outside the authoritative race corridor.
+## C. Near roadside facade details
 
-Expected runtime hook:
-`RI WORLD BACKDROP buildings=22 trees=30 tanks=... collision=off navigation=off`
+New `URIRoadsideFacadeDetailSubsystem` improves the closest blockout landmarks:
+- market shop doors
+- dark storefront windows
+- awning valance edges
+- facade separators / trim
+- bus side windows
+- bus belt / door outline
 
-### E. Verification tooling
-`tools/verify_polish_runtime.ps1` now requires the distant-backdrop hook in addition to the existing landmark/signage/road/rival/item/playtest checks and warning regression scan.
+All are instanced, shadow-free, `NoCollision`, and outside gameplay ownership.
+
+Expected hook:
+`RI WORLD FACADE_DETAILS ... collision=off navigation=off`
+
+## D. Distant skyline facade rhythm
+
+`URIRoadsideBackdropSubsystem` now adds to the existing 22-building / 30-tree distant backdrop:
+- dark facade window bands
+- roof trims
+- existing rooftop water tanks remain
+
+This should make the skyline read as low-rise buildings instead of a row of plain cubes while keeping it deliberately low-detail and low-contrast.
+
+## E. Mild presentation color grade
+
+New `URIPresentationGradeSubsystem` creates one unbound `APostProcessVolume` after the race world exists.
+
+Values are intentionally restrained:
+- global contrast: `1.05`
+- global saturation: `1.03`
+- vignette: `0.08`
+
+It does NOT change:
+- camera transforms
+- sun/skylight actors
+- exposure settings
+- physics
+- AI
+- race state
+
+The implementation was checked against Unreal Engine 5.8 `APostProcessVolume` / `FPostProcessSettings` API.
+
+Expected hook:
+`RI PRESENTATION GRADE contrast=1.05 saturation=1.03 vignette=0.08 gameplay=unchanged`
+
+## F. Runtime verifier
+
+`tools/verify_polish_runtime.ps1` now requires:
+- landmark layer
+- world signage
+- near facade details
+- distant backdrop
+- road markings
+- road surface detail
+- presentation grade
+- rival identity
+- item balance
+- playtest start
+
+It also reports the tapered traffic-shell hook when traffic is present and retains the physics/collision warning regression scan.
 
 ---
 
-## Block 3 isolation check
+## Block 4 isolation check
 
-Compared with the user-verified `9148a6b` state, Block 3 changes presentation/tooling only:
-- `RIRivalIdentitySubsystem`
+Compared with the user-verified `c8024cd` state, Block 4 changes presentation/tooling only:
+- `RIPresentationGradeSubsystem` (new)
 - `RITrafficVisualPolishSubsystem`
-- new `RIRoadsideBackdropSubsystem`
-- `RIWorldSignageSubsystem`
-- runtime verifier
+- `RIRoadSurfaceDetailSubsystem` (new)
+- `RIRoadsideFacadeDetailSubsystem` (new)
+- `RIRoadsideBackdropSubsystem`
+- `tools/verify_polish_runtime.ps1`
 - this milestone document
 
-Do **not** touch during this gate unless a reproducible regression appears:
+Do NOT touch during this gate unless a reproducible regression appears:
 - `ARIAIController`
 - `ARIRacingLineFollower`
 - `URIBikeMovementComponent`
 - authoritative road collision floor
-- checkpoint/lap/place rules
+- checkpoints/lap/place rules
 - traffic route/movement behavior
-- traffic impact volumes / damage tuning
+- traffic `ImpactVolume` / damage tuning
 
 ---
 
@@ -207,57 +233,55 @@ Do **not** touch during this gate unless a reproducible regression appears:
 
 The next user action is justified because the remaining uncertainty is local compile/render/perception:
 1. sync latest `dev/mvp-foundation`;
-2. compile `RoadsideIdiotsEditor Win64 Development` under UE 5.8.1;
+2. compile `RoadsideIdiotsEditor Win64 Development` on UE 5.8.1;
 3. run a race with 4+ traffic;
-4. judge whether ordinary cars finally read less like boxes, especially from the rear;
-5. confirm rival colors now feel integrated rather than neon/detached;
-6. confirm the three landmark signs are easier to read against their backing boards;
-7. confirm the distant skyline/tree belt improves the empty horizon without making the track cluttered;
-8. confirm flat-road / bike / AI / traffic collision behavior is unchanged;
-9. finish the race and run `tools/verify_polish_runtime.ps1`;
-10. watch for new Message Log warnings.
+4. judge sedan-like traffic from behind and alongside — it should no longer have the old cube cabin;
+5. confirm vans/CNG still read coherently;
+6. judge whether road patches/skid marks add texture without looking cluttered or producing any physical bump;
+7. judge market/bus facade details and the improved distant skyline;
+8. judge whether the mild color grade improves separation without looking overprocessed;
+9. confirm flat-road / bike / AI / traffic collision behavior is unchanged;
+10. finish and run `tools/verify_polish_runtime.ps1`;
+11. watch Message Log for new warnings.
 
 If compile fails, fix compile before visual judgment.
 
-If a presentation element is ugly, correct only that layer; do not reopen the frozen racing foundation.
+If one presentation element looks wrong, correct only that layer; do not reopen the frozen racing foundation.
 
 ---
 
-## After Block 3 passes
+## After Block 4 passes
 
-Continue autonomously with the highest-value remaining Demo 1 work:
+Highest-value remaining Demo 1 work:
 
-### Asset-first art/audio replacement
-- replace synthetic fallback sounds with verified free/custom assets where practical
-- prioritize engine/load, impacts, countdown/GO/lap/finish, horn and item feedback
+### Asset-first art replacement
+- use verified free local vegetation/props when exact package paths are known
 - never guess local asset paths
+- replace procedural blockout gradually rather than importing collision-heavy packs
 
-### Environment art replacement
-- replace blockout silhouettes gradually with verified free local vegetation/props
-- preserve Bangladesh/South-Asian roadside identity
-- keep decorative content outside authoritative road collision
+### Asset-first audio replacement
+- replace synthetic fallback engine/load, impacts, countdown/GO/lap/finish/horn/item cues with verified free/custom assets where practical
+- keep one audio owner per event category
 
-### Fresh player-test build
-- create a new standalone Shipping package after the presentation gate
-- run free-only preflight and package verification
+### Player-test build
+- create a fresh standalone Shipping package after the presentation gate
+- run packaging preflight and runtime verification
 - use `docs/PLAYER_TEST_PLAN.md` with outside players
 
 ### Demo 2 only after player-test feedback
 Potential themes:
 - another route/environment variation
-- new race/hazard variation
+- new hazard/race variation
 - stronger rival identity
-- deeper accessibility/remapping
+- accessibility/remapping
 - side-grade/cosmetic progression
 - multiplayer/social work much later
-
----
 
 ## Known acceptable Demo 1 limitations
 
 Not current blockers:
 - traffic can still collide in dense conditions
 - physics are arcade/prototype rather than commercial motorcycle simulation
-- blockout-quality art remains in places
 - one main course/mode is acceptable for Demo 1
+- local procedural art/audio remains prototype quality until verified free assets replace it
 - multiplayer is deferred
