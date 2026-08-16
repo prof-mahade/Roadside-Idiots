@@ -1,5 +1,6 @@
 #include "AI/RIRacingLineFollower.h"
 
+#include "AI/RIAIController.h"
 #include "Vehicle/RIBikePawn.h"
 #include "Vehicle/RIBikeMovementComponent.h"
 #include "Traffic/RITrafficVehicle.h"
@@ -24,6 +25,12 @@ void ARIRacingLineFollower::Configure(
     BaseLaneOffset = FMath::Clamp(InLaneOffset, -300.0f, 300.0f);
     SmoothedLaneOffset = BaseLaneOffset;
     SmoothedSteering = 0.0f;
+
+    ActiveRivalPassTarget.Reset();
+    RivalPassLaneOffset = BaseLaneOffset;
+    RivalPassHoldRemaining = 0.0f;
+    RivalPassCooldownRemaining = 0.0f;
+
     ActiveTrafficTarget.Reset();
     TrafficPassLaneOffset = BaseLaneOffset;
     TrafficPassHoldRemaining = 0.0f;
@@ -128,6 +135,235 @@ FVector ARIRacingLineFollower::SampleRouteAhead(
 
     if (OutTangent) *OutTangent = FVector::ForwardVector;
     return Current;
+}
+
+void ARIRacingLineFollower::UpdateRivalPassPlan(
+    const float DeltaSeconds,
+    const FVector& BikeLocation,
+    const FVector& RouteTangent,
+    const float CurrentLateralOffset,
+    const float SpeedCms,
+    const float UpcomingTurnSeverity,
+    const float StrategicLaneStrength,
+    float& InOutDesiredLaneOffset,
+    float& OutRivalSpeedScale)
+{
+    OutRivalSpeedScale = 1.0f;
+    if (!Bike || !GetWorld()) return;
+
+    RivalPassHoldRemaining = FMath::Max(0.0f, RivalPassHoldRemaining - DeltaSeconds);
+    RivalPassCooldownRemaining = FMath::Max(0.0f, RivalPassCooldownRemaining - DeltaSeconds);
+
+    auto GetRivalFrame = [&](ARIBikePawn* Rival, float& OutAlong, float& OutLateral, float& OutRelativeSpeed)
+    {
+        if (!Rival || Rival == Bike || !Rival->AreRaceControlsEnabled()) return false;
+
+        FVector RivalProjection;
+        FVector RivalTangent;
+        FVector RivalRight;
+        int32 RivalSegment = 0;
+        float RivalAlpha = 0.0f;
+        if (!ProjectOntoRoute(
+            Rival->GetActorLocation(),
+            RivalProjection,
+            RivalTangent,
+            RivalRight,
+            OutLateral,
+            RivalSegment,
+            RivalAlpha))
+        {
+            return false;
+        }
+
+        FVector ToRival = Rival->GetActorLocation() - BikeLocation;
+        ToRival.Z = 0.0f;
+        OutAlong = FVector::DotProduct(ToRival, RouteTangent);
+
+        const FVector RivalVelocity = Rival->GetChassis()
+            ? Rival->GetChassis()->GetPhysicsLinearVelocity()
+            : FVector::ZeroVector;
+        const float RivalForwardSpeed = FVector::DotProduct(RivalVelocity, RouteTangent);
+        OutRelativeSpeed = SpeedCms - RivalForwardSpeed;
+        return true;
+    };
+
+    if (ActiveRivalPassTarget.IsValid())
+    {
+        float Along = 0.0f;
+        float Lateral = 0.0f;
+        float RelativeSpeed = 0.0f;
+        if (!GetRivalFrame(ActiveRivalPassTarget.Get(), Along, Lateral, RelativeSpeed) ||
+            Along < -340.0f || Along > RivalDetectionDistanceCm * 1.35f)
+        {
+            if (RivalPassHoldRemaining <= 0.0f)
+            {
+                ActiveRivalPassTarget.Reset();
+                RivalPassCooldownRemaining = RivalPassCooldownSeconds;
+            }
+        }
+    }
+
+    // A deliberate combat/pickup lane request is a higher-level decision than a
+    // routine overtake. Do not start a second maneuver on top of it. Existing
+    // passes may finish if already side-by-side, but they do not fight the brain.
+    const bool bStrategicManeuverOwnsLane = StrategicLaneStrength > 0.70f;
+    if (bStrategicManeuverOwnsLane && ActiveRivalPassTarget.IsValid() && RivalPassHoldRemaining <= 0.0f)
+    {
+        ActiveRivalPassTarget.Reset();
+        RivalPassCooldownRemaining = RivalPassCooldownSeconds;
+    }
+
+    ARIBikePawn* BestRival = nullptr;
+    float BestScore = 0.0f;
+    float BestRivalLateral = 0.0f;
+
+    // New passes begin only when there is enough road ahead to make the decision
+    // look intentional. This prevents optimistic dive-bombs into a bend.
+    if (!ActiveRivalPassTarget.IsValid() &&
+        RivalPassCooldownRemaining <= 0.0f &&
+        !bStrategicManeuverOwnsLane &&
+        UpcomingTurnSeverity <= RivalPassMaxTurnSeverity)
+    {
+        for (TActorIterator<ARIBikePawn> It(GetWorld()); It; ++It)
+        {
+            ARIBikePawn* Rival = *It;
+            if (!Rival || Rival == Bike || !Rival->AreRaceControlsEnabled()) continue;
+
+            float Along = 0.0f;
+            float RivalLateral = 0.0f;
+            float RelativeSpeed = 0.0f;
+            if (!GetRivalFrame(Rival, Along, RivalLateral, RelativeSpeed)) continue;
+            if (Along < 170.0f || Along > RivalDetectionDistanceCm) continue;
+
+            const float LaneGap = FMath::Abs(RivalLateral - SmoothedLaneOffset);
+            if (LaneGap > RivalLaneConflictCm * 1.70f) continue;
+
+            // If we are not actually catching the other rider, stay on the
+            // efficient line instead of making decorative side-to-side moves.
+            if (RelativeSpeed < RivalMinimumClosingSpeedCmS && Along > 850.0f) continue;
+
+            const float LaneThreat = 1.0f - FMath::Clamp(
+                LaneGap / FMath::Max(1.0f, RivalLaneConflictCm * 1.70f),
+                0.0f,
+                1.0f);
+            const float DistanceUrgency = 1.0f - FMath::Clamp(Along / RivalDetectionDistanceCm, 0.0f, 1.0f);
+            const float ClosingUrgency = FMath::Clamp(
+                (RelativeSpeed - RivalMinimumClosingSpeedCmS) / 900.0f,
+                0.0f,
+                1.0f);
+            const float TTC = Along / FMath::Max(RelativeSpeed, 180.0f);
+            const float TTCUrgency = 1.0f - FMath::Clamp(TTC / 2.2f, 0.0f, 1.0f);
+            const float Score = LaneThreat * 0.38f + DistanceUrgency * 0.24f +
+                ClosingUrgency * 0.18f + TTCUrgency * 0.32f;
+
+            if (Score > BestScore)
+            {
+                BestScore = Score;
+                BestRival = Rival;
+                BestRivalLateral = RivalLateral;
+            }
+        }
+
+        if (BestRival && BestScore > 0.34f)
+        {
+            const float LaneLimit = SafeCorridorHalfWidthCm - 48.0f;
+            const float LeftCandidate = FMath::Clamp(
+                BestRivalLateral - RivalPassClearanceCm,
+                -LaneLimit,
+                LaneLimit);
+            const float RightCandidate = FMath::Clamp(
+                BestRivalLateral + RivalPassClearanceCm,
+                -LaneLimit,
+                LaneLimit);
+
+            auto CandidateScore = [&](const float Candidate)
+            {
+                const float Separation = FMath::Abs(Candidate - BestRivalLateral);
+                if (Separation < RivalLaneConflictCm * 0.88f)
+                {
+                    return TNumericLimits<float>::Max();
+                }
+
+                float Score = FMath::Abs(Candidate - CurrentLateralOffset);
+                Score += FMath::Square(FMath::Abs(Candidate) / FMath::Max(1.0f, LaneLimit)) * 190.0f;
+                Score += FMath::Abs(Candidate - BaseLaneOffset) * 0.08f;
+
+                // Gap awareness: prefer the side that is not already occupied by
+                // another rider in the near-ahead corridor.
+                for (TActorIterator<ARIBikePawn> OtherIt(GetWorld()); OtherIt; ++OtherIt)
+                {
+                    ARIBikePawn* Other = *OtherIt;
+                    if (!Other || Other == Bike || Other == BestRival || !Other->AreRaceControlsEnabled()) continue;
+
+                    float OtherAlong = 0.0f;
+                    float OtherLateral = 0.0f;
+                    float OtherRelativeSpeed = 0.0f;
+                    if (!GetRivalFrame(Other, OtherAlong, OtherLateral, OtherRelativeSpeed)) continue;
+                    if (OtherAlong < 60.0f || OtherAlong > RivalDetectionDistanceCm * 0.72f) continue;
+
+                    const float CorridorGap = FMath::Abs(OtherLateral - Candidate);
+                    if (CorridorGap < RivalLaneConflictCm * 1.35f)
+                    {
+                        const float LongitudinalPenalty = 1.0f - FMath::Clamp(
+                            OtherAlong / (RivalDetectionDistanceCm * 0.72f), 0.0f, 1.0f);
+                        Score += 520.0f * LongitudinalPenalty;
+                    }
+                }
+
+                return Score;
+            };
+
+            const float LeftScore = CandidateScore(LeftCandidate);
+            const float RightScore = CandidateScore(RightCandidate);
+            RivalPassLaneOffset = LeftScore <= RightScore ? LeftCandidate : RightCandidate;
+            ActiveRivalPassTarget = BestRival;
+            RivalPassHoldRemaining = RivalPassHoldSeconds;
+        }
+    }
+
+    if (!ActiveRivalPassTarget.IsValid() || bStrategicManeuverOwnsLane) return;
+
+    float Along = 0.0f;
+    float RivalLateral = 0.0f;
+    float RelativeSpeed = 0.0f;
+    if (!GetRivalFrame(ActiveRivalPassTarget.Get(), Along, RivalLateral, RelativeSpeed)) return;
+
+    if (Along > -340.0f && Along < RivalDetectionDistanceCm * 1.35f)
+    {
+        const float CurrentSeparation = FMath::Abs(CurrentLateralOffset - RivalLateral);
+
+        // If a significant bend arrives before we have established overlap,
+        // tuck in and follow rather than making a late dive. Once side-by-side,
+        // holding the selected corridor is safer than suddenly crossing back.
+        const bool bTooLateForNewMove = UpcomingTurnSeverity > RivalPassMaxTurnSeverity && Along > 620.0f;
+        if (!bTooLateForNewMove || CurrentSeparation > RivalLaneConflictCm * 0.75f)
+        {
+            const float LaneCommitStrength = Along > 2000.0f ? 0.48f : (Along > 650.0f ? 0.76f : 0.88f);
+            InOutDesiredLaneOffset = FMath::Lerp(
+                InOutDesiredLaneOffset,
+                RivalPassLaneOffset,
+                LaneCommitStrength);
+        }
+        else
+        {
+            OutRivalSpeedScale = FMath::Min(OutRivalSpeedScale, 0.88f);
+        }
+
+        // A professional-looking bot concedes speed when the gap has not opened.
+        // It should not simply ram the bike ahead because an overtake was planned.
+        if (Along < 1050.0f && CurrentSeparation < RivalLaneConflictCm * 1.10f)
+        {
+            OutRivalSpeedScale = FMath::Min(OutRivalSpeedScale, 0.88f);
+        }
+        if (Along < 650.0f && CurrentSeparation < RivalLaneConflictCm * 0.92f)
+        {
+            OutRivalSpeedScale = FMath::Min(OutRivalSpeedScale, 0.70f);
+        }
+        if (Along < 360.0f && CurrentSeparation < RivalLaneConflictCm * 0.78f)
+        {
+            OutRivalSpeedScale = FMath::Min(OutRivalSpeedScale, 0.52f);
+        }
+    }
 }
 
 void ARIRacingLineFollower::UpdateTrafficPassPlan(
@@ -370,6 +606,48 @@ void ARIRacingLineFollower::Tick(const float DeltaSeconds)
     // abandon the lane and aim toward the road centre. No threshold toggling.
     float DesiredLaneOffset = FMath::Lerp(BaseLaneOffset, 0.0f, StabilityRisk);
 
+    // Connect the high-level brain to the stable driver through a bounded lane
+    // request. It can ask for a maneuver, but it still cannot issue steering.
+    float StrategicLaneStrength = 0.0f;
+    if (const ARIAIController* AI = Cast<ARIAIController>(Bike->GetController()))
+    {
+        float StrategicLaneOffset = BaseLaneOffset;
+        if (AI->GetStrategicLaneRequest(StrategicLaneOffset, StrategicLaneStrength))
+        {
+            const float LaneLimit = SafeCorridorHalfWidthCm - 55.0f;
+            StrategicLaneOffset = FMath::Clamp(StrategicLaneOffset, -LaneLimit, LaneLimit);
+            DesiredLaneOffset = FMath::Lerp(
+                DesiredLaneOffset,
+                StrategicLaneOffset,
+                StrategicLaneStrength * (1.0f - StabilityRisk));
+        }
+    }
+
+    // Look farther than the immediate steering carrot before committing to a
+    // wheel-to-wheel pass. Passing into a hard bend is usually worse racecraft
+    // than following for another moment and attacking on the next open section.
+    FVector ManeuverPreviewTangent;
+    SampleRouteAhead(RouteSegment, RouteAlpha, 2400.0f, 0.0f, &ManeuverPreviewTangent);
+    const float PreviewDot = FMath::Clamp(FVector::DotProduct(RouteTangent, ManeuverPreviewTangent), -1.0f, 1.0f);
+    const float PreviewAngle = FMath::Abs(FMath::Atan2(
+        FVector::CrossProduct(RouteTangent, ManeuverPreviewTangent).Z,
+        PreviewDot));
+    const float UpcomingTurnSeverity = FMath::Clamp(PreviewAngle / 0.72f, 0.0f, 1.0f);
+
+    float RivalSpeedScale = 1.0f;
+    UpdateRivalPassPlan(
+        DeltaSeconds,
+        BikeLocation,
+        RouteTangent,
+        CurrentLateralOffset,
+        SpeedCms,
+        UpcomingTurnSeverity,
+        StrategicLaneStrength,
+        DesiredLaneOffset,
+        RivalSpeedScale);
+
+    // Civilian traffic is the stronger safety constraint and is therefore
+    // evaluated after normal racing/overtaking intent.
     float TrafficSpeedScale = 1.0f;
     UpdateTrafficPassPlan(
         DeltaSeconds,
@@ -380,9 +658,9 @@ void ARIRacingLineFollower::Tick(const float DeltaSeconds)
         DesiredLaneOffset,
         TrafficSpeedScale);
 
-    // Recovery always wins over a pass plan. Traffic planning remains alive so
-    // its timers do not freeze, but a bike that has been hit first returns to a
-    // stable road-centre trajectory.
+    // Recovery always wins over every pass/tactical plan. Planning timers remain
+    // alive so a collision does not freeze decision state, but the physical bike
+    // first returns to a stable road-centre trajectory.
     if (StabilityRisk > 0.0f)
     {
         DesiredLaneOffset = FMath::Lerp(DesiredLaneOffset, 0.0f, StabilityRisk);
@@ -479,7 +757,12 @@ void ARIRacingLineFollower::Tick(const float DeltaSeconds)
             155.0f);
     }
 
-    TrackingSpeedLimitKph *= FMath::Clamp(TrafficSpeedScale, 0.38f, 1.0f);
+    // The most restrictive nearby interaction wins. These are safety caps, not
+    // hidden pace boosts, so race position still comes from genuine driving.
+    TrackingSpeedLimitKph *= FMath::Clamp(
+        FMath::Min(RivalSpeedScale, TrafficSpeedScale),
+        0.38f,
+        1.0f);
 
     if (StabilityRisk > 0.0f)
     {
