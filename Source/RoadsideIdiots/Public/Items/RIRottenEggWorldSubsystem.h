@@ -21,9 +21,7 @@ public:
 
 private:
     void TrySpawnPickups();
-    void TryThrowEgg();
     ARIBikePawn* FindHumanBike() const;
 
     bool bSpawnedPickups = false;
-    double LastThrowTime = -100.0;
 };
