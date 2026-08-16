@@ -55,6 +55,7 @@ $RequiredControllerTokens = @(
     @{ Label = "Controller Y finish restart"; Token = "EKeys::Gamepad_FaceButton_Top" },
     @{ Label = "Start pause"; Token = "EKeys::Gamepad_Special_Right" },
     @{ Label = "Controller finish-state guard"; Token = "IsPlayerRaceFinished" },
+    @{ Label = "Finish screen blocks pause takeover"; Token = "RI INPUT FINISH_LOCK pause=blocked" },
     @{ Label = "Configured-race restart"; Token = "RestartConfiguredRace" }
 )
 
@@ -111,4 +112,5 @@ Write-Host ""
 Write-Host "Input contract verification PASSED." -ForegroundColor Green
 Write-Host "Restart/menu ownership: player controller" -ForegroundColor DarkGray
 Write-Host "Human post-finish gameplay input: blocked" -ForegroundColor DarkGray
+Write-Host "Finish screen pause takeover: blocked" -ForegroundColor DarkGray
 exit 0
