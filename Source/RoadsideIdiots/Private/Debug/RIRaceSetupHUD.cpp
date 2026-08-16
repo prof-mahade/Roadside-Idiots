@@ -20,6 +20,26 @@ namespace
         default: return TEXT("CUSTOM");
         }
     }
+
+    FString RIChaosLabel(const int32 ChaosLevel)
+    {
+        switch (ChaosLevel)
+        {
+        case 0: return TEXT("CLEAN");
+        case 2: return TEXT("MAYHEM");
+        default: return TEXT("BALANCED");
+        }
+    }
+
+    FString RIChaosDescription(const int32 ChaosLevel)
+    {
+        switch (ChaosLevel)
+        {
+        case 0: return TEXT("CLEAN: rivals mostly race; deliberate trouble is uncommon.");
+        case 2: return TEXT("MAYHEM: more frequent petty incidents; driving skill stays intact.");
+        default: return TEXT("BALANCED: the intended mix of racing, traffic and petty chaos.");
+        }
+    }
 }
 
 void ARIRaceSetupHUD::DrawHUD()
@@ -42,14 +62,12 @@ void ARIRaceSetupHUD::DrawHUD()
         if (RIController->GetPawn())
         {
             Super::DrawHUD();
-            DrawGameplayMenuHints();
         }
         DrawSettingsMenu();
         return;
     }
 
     Super::DrawHUD();
-    DrawGameplayMenuHints();
 
     if (RIController->IsPauseMenuOpen())
     {
@@ -59,31 +77,9 @@ void ARIRaceSetupHUD::DrawHUD()
 
 void ARIRaceSetupHUD::DrawGameplayMenuHints()
 {
-    if (!Canvas || !GEngine) return;
-
-    UFont* Font = GEngine->GetSmallFont();
-    if (!Font) return;
-
-    DrawRect(FLinearColor(0.015f, 0.022f, 0.030f, 0.96f), 24.0f, 45.0f, 360.0f, 19.0f);
-    DrawText(
-        TEXT("VPR-24B | HIGH-SPEED RACING AI"),
-        FLinearColor(0.52f, 1.0f, 0.70f),
-        28.0f,
-        48.0f,
-        Font,
-        0.76f,
-        false);
-
-    const float ControlsY = Canvas->SizeY - 47.0f;
-    DrawRect(FLinearColor(0.015f, 0.022f, 0.030f, 0.94f), 16.0f, ControlsY - 8.0f, 700.0f, 34.0f);
-    DrawText(
-        TEXT("W/S drive  A/D steer | Q/E slap  F peel  G egg  R recover | P pause  ENTER restart"),
-        FLinearColor(0.76f, 0.86f, 1.0f),
-        28.0f,
-        ControlsY,
-        Font,
-        0.78f,
-        false);
+    // Player-facing gameplay information now lives in RIDebugHUD. This wrapper
+    // intentionally draws nothing so Shipping builds do not stack duplicate
+    // controls or internal VPR labels over the race HUD.
 }
 
 void ARIRaceSetupHUD::DrawRaceSetupMenu()
@@ -102,48 +98,58 @@ void ARIRaceSetupHUD::DrawRaceSetupMenu()
 
     const float ScreenW = Canvas->SizeX;
     const float ScreenH = Canvas->SizeY;
-    const float PanelW = FMath::Min(660.0f, ScreenW * 0.74f);
-    const float PanelH = FMath::Min(600.0f, ScreenH * 0.82f);
+    const float PanelW = FMath::Min(680.0f, ScreenW * 0.76f);
+    const float PanelH = FMath::Min(620.0f, ScreenH * 0.86f);
     const float PanelX = (ScreenW - PanelW) * 0.5f;
-    const float PanelY = FMath::Max(28.0f, (ScreenH - PanelH) * 0.46f);
+    const float PanelY = FMath::Max(24.0f, (ScreenH - PanelH) * 0.46f);
 
-    DrawRect(FLinearColor(0.008f, 0.014f, 0.021f, 0.90f), PanelX, PanelY, PanelW, PanelH);
+    DrawRect(FLinearColor(0.008f, 0.014f, 0.021f, 0.92f), PanelX, PanelY, PanelW, PanelH);
     DrawRect(FLinearColor(0.95f, 0.70f, 0.10f, 0.95f), PanelX, PanelY, PanelW, 6.0f);
 
-    DrawText(TEXT("ROADSIDE IDIOTS"), FLinearColor(1.0f, 0.77f, 0.16f), PanelX + 34.0f, PanelY + 28.0f, Font, 2.15f, false);
-    DrawText(TEXT("THE ROAD IS DANGEROUS. THE RIDERS ARE WORSE."), FLinearColor(0.70f, 0.80f, 0.88f), PanelX + 37.0f, PanelY + 72.0f, Font, 0.90f, false);
-    DrawText(TEXT("DEMO 1 - RACE SETUP"), FLinearColor(0.52f, 1.0f, 0.70f), PanelX + 37.0f, PanelY + 102.0f, Font, 0.88f, false);
+    DrawText(TEXT("ROADSIDE IDIOTS"), FLinearColor(1.0f, 0.77f, 0.16f), PanelX + 34.0f, PanelY + 27.0f, Font, 2.15f, false);
+    DrawText(TEXT("THE ROAD IS DANGEROUS. THE RIDERS ARE WORSE."), FLinearColor(0.70f, 0.80f, 0.88f), PanelX + 37.0f, PanelY + 71.0f, Font, 0.90f, false);
+    DrawText(TEXT("QUICK RACE"), FLinearColor(0.52f, 1.0f, 0.70f), PanelX + 37.0f, PanelY + 101.0f, Font, 0.92f, false);
 
     const FString TrafficValue = Settings->GetTrafficCount() == 0 ? TEXT("OFF") : FString::FromInt(Settings->GetTrafficCount());
-    const FString Rows[6] =
+    const FString Rows[7] =
     {
         FString::Printf(TEXT("OPPONENTS        <  %d  >     (2 - 6)"), Settings->GetOpponentCount()),
         FString::Printf(TEXT("LAPS             <  %d  >     (1 - 5)"), Settings->GetLapCount()),
         FString::Printf(TEXT("TRAFFIC          <  %s  >     (0 - 6)"), *TrafficValue),
+        FString::Printf(TEXT("RACE CHAOS       <  %s  >"), *RIChaosLabel(Settings->GetChaosLevel())),
         TEXT("START RACE"),
         TEXT("SETTINGS"),
         TEXT("QUIT GAME")
     };
 
-    constexpr float RowHeight = 56.0f;
-    const float RowStartY = PanelY + 154.0f;
-    for (int32 Row = 0; Row < 6; ++Row)
+    constexpr float RowHeight = 50.0f;
+    const float RowStartY = PanelY + 145.0f;
+    for (int32 Row = 0; Row < 7; ++Row)
     {
         const float Y = RowStartY + static_cast<float>(Row) * RowHeight;
         const bool bSelected = RIController->GetSelectedMenuRow() == Row;
         if (bSelected)
         {
-            DrawRect(FLinearColor(0.95f, 0.69f, 0.08f, Row == 3 ? 0.32f : 0.18f), PanelX + 28.0f, Y - 10.0f, PanelW - 56.0f, 43.0f);
+            DrawRect(FLinearColor(0.95f, 0.69f, 0.08f, Row == 4 ? 0.32f : 0.18f), PanelX + 28.0f, Y - 9.0f, PanelW - 56.0f, 39.0f);
         }
 
         FLinearColor TextColor = bSelected ? FLinearColor(1.0f, 0.84f, 0.32f) : FLinearColor(0.92f, 0.95f, 0.98f);
-        if (Row == 3) TextColor = bSelected ? FLinearColor(0.35f, 1.0f, 0.45f) : FLinearColor(0.68f, 0.88f, 0.70f);
-        else if (Row == 5) TextColor = bSelected ? FLinearColor(1.0f, 0.42f, 0.32f) : FLinearColor(0.88f, 0.55f, 0.50f);
+        if (Row == 4) TextColor = bSelected ? FLinearColor(0.35f, 1.0f, 0.45f) : FLinearColor(0.68f, 0.88f, 0.70f);
+        else if (Row == 6) TextColor = bSelected ? FLinearColor(1.0f, 0.42f, 0.32f) : FLinearColor(0.88f, 0.55f, 0.50f);
 
-        DrawText(Rows[Row], TextColor, PanelX + 44.0f, Y, Font, Row >= 3 ? 1.18f : 1.08f, false);
+        DrawText(Rows[Row], TextColor, PanelX + 44.0f, Y, Font, Row >= 4 ? 1.12f : 1.03f, false);
     }
 
-    DrawText(TEXT("UP/DOWN select    LEFT/RIGHT change    ENTER confirm"), FLinearColor(0.70f, 0.75f, 0.80f), PanelX + 38.0f, PanelY + PanelH - 40.0f, Font, 0.88f, false);
+    DrawText(
+        RIChaosDescription(Settings->GetChaosLevel()),
+        FLinearColor(0.66f, 0.80f, 0.88f),
+        PanelX + 38.0f,
+        PanelY + PanelH - 64.0f,
+        Font,
+        0.78f,
+        false);
+
+    DrawText(TEXT("ARROWS / D-PAD select & change    ENTER / A confirm"), FLinearColor(0.70f, 0.75f, 0.80f), PanelX + 38.0f, PanelY + PanelH - 37.0f, Font, 0.84f, false);
 }
 
 void ARIRaceSetupHUD::DrawPauseMenu()
@@ -181,7 +187,7 @@ void ARIRaceSetupHUD::DrawPauseMenu()
         DrawText(Rows[Row], Color, PanelX + 42.0f, Y, Font, 1.12f, false);
     }
 
-    DrawText(TEXT("P / ESC resume    UP/DOWN select    ENTER confirm"), FLinearColor(0.68f, 0.74f, 0.80f), PanelX + 34.0f, PanelY + PanelH - 36.0f, Font, 0.82f, false);
+    DrawText(TEXT("P / ESC / MENU resume    D-PAD / ARROWS select    A / ENTER confirm"), FLinearColor(0.68f, 0.74f, 0.80f), PanelX + 34.0f, PanelY + PanelH - 36.0f, Font, 0.76f, false);
 }
 
 void ARIRaceSetupHUD::DrawSettingsMenu()
@@ -225,5 +231,5 @@ void ARIRaceSetupHUD::DrawSettingsMenu()
         DrawText(Rows[Row], Color, PanelX + 42.0f, Y, Font, Row == 2 ? 1.12f : 1.02f, false);
     }
 
-    DrawText(TEXT("LEFT/RIGHT change    ENTER on BACK    P/ESC back"), FLinearColor(0.68f, 0.74f, 0.80f), PanelX + 34.0f, PanelY + PanelH - 34.0f, Font, 0.80f, false);
+    DrawText(TEXT("LEFT/RIGHT or D-PAD change    ENTER / A on BACK    P/ESC/MENU back"), FLinearColor(0.68f, 0.74f, 0.80f), PanelX + 34.0f, PanelY + PanelH - 34.0f, Font, 0.74f, false);
 }
