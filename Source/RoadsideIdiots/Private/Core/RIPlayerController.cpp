@@ -88,7 +88,7 @@ int32 ARIPlayerController::GetCurrentMenuRowCount() const
     {
     case ERIMenuMode::RaceSetup: return 7;
     case ERIMenuMode::Pause: return 5;
-    case ERIMenuMode::Settings: return 3;
+    case ERIMenuMode::Settings: return 4;
     default: return 0;
     }
 }
@@ -150,12 +150,15 @@ void ARIPlayerController::AdjustSelectedSetting(const int32 Delta)
         return;
     }
 
-    if (MenuMode != ERIMenuMode::Settings) return;
+    if (MenuMode != ERIMenuMode::Settings || !GetWorld()) return;
 
     UGameUserSettings* UserSettings = UGameUserSettings::GetGameUserSettings();
-    if (!UserSettings) return;
+    UGameInstance* GameInstance = GetWorld()->GetGameInstance();
+    URIRaceSettingsSubsystem* RaceSettings = GameInstance
+        ? GameInstance->GetSubsystem<URIRaceSettingsSubsystem>()
+        : nullptr;
 
-    if (SelectedMenuRow == 0)
+    if (SelectedMenuRow == 0 && UserSettings)
     {
         int32 Quality = UserSettings->GetOverallScalabilityLevel();
         if (Quality < 0 || Quality > 3)
@@ -167,10 +170,14 @@ void ARIPlayerController::AdjustSelectedSetting(const int32 Delta)
         UserSettings->SetOverallScalabilityLevel(Quality);
         UserSettings->ApplySettings(false);
     }
-    else if (SelectedMenuRow == 1)
+    else if (SelectedMenuRow == 1 && UserSettings)
     {
         UserSettings->SetVSyncEnabled(!UserSettings->IsVSyncEnabled());
         UserSettings->ApplySettings(false);
+    }
+    else if (SelectedMenuRow == 2 && RaceSettings)
+    {
+        RaceSettings->SetSteeringFeel(RaceSettings->GetSteeringFeel() + Delta);
     }
 }
 
@@ -215,7 +222,7 @@ void ARIPlayerController::MenuConfirm()
         return;
     }
 
-    if (MenuMode == ERIMenuMode::Settings && SelectedMenuRow == 2)
+    if (MenuMode == ERIMenuMode::Settings && SelectedMenuRow == 3)
     {
         ReturnFromSettings();
     }
