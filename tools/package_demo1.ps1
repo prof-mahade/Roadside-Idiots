@@ -224,7 +224,8 @@ Q / E          slap left / right
 F              drop banana peel
 G              throw rotten egg
 R              recover bike
-P / Esc        pause / resume
+P              pause / resume during a race
+Esc            pause / menu back; Main Menu after finish
 Enter          menu confirm / race again after finish
 Y              quick race again after finish
 Arrow keys     menu navigation
@@ -235,11 +236,16 @@ LT             brake / reverse
 Left Stick     steer
 LB / RB        slap left / right
 A              drop banana peel / menu confirm / race again after finish
-B              throw rotten egg / menu back / resume from Pause
+B              throw rotten egg / menu back / resume; Main Menu after finish
 X              recover bike
 Y              quick race again after finish
-Menu / Start   pause / resume
+Menu / Start   pause / resume during a race
 D-pad          menu navigation
+
+POST-RACE
+Enter / A / Y  race again with the same configured setup
+Esc / B        return to Main Menu without auto-starting another race
+P / Start      result screen remains visible; Pause does not replace it
 
 Y is intentionally a finish-only restart shortcut. Pressing Y during an unfinished race does not reload the map.
 
