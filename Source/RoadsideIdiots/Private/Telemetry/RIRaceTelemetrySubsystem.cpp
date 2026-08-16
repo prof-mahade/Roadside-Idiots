@@ -4,6 +4,7 @@
 #include "Core/RIParticipantComponent.h"
 #include "Core/RIRaceSettingsSubsystem.h"
 #include "Race/RIRaceManager.h"
+#include "Traffic/RITrafficReadabilitySubsystem.h"
 #include "Vehicle/RIBikeMovementComponent.h"
 #include "Vehicle/RIBikePawn.h"
 #include "Engine/GameInstance.h"
@@ -292,22 +293,26 @@ void URIRaceTelemetrySubsystem::WriteSummary(const TCHAR* Reason)
     if (bSummaryWritten) return;
     bSummaryWritten = true;
 
+    UWorld* World = GetWorld();
     ARIRaceManager* RaceManager = CachedRaceManager.Get();
-    ARIBikePawn* PlayerBike = GetWorld()
-        ? Cast<ARIBikePawn>(UGameplayStatics::GetPlayerPawn(GetWorld(), 0))
+    ARIBikePawn* PlayerBike = World
+        ? Cast<ARIBikePawn>(UGameplayStatics::GetPlayerPawn(World, 0))
         : nullptr;
 
     int32 FinalPlace = LastPlace;
     float FinishTime = RaceManager ? RaceManager->GetRaceElapsedTime() : 0.0f;
+    FRIRaceProgress PlayerProgress;
+    bool bPlayerFinished = false;
+
     if (RaceManager && PlayerBike && PlayerBike->GetParticipantComponent())
     {
         const FName PlayerId = PlayerBike->GetParticipantComponent()->GetParticipantId();
         FinalPlace = RaceManager->GetPlace(PlayerId);
 
-        FRIRaceProgress Progress;
-        if (RaceManager->GetProgress(PlayerId, Progress) && Progress.bFinished)
+        if (RaceManager->GetProgress(PlayerId, PlayerProgress) && PlayerProgress.bFinished)
         {
-            FinishTime = Progress.FinishTime;
+            bPlayerFinished = true;
+            FinishTime = PlayerProgress.FinishTime;
         }
     }
 
@@ -318,6 +323,58 @@ void URIRaceTelemetrySubsystem::WriteSummary(const TCHAR* Reason)
     const float IncidentsPerMinute = ObservedSeconds > 1.0f
         ? static_cast<float>(DamageEvents) * 60.0f / ObservedSeconds
         : 0.0f;
+
+    // Race-closeness proxy at the instant the player finishes. For unfinished
+    // rivals, checkpoint units are more meaningful than inventing a time gap.
+    int32 ClosestCheckpointGap = INDEX_NONE;
+    float ClosestFinishedGapSeconds = 0.0f;
+    bool bHasFinishedRivalGap = false;
+    if (RaceManager && bPlayerFinished)
+    {
+        const int32 CheckpointCount = FMath::Max(1, RaceManager->GetCheckpointCount());
+        const int32 PlayerUnits = RaceManager->GetTotalLaps() * CheckpointCount;
+
+        int32 BestUnfinishedRivalUnits = INDEX_NONE;
+        float BestFinishedAbsGap = TNumericLimits<float>::Max();
+
+        for (int32 RivalIndex = 1; RivalIndex <= 6; ++RivalIndex)
+        {
+            const FName RivalId(*FString::Printf(TEXT("BOT_%02d"), RivalIndex));
+            FRIRaceProgress RivalProgress;
+            if (!RaceManager->GetProgress(RivalId, RivalProgress)) continue;
+
+            if (RivalProgress.bFinished)
+            {
+                const float SignedGap = RivalProgress.FinishTime - FinishTime;
+                const float AbsGap = FMath::Abs(SignedGap);
+                if (AbsGap < BestFinishedAbsGap)
+                {
+                    BestFinishedAbsGap = AbsGap;
+                    ClosestFinishedGapSeconds = SignedGap;
+                    bHasFinishedRivalGap = true;
+                }
+            }
+            else
+            {
+                const int32 RivalUnits = RivalProgress.CompletedLaps * CheckpointCount + RivalProgress.NextCheckpoint;
+                BestUnfinishedRivalUnits = FMath::Max(BestUnfinishedRivalUnits, RivalUnits);
+            }
+        }
+
+        if (BestUnfinishedRivalUnits != INDEX_NONE)
+        {
+            ClosestCheckpointGap = FMath::Max(0, PlayerUnits - BestUnfinishedRivalUnits);
+        }
+    }
+
+    int32 TrafficWarnings = 0;
+    if (World)
+    {
+        if (const URITrafficReadabilitySubsystem* Readability = World->GetSubsystem<URITrafficReadabilitySubsystem>())
+        {
+            TrafficWarnings = Readability->GetWarningCount();
+        }
+    }
 
     UE_LOG(LogTemp, Display, TEXT("RI PLAYTEST SUMMARY reason=%s"), Reason ? Reason : TEXT("unknown"));
     UE_LOG(
@@ -366,4 +423,12 @@ void URIRaceTelemetrySubsystem::WriteSummary(const TCHAR* Reason)
         EggIncidents,
         PoopIncidents,
         OtherIncidents);
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("RI PLAYTEST COMPETITION closest_checkpoint_gap=%d finished_gap_seconds=%s%.2f traffic_warnings=%d"),
+        ClosestCheckpointGap,
+        bHasFinishedRivalGap ? TEXT("") : TEXT("n/a:"),
+        bHasFinishedRivalGap ? ClosestFinishedGapSeconds : 0.0f,
+        TrafficWarnings);
 }
