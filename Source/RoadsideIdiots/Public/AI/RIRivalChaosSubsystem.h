@@ -26,5 +26,6 @@ private:
     ERITacticalIntent ChooseIntent(const ARIBikePawn* ControlledBike, int32 BotIndex) const;
 
     float DecisionRemaining = 2.0f;
+    float ActiveRaceSeconds = 0.0f;
     TMap<TWeakObjectPtr<ARIAIController>, double> LastDirectiveTime;
 };
