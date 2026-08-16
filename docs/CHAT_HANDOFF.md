@@ -22,9 +22,18 @@ On 2026-08-16 the user explicitly accepted Demo 1 as functionally complete.
 
 A standalone packaged Windows build has launched outside Unreal Editor with the expected motorcycle/rider presentation, track/environment, HUD/minimap, race flow and traffic present.
 
-The user subsequently accepted the `05c2604` AI/racecraft state as a good improvement and accepted the first player engine/skid feedback slice. Those systems are now treated as stable baselines.
+The user subsequently accepted the `05c2604` AI/racecraft state as a good improvement and accepted the first engine/skid feedback result. Those are stable baselines.
 
-The latest autonomous batch adds collision-free roadside identity geometry and passive playtest telemetry. That latest batch is **pending local UE 5.8 compile and visual/gameplay verification**.
+The user also locally verified the first telemetry/item/readability batch at `98e199d`: the egg loop entered normal play (1 pickup / 1 use in the test), traffic advance warnings fired, the player finished 1st at 91.8 km/h average / 119.6 km/h max, and the accepted AI pace remained healthy.
+
+After that verification an autonomous cleanup/evidence pass:
+- removed duplicate engine/skid ownership from bike movement; presentation is again the single audio owner
+- added accepted-impact source metadata to health for trustworthy telemetry
+- tagged slap / peel / egg condition loss
+- separated damage-source telemetry from player-facing comic incidents
+- added race-closeness and traffic-warning summary metrics
+
+This newest batch is **pending local UE 5.8 compile and perceptual verification**.
 
 Do not reopen solved foundation problems merely for theoretical improvement.
 
@@ -123,6 +132,7 @@ The user verified:
 - Opponents 6 / Laps 2 / Traffic 6: traffic collisions can occur, but normal road following stays stable
 - the later professional pace / predictive overtaking pass was a good AI-mechanism improvement
 - `05c2604` was explicitly reported good and is the accepted racecraft reference point
+- later telemetry runs remained fast/competitive enough that there is no evidence-based reason to retune AI yet
 
 Treat this stack as stable unless a reproducible regression appears.
 
@@ -192,6 +202,15 @@ Project version remains **0.1.1-demo1-polish1** unless the project config is int
 
 Full in-game remapping is deferred, but should be considered in a later accessibility pass.
 
+## Items — current verified balance direction
+The route now uses the same total prototype pickup density but splits it intentionally:
+- 5 banana pickup slots
+- 3 rotten-egg pickup slots
+
+Eggs replace selected route pickup positions rather than spawning awkwardly beside banana anchors. `ARIBikePawn` is the single owner of G/egg input; the old duplicate key polling in `URIRottenEggWorldSubsystem` was removed.
+
+The user verified the revised loop by collecting and using an egg in normal play.
+
 ## Civilian traffic
 Prototype traffic is intentionally simple for Demo 1.
 
@@ -200,6 +219,8 @@ Known acceptable limitation:
 
 Required invariant:
 - a traffic hit must not restore persistent wall-to-wall AI oscillation
+
+A presentation-only `URITrafficReadabilitySubsystem` may play a restrained advance horn when the player is rapidly closing on traffic in the near-future corridor. It never changes traffic motion, controls, collision or AI. The first local test logged three warnings; human judgment of usefulness vs annoyance remains part of the current gate.
 
 ## Presentation / free assets
 Approved local free content includes:
@@ -211,8 +232,8 @@ Approved local free content includes:
 
 Runtime cooking is deliberately limited to the meshes/materials/textures actually used. Old UE4 sample template Blueprints/maps bundled in those free packs are excluded because they are irrelevant and can fail UE 5.8 cooking.
 
-### Latest roadside identity pass — pending visual verification
-`ARIDemoWorldBuilder` now creates lightweight presentation-only roadside silhouettes from Engine basic shapes:
+### Latest roadside identity pass — pending explicit visual judgment
+`ARIDemoWorldBuilder` creates lightweight presentation-only roadside silhouettes from Engine basic shapes:
 - sparse utility poles and overhead wire rhythm
 - four colorful tea-stall / roadside-shop clusters
 - simple signboards used as lap landmarks
@@ -222,28 +243,43 @@ All of these new pieces explicitly use `NoCollision` and sit outside the racing 
 
 Humor and environment identity should remain affectionate and recognizable rather than mocking people or poverty.
 
-## Audio
+## Audio — SINGLE OWNER RULE
 `RIAudioEvents` is asset-first and can use free imported SFX with generated fallbacks for prototype coverage.
 
-The player bike now drives the existing `EnginePulse` and `TireSkid` events from speed/load/braking/sliding. The user tested this first slice and called the improvement acceptable. It is feedback-only and did not change physics.
+`URIPresentationWorldSubsystem` is the single owner of race/player presentation audio including:
+- countdown
+- GO
+- lap complete
+- finish
+- crash cue
+- player engine pulse
+- player skid cue
+
+The first engine/skid result was called acceptable by the user. A later audit discovered that the bike movement component had also been triggering engine/skid, creating duplicate ownership. That duplicate was removed; `URIBikeMovementComponent` is physics-only again. The next local test should confirm the single-owner audio still feels present enough.
 
 Audio priority remains gameplay readability: engine/load, impacts, item throw/hit, skid/slip, countdown/GO/lap/finish and traffic horn before decorative comedy noise.
 
 A UE-owned `SoundWaveProcedural.h` C4996 warning has appeared during successful builds and is non-fatal for the current UE 5.8 build.
 
-## Passive playtest telemetry — pending local compile verification
-`URIRaceTelemetrySubsystem` passively samples the human player's already-public state about five times per second and writes summaries through `UE_LOG`.
+## Passive playtest telemetry
+`URIRaceTelemetrySubsystem` passively samples the human player's already-public state and writes summaries through `UE_LOG`. It must remain observer-only.
 
-Current metrics:
+Current metrics include:
+- race setup context (participants/laps/traffic/chaos/steering)
 - final place and finish time
 - average / maximum speed
 - overtakes and positions lost (place transitions)
-- condition-loss event count and total condition lost
-- approximate incident density per minute
+- accepted condition-loss event count and exact accepted amount
+- accepted damage-source counts (tagged slap/peel/egg; legacy untagged callers surface as UNKNOWN instead of being guessed)
+- separate player-facing comic incident counts
+- approximate damage-event density per minute
 - banana pickups / peel uses
 - egg pickups / egg uses
+- closest unfinished rival checkpoint gap at player finish
+- signed nearest finished-rival time gap when available
+- number of advance traffic warnings
 
-The subsystem must remain observer-only. It must never influence steering, throttle, physics, AI, item behavior or race rules.
+Health's impact-source metadata does not alter health math or immunity; it only records the most recent accepted hit for local/server-side telemetry.
 
 ## Packaging
 `tools/package_demo1.ps1` defaults to Shipping and:
@@ -259,18 +295,20 @@ The subsystem must remain observer-only. It must never influence steering, throt
 `tools/verify_demo1_package.ps1` performs static checks and can launch the newest package.
 
 ## CURRENT ACTIVE GATE
-The next user intervention is justified because the latest work requires local compilation and human visual judgment.
+The next user intervention is justified because the remaining questions are local/perceptual, not safely answerable from source alone.
 
 Required next verification:
-1. sync latest `dev/mvp-foundation`
+1. sync current `dev/mvp-foundation`
 2. compile `RoadsideIdiotsEditor Win64 Development` on the user's UE 5.8 machine
 3. launch with `UnrealEditor.exe <uproject> -log`
-4. confirm the new roadside props feel like useful environment identity rather than clutter
-5. confirm none of the new props affect collision/driving
-6. finish one race and confirm `RI PLAYTEST SUMMARY` lines appear in the log
-7. briefly watch for any regression in the accepted AI/wall behavior
+4. run one busy BALANCED race
+5. confirm the roadside props feel like useful identity rather than fake clutter
+6. confirm the single-owner engine/skid audio is still strong enough and not strangely sparse
+7. judge whether advance traffic horns help or annoy
+8. confirm bike/AI/wall behavior still matches the frozen accepted baseline
+9. confirm new `RI PLAYTEST DAMAGE_SOURCES`, `PRESENTATION`, and `COMPETITION` lines appear
 
-If this gate passes, continue autonomously with traffic/chaos readability and richer asset-first audio, without rewriting accepted driving systems.
+If this gate passes, continue autonomously with presentation/traffic/chaos readability and asset-first audio quality, without rewriting accepted driving systems.
 
 ## Player testing
 Use `docs/PLAYER_TEST_PLAN.md` when sharing builds. Important questions include:
