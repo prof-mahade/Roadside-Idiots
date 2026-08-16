@@ -14,6 +14,8 @@ $ContentDir = Join-Path $RepoRoot "Content"
 $SourceDir = Join-Path $RepoRoot "Source"
 $ConfigDir = Join-Path $RepoRoot "Config"
 $DefaultGameIni = Join-Path $ConfigDir "DefaultGame.ini"
+$InputVerifier = Join-Path $PSScriptRoot "verify_input_contract.ps1"
+$PlayerTestPlanSource = Join-Path $RepoRoot "docs\PLAYER_TEST_PLAN.md"
 
 function Fail([string]$Message) {
     throw "DEMO 1 PREFLIGHT FAILED: $Message"
@@ -74,6 +76,18 @@ if ($ReferenceRoots.Count -gt 0) {
     }
 }
 
+# Functional preflight: restart/menu input is owned by the player controller.
+# This specifically guards against the old Enter/Y pawn RestartRace mapping that
+# made the finish prompt unreliable and could discard configured race settings.
+if (-not (Test-Path $InputVerifier)) {
+    Fail "input contract verifier is missing: $InputVerifier"
+}
+
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $InputVerifier -ProjectRoot $RepoRoot
+if ($LASTEXITCODE -ne 0) {
+    Fail "input contract verification failed. Fix controller/restart mappings before packaging."
+}
+
 $ExpectedFreeAssets = @(
     "PN_Banana\Meshes\plants\banana_01_07.uasset",
     "PN_Banana\Meshes\plants\banana_02_05.uasset",
@@ -122,6 +136,7 @@ Write-Host "Configuration : $Configuration"
 Write-Host "Git commit    : $GitCommit"
 Write-Host "Output        : $ArchiveDir"
 Write-Host "Free-only     : recursive content/source preflight PASSED" -ForegroundColor Green
+Write-Host "Input contract: controller restart/menu preflight PASSED" -ForegroundColor Green
 Write-Host ""
 
 & $RunUAT BuildCookRun `
@@ -170,6 +185,7 @@ Engine: $EngineRoot
 Executable: $($Exe.FullName)
 Cooked containers: $($CookedContainers.Count)
 Expected approved free assets missing: $MissingText
+Input contract preflight: PASSED
 
 CONTENT POLICY FOR THIS PROJECT
 - Free/custom content only.
@@ -196,8 +212,9 @@ Q / E          slap left / right
 F              drop banana peel
 G              throw rotten egg
 R              recover bike
-P / Esc        pause
-Enter          confirm / race again
+P / Esc        pause / resume
+Enter          menu confirm / race again after finish
+Y              quick race again after finish
 Arrow keys     menu navigation
 
 GAMEPAD (Xbox-style layout)
@@ -205,12 +222,14 @@ RT             accelerate
 LT             brake / reverse
 Left Stick     steer
 LB / RB        slap left / right
-A              drop banana peel / menu confirm
-B              throw rotten egg
+A              drop banana peel / menu confirm / race again after finish
+B              throw rotten egg / menu back / resume from Pause
 X              recover bike
-Y              race again
-Menu / Start   pause
+Y              quick race again after finish
+Menu / Start   pause / resume
 D-pad          menu navigation
+
+Y is intentionally a finish-only restart shortcut. Pressing Y during an unfinished race does not reload the map.
 
 RACE CHAOS
 CLEAN          mostly racing, fewer deliberate rival incidents
@@ -232,6 +251,14 @@ DEMO NOTES
 
 Build: $GitCommit ($Configuration)
 "@ | Set-Content -Path $PlayerReadmePath -Encoding UTF8
+
+$PackagedTestPlan = Join-Path $ArchiveDir "PLAYER_TEST_PLAN.md"
+if (Test-Path $PlayerTestPlanSource) {
+    Copy-Item -Path $PlayerTestPlanSource -Destination $PackagedTestPlan -Force
+}
+else {
+    Write-Warning "Player test plan was not found at $PlayerTestPlanSource"
+}
 
 $ZipPath = "$ArchiveDir.zip"
 if (Test-Path $ZipPath) {
@@ -255,9 +282,9 @@ Write-Host "Version    : $ProjectVersion"
 Write-Host "Executable : $($Exe.FullName)"
 Write-Host "Manifest   : $ManifestPath"
 Write-Host "Readme     : $PlayerReadmePath"
+if (Test-Path $PackagedTestPlan) {
+    Write-Host "Test plan  : $PackagedTestPlan"
+}
 Write-Host "Package    : $ArchiveDir"
 Write-Host "Share ZIP  : $ZipPath" -ForegroundColor Green
 Write-Host "SHA-256    : $($ZipHash.Hash.ToLowerInvariant())" -ForegroundColor Green
-Write-Host "Checksum   : $ChecksumPath"
-Write-Host ""
-Write-Host "NEXT: run tools\verify_demo1_package.ps1 against this folder, then perform the manual smoke test before sharing the ZIP." -ForegroundColor Yellow
