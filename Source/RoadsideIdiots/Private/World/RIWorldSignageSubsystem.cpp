@@ -145,7 +145,6 @@ void URIWorldSignageSubsystem::BuildSigns()
 
         Text->SetText(FText::FromString(TextValue));
         Text->SetHorizontalAlignment(EHTA_Center);
-        Text->SetVerticalAlignment(EVRTA_TextCenter);
         Text->SetWorldSize(WorldSize);
         Text->SetXScale(XScale);
         Text->SetTextRenderColor(Color);
