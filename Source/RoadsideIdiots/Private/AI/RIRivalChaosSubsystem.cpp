@@ -4,6 +4,7 @@
 #include "Vehicle/RIBikePawn.h"
 #include "Core/RIParticipantComponent.h"
 #include "Core/RIRaceSettingsSubsystem.h"
+#include "Race/RIRaceManager.h"
 #include "Engine/GameInstance.h"
 #include "EngineUtils.h"
 
@@ -119,7 +120,7 @@ ERITacticalIntent URIRivalChaosSubsystem::ChooseIntent(const ARIBikePawn* Contro
 
     switch (BotIndex)
     {
-    case 1: // LEECH: annoy by occupying the useful line, not endless punching.
+    case 1: // LEECH: defend useful road space against the rider trying to pass.
         return ERITacticalIntent::Block;
 
     case 2: // HOTHEAD: close contact first, egg if armed.
@@ -147,19 +148,36 @@ ARIBikePawn* URIRivalChaosSubsystem::FindTargetFor(
     ARIAIController* Controller,
     ARIBikePawn* ControlledBike,
     const int32 BotIndex,
+    const ERITacticalIntent Intent,
     const TSet<const ARIBikePawn*>& ReservedTargets) const
 {
-    if (!Controller || !ControlledBike || !GetWorld() || BotIndex == 6) return nullptr;
+    UWorld* World = GetWorld();
+    if (!Controller || !ControlledBike || !World || BotIndex == 6 || Intent == ERITacticalIntent::None) return nullptr;
 
     const FVector Origin = ControlledBike->GetActorLocation();
     const FVector Forward = ControlledBike->GetActorForwardVector().GetSafeNormal2D();
     const FVector Right = ControlledBike->GetActorRightVector().GetSafeNormal2D();
     const float MaxRange = BotIndex == 4 ? 2400.0f : 2100.0f;
 
+    ARIRaceManager* RaceManager = nullptr;
+    for (TActorIterator<ARIRaceManager> It(World); It; ++It)
+    {
+        RaceManager = *It;
+        break;
+    }
+
+    int32 SelfPlace = 0;
+    if (RaceManager && ControlledBike->GetParticipantComponent())
+    {
+        SelfPlace = RaceManager->GetPlace(ControlledBike->GetParticipantComponent()->GetParticipantId());
+    }
+
+    const bool bDefensiveIntent = Intent == ERITacticalIntent::Block || Intent == ERITacticalIntent::PeelTrap;
+
     ARIBikePawn* BestTarget = nullptr;
     float BestScore = TNumericLimits<float>::Max();
 
-    for (TActorIterator<ARIBikePawn> It(GetWorld()); It; ++It)
+    for (TActorIterator<ARIBikePawn> It(World); It; ++It)
     {
         ARIBikePawn* Candidate = *It;
         if (!Candidate || Candidate == ControlledBike || !Candidate->AreRaceControlsEnabled()) continue;
@@ -173,21 +191,68 @@ ARIBikePawn* URIRivalChaosSubsystem::FindTargetFor(
         const FVector Direction = ToCandidate / Distance;
         const float ForwardDot = FVector::DotProduct(Direction, Forward);
         const float SideDistance = FMath::Abs(FVector::DotProduct(ToCandidate, Right));
-        const bool bCandidateAI = Cast<ARIAIController>(Candidate->GetController()) != nullptr;
 
-        // Distance dominates. Modest role biases produce variety without making
-        // every bot abandon the racing line for somebody half a track away.
+        // Tactics must target somebody they can physically affect. Blocking and
+        // peel traps are defensive/rearward maneuvers; egg/contact pressure works
+        // against riders ahead or alongside. This eliminates many fake-looking
+        // directives that could never actually complete.
+        if (Intent == ERITacticalIntent::PeelTrap && ForwardDot > 0.22f) continue;
+        if (Intent == ERITacticalIntent::Block && ForwardDot > 0.48f) continue;
+        if (Intent == ERITacticalIntent::EggShot && ForwardDot < -0.30f) continue;
+        if (Intent == ERITacticalIntent::SidePressure && ForwardDot < -0.42f) continue;
+
+        int32 CandidatePlace = 0;
+        if (RaceManager && Candidate->GetParticipantComponent())
+        {
+            CandidatePlace = RaceManager->GetPlace(Candidate->GetParticipantComponent()->GetParticipantId());
+        }
+
         float Score = Distance;
-        if (bCandidateAI) Score *= 0.90f;
-        if (ForwardDot < -0.55f) Score += 500.0f;
 
-        if (BotIndex == 2 || BotIndex == 5)
+        if (bDefensiveIntent)
+        {
+            // A defensive move should answer the rider immediately behind in the
+            // standings when possible, not somebody the bot has already escaped.
+            if (SelfPlace > 0 && CandidatePlace > 0)
+            {
+                const int32 PlaceDelta = CandidatePlace - SelfPlace;
+                if (PlaceDelta == 1) Score -= 330.0f;
+                else if (PlaceDelta > 1) Score -= 120.0f / static_cast<float>(PlaceDelta);
+                else if (PlaceDelta < 0) Score += 360.0f + 80.0f * FMath::Abs(PlaceDelta);
+            }
+
+            Score += FMath::Max(0.0f, ForwardDot) * 260.0f;
+        }
+        else
+        {
+            // Attacking/overtaking pressure belongs primarily on the position in
+            // front. This makes a bot's aggression serve its race rather than
+            // turning into random grief against whoever happens to be nearby.
+            if (SelfPlace > 0 && CandidatePlace > 0)
+            {
+                const int32 PlaceDelta = CandidatePlace - SelfPlace;
+                if (PlaceDelta == -1) Score -= 340.0f;
+                else if (PlaceDelta < -1) Score -= 140.0f / static_cast<float>(FMath::Abs(PlaceDelta));
+                else if (PlaceDelta > 0) Score += 210.0f + 75.0f * static_cast<float>(PlaceDelta);
+            }
+
+            Score -= FMath::Max(0.0f, ForwardDot) * 150.0f;
+            if (ForwardDot < -0.15f) Score += 230.0f;
+        }
+
+        if (Intent == ERITacticalIntent::SidePressure)
         {
             Score += FMath::Abs(SideDistance - 170.0f) * 0.16f;
         }
+        else if (Intent == ERITacticalIntent::EggShot)
+        {
+            // Egg throws are most credible when a target is already broadly in
+            // front rather than requiring an awkward lateral chase.
+            Score += SideDistance * 0.06f;
+        }
         else if (BotIndex == 4)
         {
-            Score += FMath::Abs(SideDistance - 240.0f) * 0.08f;
+            Score += FMath::Abs(SideDistance - 220.0f) * 0.08f;
         }
 
         if (Score < BestScore)
@@ -257,11 +322,11 @@ void URIRivalChaosSubsystem::IssueDirectives()
         const float EffectiveChance = FMath::Clamp(GetDirectiveChance(BotIndex) * ChaosTuning.ChanceScale, 0.0f, 0.85f);
         if (FMath::FRand() > EffectiveChance) continue;
 
-        ARIBikePawn* Target = FindTargetFor(Controller, ControlledBike, BotIndex, ReservedTargets);
-        if (!Target) continue;
-
         const ERITacticalIntent Intent = ChooseIntent(ControlledBike, BotIndex);
         if (Intent == ERITacticalIntent::None) continue;
+
+        ARIBikePawn* Target = FindTargetFor(Controller, ControlledBike, BotIndex, Intent, ReservedTargets);
+        if (!Target) continue;
 
         float Duration = 2.4f;
         switch (Intent)
