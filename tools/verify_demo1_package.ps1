@@ -67,12 +67,13 @@ $PdbFiles = @(Get-ChildItem -Path $PackagePath -Recurse -File -Filter "*.pdb" -E
 $Manifest = Join-Path $PackagePath "DEMO1_BUILD_INFO.txt"
 $Readme = Join-Path $PackagePath "README_ROADSIDE_IDIOTS.txt"
 $TestPlan = Join-Path $PackagePath "PLAYER_TEST_PLAN.md"
+$FeedbackForm = Join-Path $PackagePath "PLAYER_TEST_FEEDBACK_FORM.md"
 $PlayerTestEvidence = Join-Path $PackagePath "PLAYER_TEST_BUILD_INFO.txt"
 $BugfixEvidence = Join-Path $PackagePath "BUGFIX_PREFLIGHT.txt"
 $ZipPath = "$PackagePath.zip"
 $ChecksumPath = "$ZipPath.sha256.txt"
 
-foreach ($RequiredFile in @($Manifest, $Readme, $TestPlan, $PlayerTestEvidence, $BugfixEvidence, $ZipPath, $ChecksumPath)) {
+foreach ($RequiredFile in @($Manifest, $Readme, $TestPlan, $FeedbackForm, $PlayerTestEvidence, $BugfixEvidence, $ZipPath, $ChecksumPath)) {
     if (-not (Test-Path $RequiredFile)) {
         Fail "required player-test artifact is missing: $RequiredFile"
     }
@@ -98,7 +99,8 @@ $RequiredEvidencePhrases = @(
     'Tracked working tree clean before packaging: YES',
     'Approved free vegetation assets present before packaging: 4/4',
     'Combined input/audio/lifecycle preflight: PASSED',
-    'tools/package_player_test.ps1'
+    'Packaging pipeline: tools/package_player_test.ps1',
+    'Tester feedback form included: YES'
 )
 foreach ($Phrase in $RequiredEvidencePhrases) {
     if ($EvidenceText -notlike "*$Phrase*") {
@@ -130,6 +132,13 @@ foreach ($Phrase in $RequiredReadmePhrases) {
     }
 }
 
+$FeedbackText = Get-Content $FeedbackForm -Raw
+foreach ($Phrase in @('Engine remains audible while horn/item/crash sounds play', 'Y after finish restarts the same configured race', 'Would you voluntarily play another race right now?')) {
+    if ($FeedbackText -notlike "*$Phrase*") {
+        Fail "Packaged feedback form is missing a required test question: $Phrase"
+    }
+}
+
 $ZipInfo = Get-Item $ZipPath
 if ($ZipInfo.Length -le 0) {
     Fail "The shareable ZIP exists but is empty: $ZipPath"
@@ -148,17 +157,19 @@ $Zip = [System.IO.Compression.ZipFile]::OpenRead($ZipPath)
 try {
     $ZipEntries = @($Zip.Entries | ForEach-Object { $_.FullName.Replace('/', '\') })
 
-    $RequiredZipPredicates = @(
-        @{ Label = 'RoadsideIdiots.exe'; Match = { param($Name) $Name -match '(^|\\)RoadsideIdiots\.exe$' } },
-        @{ Label = 'DEMO1_BUILD_INFO.txt'; Match = { param($Name) $Name -match '(^|\\)DEMO1_BUILD_INFO\.txt$' } },
-        @{ Label = 'README_ROADSIDE_IDIOTS.txt'; Match = { param($Name) $Name -match '(^|\\)README_ROADSIDE_IDIOTS\.txt$' } },
-        @{ Label = 'PLAYER_TEST_PLAN.md'; Match = { param($Name) $Name -match '(^|\\)PLAYER_TEST_PLAN\.md$' } },
-        @{ Label = 'PLAYER_TEST_BUILD_INFO.txt'; Match = { param($Name) $Name -match '(^|\\)PLAYER_TEST_BUILD_INFO\.txt$' } },
-        @{ Label = 'BUGFIX_PREFLIGHT.txt'; Match = { param($Name) $Name -match '(^|\\)BUGFIX_PREFLIGHT\.txt$' } }
+    $RequiredZipEntries = @(
+        @{ Label = 'RoadsideIdiots.exe'; Pattern = '(^|\\)RoadsideIdiots\.exe$' },
+        @{ Label = 'DEMO1_BUILD_INFO.txt'; Pattern = '(^|\\)DEMO1_BUILD_INFO\.txt$' },
+        @{ Label = 'README_ROADSIDE_IDIOTS.txt'; Pattern = '(^|\\)README_ROADSIDE_IDIOTS\.txt$' },
+        @{ Label = 'PLAYER_TEST_PLAN.md'; Pattern = '(^|\\)PLAYER_TEST_PLAN\.md$' },
+        @{ Label = 'PLAYER_TEST_FEEDBACK_FORM.md'; Pattern = '(^|\\)PLAYER_TEST_FEEDBACK_FORM\.md$' },
+        @{ Label = 'PLAYER_TEST_BUILD_INFO.txt'; Pattern = '(^|\\)PLAYER_TEST_BUILD_INFO\.txt$' },
+        @{ Label = 'BUGFIX_PREFLIGHT.txt'; Pattern = '(^|\\)BUGFIX_PREFLIGHT\.txt$' }
     )
 
-    foreach ($Required in $RequiredZipPredicates) {
-        $Found = @($ZipEntries | Where-Object { & $Required.Match $_ }).Count -gt 0
+    foreach ($Required in $RequiredZipEntries) {
+        $Pattern = $Required.Pattern
+        $Found = @($ZipEntries | Where-Object { $_ -match $Pattern }).Count -gt 0
         if (-not $Found) {
             Fail "shareable ZIP is missing required entry: $($Required.Label)"
         }
@@ -185,6 +196,7 @@ Write-Host "Prerequisite  : $(if ($Prereq) { $Prereq.FullName } else { 'not foun
 Write-Host "Manifest      : $Manifest" -ForegroundColor Green
 Write-Host "Player README : $Readme" -ForegroundColor Green
 Write-Host "Test plan     : $TestPlan" -ForegroundColor Green
+Write-Host "Feedback form : $FeedbackForm" -ForegroundColor Green
 Write-Host "Build evidence: $PlayerTestEvidence" -ForegroundColor Green
 Write-Host "Bugfix proof  : $BugfixEvidence" -ForegroundColor Green
 Write-Host "Share ZIP     : $ZipPath ($([math]::Round($ZipInfo.Length / 1MB, 1)) MB)" -ForegroundColor Green
@@ -215,6 +227,7 @@ Write-Host "  9. Drive over repair patches/skid marks: absolutely zero physical 
 Write-Host " 10. Run a busy race: no recurring AI wall oscillation or traffic-induced ping-pong."
 Write-Host " 11. Confirm PN vegetation, roadside details, traffic shell and road markings render."
 Write-Host " 12. Confirm no forbidden/paid pack identity appears anywhere in the build."
+Write-Host " 13. Give the tester PLAYER_TEST_FEEDBACK_FORM.md after the session."
 Write-Host ""
 
 if ($Launch) {
