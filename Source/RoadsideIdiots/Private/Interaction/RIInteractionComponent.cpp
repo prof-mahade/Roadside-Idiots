@@ -73,7 +73,7 @@ bool URIInteractionComponent::TrySideInteraction(float Side)
 
         if (URIHealthComponent* OtherHealth = OtherBike->GetHealthComponent())
         {
-            OtherHealth->ApplyImpact(ImpactCost);
+            OtherHealth->ApplyImpactFromSource(ImpactCost, FName(TEXT("Slap")));
         }
 
         RIPrototypeVisuals::PlayReaction(OtherBike, -Side);
