@@ -28,6 +28,7 @@ public:
 private:
     void BeginObservation(ARIBikePawn* PlayerBike, ARIRaceManager* RaceManager);
     void SampleRace(ARIBikePawn* PlayerBike, ARIRaceManager* RaceManager);
+    void RecordComicIncident(const FString& ImpactText);
     void WriteSummary(const TCHAR* Reason);
 
     TWeakObjectPtr<ARIRaceManager> CachedRaceManager;
@@ -47,11 +48,21 @@ private:
     int32 PeelUses = 0;
     int32 EggUses = 0;
 
+    int32 CrashIncidents = 0;
+    int32 TrafficIncidents = 0;
+    int32 SlapIncidents = 0;
+    int32 PeelIncidents = 0;
+    int32 EggIncidents = 0;
+    int32 PoopIncidents = 0;
+    int32 OtherIncidents = 0;
+
     int32 LastPlace = 0;
     int32 LastBananaCount = 0;
     int32 LastEggCount = 0;
     float LastCondition = 0.0f;
 
+    FString LastImpactText;
+    bool bImpactWasActive = false;
     bool bRaceObserved = false;
     bool bSummaryWritten = false;
 };
