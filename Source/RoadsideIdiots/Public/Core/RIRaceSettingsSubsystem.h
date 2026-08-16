@@ -19,6 +19,12 @@ public:
     UFUNCTION(BlueprintPure, Category="Roadside Idiots|Race Setup")
     int32 GetTrafficCount() const { return TrafficCount; }
 
+    // 0 = CLEAN, 1 = BALANCED, 2 = MAYHEM. This changes how frequently the
+    // chaos director creates deliberate rival incidents; it never changes the
+    // accepted low-level racing-line follower or physical bike handling.
+    UFUNCTION(BlueprintPure, Category="Roadside Idiots|Race Setup")
+    int32 GetChaosLevel() const { return ChaosLevel; }
+
     UFUNCTION(BlueprintCallable, Category="Roadside Idiots|Race Setup")
     void SetOpponentCount(int32 Value) { OpponentCount = FMath::Clamp(Value, MinOpponents, MaxOpponents); }
 
@@ -29,11 +35,15 @@ public:
     void SetTrafficCount(int32 Value) { TrafficCount = FMath::Clamp(Value, MinTraffic, MaxTraffic); }
 
     UFUNCTION(BlueprintCallable, Category="Roadside Idiots|Race Setup")
+    void SetChaosLevel(int32 Value) { ChaosLevel = FMath::Clamp(Value, MinChaosLevel, MaxChaosLevel); }
+
+    UFUNCTION(BlueprintCallable, Category="Roadside Idiots|Race Setup")
     void ResetToDemoDefaults()
     {
         OpponentCount = 3;
         LapCount = 3;
         TrafficCount = 3;
+        ChaosLevel = 1;
     }
 
     // A direct pause-menu restart should rebuild the same configured race instead
@@ -53,6 +63,8 @@ public:
     static constexpr int32 MaxLaps = 5;
     static constexpr int32 MinTraffic = 0;
     static constexpr int32 MaxTraffic = 6;
+    static constexpr int32 MinChaosLevel = 0;
+    static constexpr int32 MaxChaosLevel = 2;
 
 private:
     UPROPERTY()
@@ -63,6 +75,9 @@ private:
 
     UPROPERTY()
     int32 TrafficCount = 3;
+
+    UPROPERTY()
+    int32 ChaosLevel = 1;
 
     UPROPERTY()
     bool bAutoStartAfterReload = false;
