@@ -89,11 +89,13 @@ void URITrafficReadabilitySubsystem::Tick(const float DeltaTime)
     else if (BestTraffic->GetTrafficLabel().Equals(TEXT("MICROBUS"), ESearchCase::IgnoreCase)) Pitch = 0.88f;
     else if (BestTraffic->GetTrafficLabel().Equals(TEXT("DELIVERY VAN"), ESearchCase::IgnoreCase)) Pitch = 0.94f;
 
+    // Keep the warning restrained, but make it a little easier to hear over the
+    // now stronger single-owner engine layer, per player feedback.
     RIAudioEvents::Play(
         BestTraffic,
         FName(TEXT("Honk")),
         BestTraffic->GetActorLocation(),
-        0.58f,
+        0.68f,
         Pitch);
 
     LastWarningTime = Now;
