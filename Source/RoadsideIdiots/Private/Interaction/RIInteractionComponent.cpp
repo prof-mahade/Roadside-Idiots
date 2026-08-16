@@ -16,7 +16,7 @@ URIInteractionComponent::URIInteractionComponent()
 bool URIInteractionComponent::TrySideInteraction(float Side)
 {
     ARIBikePawn* OwnerBike = Cast<ARIBikePawn>(GetOwner());
-    if (!OwnerBike || !GetWorld())
+    if (!OwnerBike || !OwnerBike->AreRaceControlsEnabled() || !GetWorld())
     {
         return false;
     }
@@ -57,7 +57,7 @@ bool URIInteractionComponent::TrySideInteraction(float Side)
     for (const FHitResult& Hit : Hits)
     {
         ARIBikePawn* OtherBike = Cast<ARIBikePawn>(Hit.GetActor());
-        if (!OtherBike || OtherBike == OwnerBike)
+        if (!OtherBike || OtherBike == OwnerBike || !OtherBike->AreRaceControlsEnabled())
         {
             continue;
         }
