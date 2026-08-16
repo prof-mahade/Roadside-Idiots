@@ -8,6 +8,7 @@ The standalone Windows demo has already been packaged and played outside Unreal 
 - stable countdown / lap / place / finish / restart flow
 - motorcycle + Manny presentation in packaged builds
 - stable Pure-Pursuit-based racing AI without the old recurring wall oscillation
+- accepted professional-pace / predictive-overtaking racecraft pass
 - prototype traffic passing/recovery at an acceptable level
 - slap / banana peel / rotten egg / dog-poop / cow-patty gameplay loops
 - minimap and race HUD
@@ -50,47 +51,51 @@ The removed SankoolArts / CompoundWall_Kit content must never return. `tools/pac
 Do not retune/rewrite without a reproducible regression:
 - physical bike movement/physics baseline
 - continuous flat authoritative road collision floor
-- `ARIRacingLineFollower` low-level Pure-Pursuit driving stack
+- `ARIRacingLineFollower` Pure-Pursuit + accepted professional racecraft stack
 - checkpoint/lap/place/finish rules
 - core camera baseline
 - assisted egg targeting behavior
 - basic road dimensions/route geometry
 
-High-level gameplay may be layered around these systems but must not replace their responsibilities.
+The user explicitly reported `05c2604` as a good AI-mechanism improvement. Preserve it as the accepted racecraft reference state.
 
 ---
 
-## Current polish changes — pending local compile/package verification
+## Accepted recent polish
 
-Project version: **0.1.1-demo1-polish1**.
+Project version remains **0.1.1-demo1-polish1** unless deliberately changed in project config.
 
 ### Player choice / race pacing
-- race setup now includes `RACE CHAOS`: CLEAN / BALANCED / MAYHEM
+- race setup includes `RACE CHAOS`: CLEAN / BALANCED / MAYHEM
 - CLEAN reduces director-created trouble
 - BALANCED is the intended default
 - MAYHEM raises incident frequency without changing the low-level racing controller
-- director-created chaos waits about 6 seconds after GO so the race can establish speed/context first
+- director-created chaos waits about 6 seconds after GO
 - simultaneous deliberate troublemakers remain capped
 
 ### Input / accessibility comfort
-- Xbox-style gamepad gameplay mappings added
-- D-pad + A menu navigation added
+- Xbox-style gamepad gameplay mappings
+- D-pad + A menu navigation
 - Start/Menu pauses
-- player-only Steering Feel setting added: CALM / NORMAL / QUICK
+- player-only Steering Feel: CALM / NORMAL / QUICK
 - steering feel shapes analog response only; keyboard full steering and AI driving are unchanged
-
-Full in-game remapping is a future accessibility task, not part of this safe polish pass.
 
 ### HUD / presentation
 - stale VPR/build text removed from player-facing race HUD
 - nearby rivals are identified primarily by personality instead of BOT numbers
-- finish message is more playful and outcome-specific
-- final lap gets a small emphasis
-- control hints appear early in the race and then clear the road view; pause menu keeps controls available
-- menu copy/spacing is more player-facing and less debug-like
+- finish message is playful and outcome-specific
+- final lap gets emphasis
+- opening control hints clear after the first portion of the race
+
+### Feedback/audio
+- asset-first `RIAudioEvents` remains the long-term hook
+- player `EnginePulse` is now driven from speed/throttle load
+- player `TireSkid` is driven from hard braking/lateral sliding
+- the user tested this first driving-audio slice and called the improvement acceptable
+- no physics or AI tuning values were changed by this audio pass
 
 ### Distribution
-`tools/package_demo1.ps1` now:
+`tools/package_demo1.ps1`:
 - defaults to Shipping
 - runs free-only preflight
 - builds/cooks/stages Win64
@@ -100,64 +105,72 @@ Full in-game remapping is a future accessibility task, not part of this safe pol
 
 ---
 
-## Immediate gate — compile and visual verification
+## Current autonomous batch — pending local compile / human visual check
 
-Before adding another gameplay layer, sync the latest branch and verify this batch on the user's Windows UE 5.8 machine.
+### Environment identity
+`ARIDemoWorldBuilder` now adds a collision-free custom roadside silhouette pass using only Engine basic shapes:
+- sparse utility poles and overhead wire rhythm
+- four colorful tea-stall / roadside-shop clusters
+- simple roadside signboards / landmarks
+- sparse tropical tree silhouettes
+
+Every new piece explicitly uses `NoCollision` and sits outside the race corridor. This pass must remain presentation-only.
+
+### Passive playtest telemetry
+`URIRaceTelemetrySubsystem` is an auto-instanced tickable world subsystem that passively observes public race/player state. It samples at about 5 Hz and logs:
+- finish place/time
+- average/max speed
+- overtakes and positions lost
+- condition-loss events / total condition lost
+- approximate incident density
+- banana pickups / peel uses
+- egg pickups / egg uses
+
+It must remain observer-only and never affect gameplay.
+
+---
+
+## Immediate gate — local compile + visual/gameplay verification
+
+The next user intervention is needed here because the new environment is fundamentally a visual/player-experience change.
 
 Required checks:
-1. C++ build succeeds.
-2. QUICK RACE menu has seven rows and Chaos can be changed.
-3. Settings has Graphics / VSync / Steering Feel / Back.
-4. Keyboard menu still works.
-5. If a controller is available, basic gamepad/menu mapping works.
-6. CLEAN / BALANCED / MAYHEM visibly change frequency without breaking driving.
-7. No stale VPR label appears in the race HUD.
-8. Control strip disappears after the opening portion of the race.
-9. Finish screen / final-lap text do not overlap the minimap or road view badly.
-10. Shipping package succeeds and ZIP is produced.
+1. C++ build succeeds on UE 5.8.1.
+2. The new roadside silhouettes are visible.
+3. They make the course feel more like a recognizable roadside environment rather than a generic test oval.
+4. They do not feel excessively cluttered or block important road/traffic/hazard reading.
+5. No new decorative piece collides with the bike.
+6. Accepted AI wall safety / racecraft still feels unchanged.
+7. Finish one race and confirm `RI PLAYTEST SUMMARY`, `RESULT`, `RACECRAFT`, and `ITEMS` lines appear in the Unreal log.
 
-If a UI spacing problem appears, fix presentation only; do not touch the stable racing controller.
+If this passes, do not reopen the environment geometry immediately. Move on to traffic/chaos readability and richer asset-first audio.
 
 ---
 
 ## Next autonomous work after this gate
 
-### A. Feedback/audio readability
-- audit which actions lack distinct sound/visual feedback
-- prioritize engine/load, skid, impact, item throw/hit, countdown/lap/finish
-- avoid constant comedy noise that masks useful events
-- use free/custom content only
-
-### B. Environment identity
-Strengthen recognizable South-Asian/Bangladesh-inspired roadside character with lightweight/free/custom content:
-- tea stalls / roadside shops
-- utility poles/wires
-- small signs and roadside clutter
-- tropical vegetation clusters
-- small town/village rhythm rather than a generic racing circuit
-- future traffic silhouettes inspired by local buses/CNG/auto-rickshaw/vans without using paid content
-
-Humor should come from recognizable situations, not mocking people or poverty.
-
-### C. Traffic / chaos readability
+### A. Traffic / chaos readability
 - improve advance readability of traffic and hazards
 - preserve committed passing and collision recovery
 - refine rival personality expression without increasing constant aggression
 - add variety through blocking/traps/opportunism rather than endless slapping
 
-### D. Playtest instrumentation
-Add lightweight race telemetry later for:
+### B. Richer asset-first audio
+- replace the most synthetic fallback cues with suitable free/custom assets when practical
+- prioritize impact, countdown/GO/lap/finish, horn and item feedback
+- avoid constant comedy noise that masks useful events
+
+### C. Telemetry expansion only when useful
+Possible additions after real playtests justify them:
 - collisions by type
-- recoveries
-- overtakes
-- item use/hit rates
-- incident density
+- explicit recoveries
+- item hit rates
 - finish gap
 - restart/quit points
 
-Use `docs/PLAYER_TEST_PLAN.md`; do not optimize metrics without observing player experience.
+Do not collect metrics merely because they are easy to count; use them to answer concrete playtest questions.
 
-### E. Demo 2 only after polish gate
+### D. Demo 2 only after polish gate
 Candidate Demo 2 themes:
 - another route/environment variation
 - stronger rival identity
