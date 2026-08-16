@@ -75,7 +75,7 @@ void ARIRottenEggPickup::HandleOverlap(
     if (bConsumed || !HasAuthority()) return;
 
     ARIBikePawn* Bike = Cast<ARIBikePawn>(OtherActor);
-    if (!Bike) return;
+    if (!Bike || !Bike->AreRaceControlsEnabled()) return;
 
     const URIParticipantComponent* Participant = Bike->GetParticipantComponent();
     if (!Participant) return;
