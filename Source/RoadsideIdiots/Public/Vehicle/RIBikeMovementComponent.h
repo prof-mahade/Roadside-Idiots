@@ -46,6 +46,7 @@ private:
     void UpdateGroundedState();
     void ApplyDrive(float DeltaTime, UPrimitiveComponent* Body);
     void ApplySteeringAndBalance(float DeltaTime, UPrimitiveComponent* Body);
+    void UpdateDriveAudio(float DeltaTime, UPrimitiveComponent* Body);
 
     UPROPERTY(EditAnywhere, Category="Tuning|Speed")
     float MaxSpeedKph = 155.0f;
@@ -95,6 +96,10 @@ private:
 
     UPROPERTY(EditAnywhere, Category="Tuning|Handling")
     float GroundTraceLength = 145.0f;
+
+    // Player-only prototype audio cadence. These timers do not influence physics.
+    float EngineAudioAccumulator = 0.0f;
+    float SkidAudioCooldownRemaining = 0.0f;
 
     float ThrottleInput = 0.0f;
     float SteeringInput = 0.0f;
