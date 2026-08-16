@@ -163,10 +163,70 @@ CONTENT POLICY FOR THIS PROJECT
 - Imported PN_Banana and PN_tropicalGroundPlants content is treated as approved free local presentation content for this project.
 "@ | Set-Content -Path $ManifestPath -Encoding UTF8
 
+$PlayerReadmePath = Join-Path $ArchiveDir "README_ROADSIDE_IDIOTS.txt"
+@"
+ROADSIDE IDIOTS - DEMO 1
+The road is dangerous. The riders are worse.
+
+QUICK START
+1. Run Windows\RoadsideIdiots.exe
+2. Choose opponents, laps, traffic and race chaos.
+3. Select START RACE.
+
+KEYBOARD
+W              accelerate
+S              brake / reverse
+A / D          steer
+Q / E          slap left / right
+F              drop banana peel
+G              throw rotten egg
+R              recover bike
+P / Esc        pause
+Enter          confirm / race again
+Arrow keys     menu navigation
+
+GAMEPAD (Xbox-style layout)
+RT             accelerate
+LT             brake / reverse
+Left Stick     steer
+LB / RB        slap left / right
+A              drop banana peel / menu confirm
+B              throw rotten egg
+X              recover bike
+Y              race again
+Menu / Start   pause
+D-pad          menu navigation
+
+RACE CHAOS
+CLEAN          mostly racing, fewer deliberate rival incidents
+BALANCED       intended mix of racing and petty chaos
+MAYHEM         more frequent rival trouble; core driving AI is unchanged
+
+DEMO NOTES
+- This is a solo prototype/demo build.
+- Multiplayer, additional maps, final art and deeper progression are future work.
+- If the game is blocked on first launch, Windows may ask for Unreal prerequisites; the package includes the standard prerequisite installer.
+
+Build: $GitCommit ($Configuration)
+"@ | Set-Content -Path $PlayerReadmePath -Encoding UTF8
+
+$ZipPath = "$ArchiveDir.zip"
+if (Test-Path $ZipPath) {
+    Remove-Item $ZipPath -Force
+}
+
+Write-Host "Creating shareable ZIP..." -ForegroundColor Cyan
+Compress-Archive -Path (Join-Path $ArchiveDir "*") -DestinationPath $ZipPath -CompressionLevel Optimal
+if (-not (Test-Path $ZipPath)) {
+    Fail "Package succeeded, but the shareable ZIP was not created: $ZipPath"
+}
+
 Write-Host ""
 Write-Host "Demo 1 package completed successfully." -ForegroundColor Green
 Write-Host "Executable : $($Exe.FullName)"
 Write-Host "Manifest   : $ManifestPath"
+Write-Host "Readme     : $PlayerReadmePath"
 Write-Host "Package    : $ArchiveDir"
+Write-Host "Share ZIP  : $ZipPath" -ForegroundColor Green
 Write-Host ""
-Write-Host "NEXT: run tools\verify_demo1_package.ps1 against this folder, then perform the manual two-race smoke test." -ForegroundColor Yellow
+Write-Host "NEXT: run tools\verify_demo1_package.ps1 against this folder, then perform the manual smoke test before sharing the ZIP." -ForegroundColor Yellow
