@@ -59,7 +59,10 @@ void ARIDemoWorldBuilder::BuildWorld(ARIRaceManager* InRaceManager, APlayerContr
 
     if (ADirectionalLight* Sun = GetWorld()->SpawnActor<ADirectionalLight>(FVector::ZeroVector, FRotator(-48.0f, -28.0f, 0.0f)))
     {
-        if (UDirectionalLightComponent* SunComponent = Sun->GetComponent())
+        // ADirectionalLight::GetComponent() is not available to the packaged
+        // game target in UE 5.8. Use the runtime ALight accessor instead and
+        // cast the returned light component to the directional subtype.
+        if (UDirectionalLightComponent* SunComponent = Cast<UDirectionalLightComponent>(Sun->GetLightComponent()))
         {
             SunComponent->SetIntensity(8.0f);
             SunComponent->SetAtmosphereSunLight(true);
