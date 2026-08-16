@@ -2,6 +2,7 @@
 #include "Vehicle/RIBikeMovementComponent.h"
 #include "Core/RIHealthComponent.h"
 #include "Core/RIParticipantComponent.h"
+#include "Core/RIRaceSettingsSubsystem.h"
 #include "Interaction/RIInteractionComponent.h"
 #include "Items/RIBananaPeelHazard.h"
 #include "Items/RIRottenEggProjectile.h"
@@ -9,6 +10,7 @@
 #include "Visual/RIPrototypeVisuals.h"
 #include "Camera/CameraComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Engine/GameInstance.h"
 #include "EngineUtils.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Kismet/GameplayStatics.h"
@@ -160,7 +162,20 @@ void ARIBikePawn::InputThrottle(float Value)
 void ARIBikePawn::InputSteering(float Value)
 {
     if (!BikeMovement) return;
-    BikeMovement->SetSteeringInput(IsRaceInputEnabled() ? Value : 0.0f);
+
+    float ShapedValue = FMath::Clamp(Value, -1.0f, 1.0f);
+    if (UWorld* World = GetWorld())
+    {
+        if (UGameInstance* GameInstance = World->GetGameInstance())
+        {
+            if (const URIRaceSettingsSubsystem* Settings = GameInstance->GetSubsystem<URIRaceSettingsSubsystem>())
+            {
+                ShapedValue = Settings->ShapePlayerSteeringInput(ShapedValue);
+            }
+        }
+    }
+
+    BikeMovement->SetSteeringInput(IsRaceInputEnabled() ? ShapedValue : 0.0f);
 }
 
 void ARIBikePawn::InputBrake(float Value)
