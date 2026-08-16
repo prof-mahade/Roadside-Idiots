@@ -18,6 +18,7 @@ public:
 private:
     void BuildRoute();
     void BuildTrackGeometry();
+    void BuildRoadsideIdentity();
     void BuildCheckpoints(ARIRaceManager* RaceManager);
     void SpawnPrototypePickups();
     void SpawnRacers(ARIRaceManager* RaceManager, APlayerController* PlayerController);
