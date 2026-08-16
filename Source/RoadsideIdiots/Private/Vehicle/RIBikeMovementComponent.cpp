@@ -1,8 +1,6 @@
 #include "Vehicle/RIBikeMovementComponent.h"
-#include "Audio/RIAudioEvents.h"
 #include "Components/PrimitiveComponent.h"
 #include "Engine/World.h"
-#include "GameFramework/Pawn.h"
 
 URIBikeMovementComponent::URIBikeMovementComponent()
 {
@@ -128,72 +126,6 @@ void URIBikeMovementComponent::ApplySteeringAndBalance(float DeltaTime, UPrimiti
     }
 }
 
-void URIBikeMovementComponent::UpdateDriveAudio(float DeltaTime, UPrimitiveComponent* Body)
-{
-    if (!Body || !GetOwner()) return;
-
-    const APawn* PawnOwner = Cast<APawn>(GetOwner());
-    if (!PawnOwner || !PawnOwner->IsPlayerControlled()) return;
-
-    EngineAudioAccumulator += FMath::Max(0.0f, DeltaTime);
-    SkidAudioCooldownRemaining = FMath::Max(0.0f, SkidAudioCooldownRemaining - DeltaTime);
-
-    const float SpeedKph = FMath::Abs(GetForwardSpeedKph());
-    const float SpeedAlpha = FMath::Clamp(SpeedKph / FMath::Max(1.0f, MaxSpeedKph), 0.0f, 1.0f);
-    const float EngineLoad = FMath::Clamp(FMath::Abs(ThrottleInput), 0.0f, 1.0f);
-    const float EngineActivity = FMath::Clamp(EngineLoad * 0.68f + SpeedAlpha * 0.32f, 0.0f, 1.0f);
-
-    if (bGrounded && (EngineLoad > 0.04f || SpeedKph > 7.0f))
-    {
-        const float PulseInterval = FMath::Lerp(0.205f, 0.105f, EngineActivity);
-        if (EngineAudioAccumulator >= PulseInterval)
-        {
-            EngineAudioAccumulator = FMath::Fmod(EngineAudioAccumulator, PulseInterval);
-            const float Volume = 0.12f + EngineLoad * 0.16f + SpeedAlpha * 0.08f;
-            const float Pitch = 0.78f + SpeedAlpha * 0.58f + EngineLoad * 0.12f;
-            RIAudioEvents::Play(
-                GetOwner(),
-                FName(TEXT("EnginePulse")),
-                GetOwner()->GetActorLocation(),
-                Volume,
-                Pitch);
-        }
-    }
-    else
-    {
-        EngineAudioAccumulator = FMath::Min(EngineAudioAccumulator, 0.20f);
-    }
-
-    if (!bGrounded || SkidAudioCooldownRemaining > 0.0f || SpeedKph < 28.0f)
-    {
-        return;
-    }
-
-    const FVector Right = GetOwner()->GetActorRightVector().GetSafeNormal2D();
-    const FVector HorizontalVelocity = FVector(Body->GetPhysicsLinearVelocity().X, Body->GetPhysicsLinearVelocity().Y, 0.0f);
-    const float LateralSpeedKph = FMath::Abs(FVector::DotProduct(HorizontalVelocity, Right)) * 0.036f;
-    const bool bHardBraking = BrakeInput > 0.58f && SpeedKph > 38.0f;
-    const bool bSliding = LateralSpeedKph > FMath::Lerp(14.0f, 24.0f, SpeedAlpha);
-
-    if (bHardBraking || bSliding)
-    {
-        const float BrakeIntensity = FMath::Clamp((BrakeInput - 0.55f) / 0.45f, 0.0f, 1.0f);
-        const float SlideIntensity = FMath::Clamp(LateralSpeedKph / 34.0f, 0.0f, 1.0f);
-        const float SkidIntensity = FMath::Max(BrakeIntensity, SlideIntensity);
-        const float Volume = FMath::Lerp(0.08f, 0.24f, SkidIntensity);
-        const float Pitch = FMath::Lerp(0.90f, 1.18f, SpeedAlpha);
-
-        RIAudioEvents::Play(
-            GetOwner(),
-            FName(TEXT("TireSkid")),
-            GetOwner()->GetActorLocation(),
-            Volume,
-            Pitch);
-
-        SkidAudioCooldownRemaining = FMath::Lerp(0.22f, 0.14f, SkidIntensity);
-    }
-}
-
 void URIBikeMovementComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
     Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
@@ -202,5 +134,4 @@ void URIBikeMovementComponent::TickComponent(float DeltaTime, ELevelTick TickTyp
     UpdateGroundedState();
     ApplyDrive(DeltaTime, Body);
     ApplySteeringAndBalance(DeltaTime, Body);
-    UpdateDriveAudio(DeltaTime, Body);
 }
