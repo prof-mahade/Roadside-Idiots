@@ -20,7 +20,7 @@ if (-not (Test-Path $ControllerCpp)) {
 
 $Failures = @()
 
-$LegacyRestart = Select-String -Path $InputIni -SimpleMatch 'ActionName="RestartRace"'.Replace('\','')
+$LegacyRestart = Select-String -Path $InputIni -SimpleMatch 'ActionName="RestartRace"'
 if ($LegacyRestart) {
     Write-Host "[FAIL] Legacy pawn RestartRace mapping is present." -ForegroundColor Red
     $LegacyRestart | ForEach-Object { Write-Host ("       " + $_.Line.Trim()) -ForegroundColor DarkGray }
