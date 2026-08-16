@@ -133,7 +133,7 @@ void ARIBananaPeelHazard::HandleHazardOverlap(
     if (bTriggered || !HasAuthority()) return;
 
     ARIBikePawn* OtherBike = Cast<ARIBikePawn>(OtherActor);
-    if (!OtherBike) return;
+    if (!OtherBike || !OtherBike->AreRaceControlsEnabled()) return;
 
     ARIBikePawn* ValidSource = SourceBike.Get();
     if (OtherBike == ValidSource)
