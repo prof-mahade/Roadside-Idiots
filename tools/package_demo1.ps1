@@ -2,7 +2,7 @@ param(
     [string]$EngineRoot = "C:\Program Files\Epic Games\UE_5.8",
     [string]$ArchiveRoot = "C:\GameDev\RoadsideIdiots_Packaged",
     [ValidateSet("Development", "Shipping")]
-    [string]$Configuration = "Development"
+    [string]$Configuration = "Shipping"
 )
 
 $ErrorActionPreference = "Stop"
