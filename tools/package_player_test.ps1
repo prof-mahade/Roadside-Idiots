@@ -12,14 +12,15 @@ $BasePackager = Join-Path $PSScriptRoot "package_demo1.ps1"
 $BugfixVerifier = Join-Path $PSScriptRoot "verify_bugfix_contracts.ps1"
 $PackageVerifier = Join-Path $PSScriptRoot "verify_demo1_package.ps1"
 $ContentDir = Join-Path $RepoRoot "Content"
+$FeedbackFormSource = Join-Path $RepoRoot "docs\PLAYER_TEST_FEEDBACK_FORM.md"
 
 function Fail([string]$Message) {
     throw "PLAYER TEST PACKAGE FAILED: $Message"
 }
 
-foreach ($RequiredFile in @($BasePackager, $BugfixVerifier, $PackageVerifier)) {
+foreach ($RequiredFile in @($BasePackager, $BugfixVerifier, $PackageVerifier, $FeedbackFormSource)) {
     if (-not (Test-Path $RequiredFile)) {
-        Fail "required tool is missing: $RequiredFile"
+        Fail "required tool/document is missing: $RequiredFile"
     }
 }
 
@@ -123,6 +124,7 @@ Tracked working tree clean before packaging: YES
 Approved free vegetation assets present before packaging: 4/4
 Combined input/audio/lifecycle preflight: PASSED
 Packaging pipeline: tools/package_player_test.ps1
+Tester feedback form included: YES
 
 RUNTIME GATE NOTES
 - Shipping logging is not assumed by this pipeline.
@@ -133,6 +135,12 @@ RUNTIME GATE NOTES
 
 $PreflightEvidencePath = Join-Path $PackagePath "BUGFIX_PREFLIGHT.txt"
 $PreflightLines | Set-Content -Path $PreflightEvidencePath -Encoding UTF8
+
+$FeedbackFormPath = Join-Path $PackagePath "PLAYER_TEST_FEEDBACK_FORM.md"
+Copy-Item -Path $FeedbackFormSource -Destination $FeedbackFormPath -Force
+if (-not (Test-Path $FeedbackFormPath)) {
+    Fail "tester feedback form was not copied into the package."
+}
 
 # The base packager creates its ZIP before the extra player-test evidence above.
 # Rebuild the ZIP/checksum so the distributable contains the exact evidence that
@@ -166,5 +174,6 @@ Write-Host "Package : $PackagePath"
 Write-Host "ZIP     : $ZipPath" -ForegroundColor Green
 Write-Host "SHA-256 : $($ZipHash.Hash.ToLowerInvariant())" -ForegroundColor Green
 Write-Host "Source  : $Branch @ $ShortCommit"
+Write-Host "Feedback: $FeedbackFormPath"
 Write-Host ""
 Write-Host "Next: launch the packaged executable and perform the human smoke gate in PLAYER_TEST_PLAN.md." -ForegroundColor Yellow
