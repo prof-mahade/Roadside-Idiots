@@ -9,9 +9,9 @@ class UMaterialInterface;
 class UStaticMesh;
 
 /**
- * Adds a small color-coded pennant to AI bikes so personality is readable in
- * motion without relying entirely on HUD text. Presentation only: no collision,
- * physics, control or AI values are changed.
+ * Adds compact color-coded tail/fairing accents to AI bikes so personality is
+ * readable in motion without relying entirely on HUD text. Presentation only:
+ * no collision, physics, control or AI values are changed.
  */
 UCLASS()
 class ROADSIDEIDIOTS_API URIRivalIdentitySubsystem : public UTickableWorldSubsystem
