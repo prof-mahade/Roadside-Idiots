@@ -59,9 +59,10 @@ void URIRaceTelemetrySubsystem::Tick(const float DeltaTime)
         LastPlace = RaceManager->GetPlace(PlayerBike->GetParticipantComponent()->GetParticipantId());
         LastBananaCount = PlayerBike->GetBananaPeelCount();
         LastEggCount = PlayerBike->GetRottenEggCount();
-        LastCondition = PlayerBike->GetHealthComponent()
-            ? PlayerBike->GetHealthComponent()->GetCurrentHealth()
-            : 0.0f;
+        if (const URIHealthComponent* Health = PlayerBike->GetHealthComponent())
+        {
+            LastImpactSerial = Health->GetImpactSerial();
+        }
         return;
     }
 
@@ -86,9 +87,10 @@ void URIRaceTelemetrySubsystem::BeginObservation(ARIBikePawn* PlayerBike, ARIRac
     LastPlace = RaceManager->GetPlace(PlayerBike->GetParticipantComponent()->GetParticipantId());
     LastBananaCount = PlayerBike->GetBananaPeelCount();
     LastEggCount = PlayerBike->GetRottenEggCount();
-    LastCondition = PlayerBike->GetHealthComponent()
-        ? PlayerBike->GetHealthComponent()->GetCurrentHealth()
-        : 0.0f;
+    if (const URIHealthComponent* Health = PlayerBike->GetHealthComponent())
+    {
+        LastImpactSerial = Health->GetImpactSerial();
+    }
 
     int32 TrafficCount = 0;
     int32 ChaosLevel = 1;
@@ -151,15 +153,18 @@ void URIRaceTelemetrySubsystem::SampleRace(ARIBikePawn* PlayerBike, ARIRaceManag
         ++SpeedSampleCount;
     }
 
-    if (URIHealthComponent* Health = PlayerBike->GetHealthComponent())
+    if (const URIHealthComponent* Health = PlayerBike->GetHealthComponent())
     {
-        const float Condition = Health->GetCurrentHealth();
-        if (Condition < LastCondition - 0.01f)
+        const uint32 ImpactSerial = Health->GetImpactSerial();
+        if (ImpactSerial != LastImpactSerial)
         {
+            // Impact immunity is 0.65 s while telemetry samples every 0.20 s, so
+            // at most one accepted condition-loss event can occur between samples.
             ++DamageEvents;
-            TotalConditionLost += LastCondition - Condition;
+            TotalConditionLost += Health->GetLastImpactAmount();
+            RecordDamageSource(Health->GetLastImpactSource());
+            LastImpactSerial = ImpactSerial;
         }
-        LastCondition = Condition;
     }
 
     const int32 BananaCount = PlayerBike->GetBananaPeelCount();
@@ -184,9 +189,9 @@ void URIRaceTelemetrySubsystem::SampleRace(ARIBikePawn* PlayerBike, ARIRaceManag
     }
     LastEggCount = EggCount;
 
-    // Comic impact text is already the player-facing explanation for incidents.
-    // Reading it here gives us passive incident classification without adding
-    // telemetry calls to gameplay actors or creating another owner of behavior.
+    // Comic impact text measures what the player was actually told happened.
+    // It intentionally remains separate from health-loss source telemetry because
+    // some readable incidents (poop, near traffic) can be disruptive without damage.
     FString ImpactText;
     float ImpactAlpha = 0.0f;
     const bool bImpactActive = PlayerBike->GetActiveComicImpact(ImpactText, ImpactAlpha);
@@ -209,6 +214,37 @@ void URIRaceTelemetrySubsystem::SampleRace(ARIBikePawn* PlayerBike, ARIRaceManag
     if (RaceManager->GetProgress(PlayerId, Progress) && Progress.bFinished)
     {
         WriteSummary(TEXT("player_finish"));
+    }
+}
+
+void URIRaceTelemetrySubsystem::RecordDamageSource(const FName SourceTag)
+{
+    if (SourceTag == FName(TEXT("Traffic")))
+    {
+        ++TrafficDamageEvents;
+    }
+    else if (SourceTag == FName(TEXT("Slap")))
+    {
+        ++SlapDamageEvents;
+    }
+    else if (SourceTag == FName(TEXT("Peel")))
+    {
+        ++PeelDamageEvents;
+    }
+    else if (SourceTag == FName(TEXT("Egg")))
+    {
+        ++EggDamageEvents;
+    }
+    else if (
+        SourceTag == FName(TEXT("Crash")) ||
+        SourceTag == FName(TEXT("CrashTip")) ||
+        SourceTag == FName(TEXT("CrashPhysics")))
+    {
+        ++CrashDamageEvents;
+    }
+    else
+    {
+        ++UnknownDamageEvents;
     }
 }
 
@@ -312,7 +348,17 @@ void URIRaceTelemetrySubsystem::WriteSummary(const TCHAR* Reason)
     UE_LOG(
         LogTemp,
         Display,
-        TEXT("RI PLAYTEST INCIDENTS crash=%d traffic=%d slap=%d peel=%d egg=%d poop=%d other=%d"),
+        TEXT("RI PLAYTEST DAMAGE_SOURCES crash=%d traffic=%d slap=%d peel=%d egg=%d unknown=%d"),
+        CrashDamageEvents,
+        TrafficDamageEvents,
+        SlapDamageEvents,
+        PeelDamageEvents,
+        EggDamageEvents,
+        UnknownDamageEvents);
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("RI PLAYTEST PRESENTATION crash=%d traffic=%d slap=%d peel=%d egg=%d poop=%d other=%d"),
         CrashIncidents,
         TrafficIncidents,
         SlapIncidents,
