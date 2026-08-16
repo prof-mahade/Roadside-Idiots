@@ -2,9 +2,11 @@
 
 #include "Core/RIHealthComponent.h"
 #include "Core/RIParticipantComponent.h"
+#include "Core/RIRaceSettingsSubsystem.h"
 #include "Race/RIRaceManager.h"
 #include "Vehicle/RIBikeMovementComponent.h"
 #include "Vehicle/RIBikePawn.h"
+#include "Engine/GameInstance.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "Kismet/GameplayStatics.h"
@@ -88,12 +90,38 @@ void URIRaceTelemetrySubsystem::BeginObservation(ARIBikePawn* PlayerBike, ARIRac
         ? PlayerBike->GetHealthComponent()->GetCurrentHealth()
         : 0.0f;
 
+    int32 TrafficCount = 0;
+    int32 ChaosLevel = 1;
+    int32 SteeringFeel = 1;
+    if (UWorld* World = GetWorld())
+    {
+        if (UGameInstance* GameInstance = World->GetGameInstance())
+        {
+            if (const URIRaceSettingsSubsystem* Settings = GameInstance->GetSubsystem<URIRaceSettingsSubsystem>())
+            {
+                TrafficCount = Settings->GetTrafficCount();
+                ChaosLevel = Settings->GetChaosLevel();
+                SteeringFeel = Settings->GetSteeringFeel();
+            }
+        }
+    }
+
+    const TCHAR* ChaosLabel = ChaosLevel <= 0
+        ? TEXT("CLEAN")
+        : (ChaosLevel >= 2 ? TEXT("MAYHEM") : TEXT("BALANCED"));
+    const TCHAR* SteeringLabel = SteeringFeel <= 0
+        ? TEXT("CALM")
+        : (SteeringFeel >= 2 ? TEXT("QUICK") : TEXT("NORMAL"));
+
     UE_LOG(
         LogTemp,
         Display,
-        TEXT("RI PLAYTEST START participants=%d laps=%d"),
+        TEXT("RI PLAYTEST START participants=%d laps=%d traffic=%d chaos=%s steering=%s"),
         RaceManager->GetParticipantCount(),
-        RaceManager->GetTotalLaps());
+        RaceManager->GetTotalLaps(),
+        TrafficCount,
+        ChaosLabel,
+        SteeringLabel);
 }
 
 void URIRaceTelemetrySubsystem::SampleRace(ARIBikePawn* PlayerBike, ARIRaceManager* RaceManager)
