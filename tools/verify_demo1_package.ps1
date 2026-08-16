@@ -46,6 +46,7 @@ $Prereq = Get-ChildItem -Path $PackagePath -Recurse -File -ErrorAction SilentlyC
 
 $Manifest = Join-Path $PackagePath "DEMO1_BUILD_INFO.txt"
 $Readme = Join-Path $PackagePath "README_ROADSIDE_IDIOTS.txt"
+$TestPlan = Join-Path $PackagePath "PLAYER_TEST_PLAN.md"
 $ZipPath = "$PackagePath.zip"
 $ChecksumPath = "$ZipPath.sha256.txt"
 
@@ -55,11 +56,31 @@ if (-not (Test-Path $Manifest)) {
 if (-not (Test-Path $Readme)) {
     Fail "README_ROADSIDE_IDIOTS.txt is missing from the package root."
 }
+if (-not (Test-Path $TestPlan)) {
+    Fail "PLAYER_TEST_PLAN.md is missing from the package root."
+}
 if (-not (Test-Path $ZipPath)) {
     Fail "The shareable ZIP was not found: $ZipPath"
 }
 if (-not (Test-Path $ChecksumPath)) {
     Fail "The ZIP SHA-256 checksum file was not found: $ChecksumPath"
+}
+
+$ManifestText = Get-Content $Manifest -Raw
+if ($ManifestText -notmatch 'Input contract preflight:\s*PASSED') {
+    Fail "Build manifest does not record a passed input-contract preflight."
+}
+
+$ReadmeText = Get-Content $Readme -Raw
+$RequiredReadmePhrases = @(
+    'Y              quick race again after finish',
+    'B              throw rotten egg / menu back / resume from Pause',
+    'Menu / Start   pause / resume'
+)
+foreach ($Phrase in $RequiredReadmePhrases) {
+    if ($ReadmeText -notlike "*$Phrase*") {
+        Fail "Packaged README is missing current controller guidance: $Phrase"
+    }
 }
 
 $ZipInfo = Get-Item $ZipPath
@@ -82,8 +103,10 @@ Write-Host "Cooked files  : $($Containers.Count)" -ForegroundColor Green
 Write-Host "Prerequisite  : $(if ($Prereq) { $Prereq.FullName } else { 'not found / may be bundled differently' })"
 Write-Host "Manifest      : $Manifest" -ForegroundColor Green
 Write-Host "Player README : $Readme" -ForegroundColor Green
+Write-Host "Test plan     : $TestPlan" -ForegroundColor Green
 Write-Host "Share ZIP     : $ZipPath ($([math]::Round($ZipInfo.Length / 1MB, 1)) MB)" -ForegroundColor Green
 Write-Host "SHA-256       : $ActualHash" -ForegroundColor Green
+Write-Host "Input contract: recorded PASSED" -ForegroundColor Green
 Write-Host ""
 
 Write-Host "----- BUILD INFO -----" -ForegroundColor DarkCyan
@@ -93,23 +116,23 @@ Write-Host ""
 
 Write-Host "STATIC PACKAGE CHECK: PASSED" -ForegroundColor Green
 Write-Host ""
-Write-Host "POLISH SMOKE TEST" -ForegroundColor Yellow
+Write-Host "PLAYER-TEST SMOKE TEST" -ForegroundColor Yellow
 Write-Host "  1. QUICK RACE menu opens without stale VPR/build text."
-Write-Host "  2. Opponents, laps, traffic and RACE CHAOS can be changed."
-Write-Host "  3. SETTINGS contains Graphics, VSync, Steering Feel and Back."
-Write-Host "  4. Run CLEAN: Opponents 6 | Laps 2 | Traffic 0."
+Write-Host "  2. Keyboard: arrows navigate, Enter confirms, P/Esc pauses."
+Write-Host "  3. Controller: D-pad navigates, A confirms, B backs/resumes, Menu/Start pauses."
+Write-Host "  4. During gameplay confirm A=peel, B=egg, X=recover, LB/RB=slap."
+Write-Host "  5. Press Y DURING an unfinished race: it must NOT reload the map."
+Write-Host "  6. Finish a race; Enter/A/Y must restart the same configured race."
+Write-Host "  7. Drive directly across visible repair patches/skid marks: zero physical bump."
+Write-Host "  8. Run CLEAN: Opponents 6 | Laps 2 | Traffic 0."
 Write-Host "     - stable AI completes clean laps without wall oscillation"
 Write-Host "     - deliberate chaos is relatively uncommon"
-Write-Host "     - opening control hint clears after the first part of the race"
-Write-Host "  5. Run MAYHEM: Opponents 6 | Laps 2 | Traffic 6."
+Write-Host "  9. Run MAYHEM: Opponents 6 | Laps 2 | Traffic 6."
 Write-Host "     - more rival incidents are noticeable without constant brawling"
 Write-Host "     - traffic contact does not restore wall ping-pong"
-Write-Host "     - finish/final-lap/minimap/HUD remain readable"
-Write-Host "  6. Test Q/E slap, F peel, G egg, R recover, P/Esc pause, Enter race again."
-Write-Host "  7. If available, test RT/LT/Left Stick, LB/RB, A/B/X/Y, D-pad and Menu/Start."
-Write-Host "  8. Confirm banana/egg/poop effects, sound, bike/rider and free vegetation render."
-Write-Host "  9. Finish, race again, return to setup and quit normally."
-Write-Host " 10. Open README_ROADSIDE_IDIOTS.txt and confirm the shared controls match the build."
+Write-Host " 10. Confirm free PN vegetation, facade details, traffic shell and road wear render."
+Write-Host " 11. Finish celebration produces no presentation physics/collision warning spam."
+Write-Host " 12. Open README_ROADSIDE_IDIOTS.txt and PLAYER_TEST_PLAN.md before sharing."
 Write-Host ""
 
 if ($Launch) {
