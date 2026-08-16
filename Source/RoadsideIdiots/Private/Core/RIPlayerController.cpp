@@ -87,8 +87,8 @@ void ARIPlayerController::SetupInputComponent()
     BindMenuKey(EKeys::Right, &ARIPlayerController::MenuIncrease);
     BindExclusiveKey(EKeys::Enter, &ARIPlayerController::MenuConfirm);
 
-    // Controller parity: D-pad navigates; A confirms; B backs out/resumes;
-    // Start pauses; Y is a post-finish quick-restart shortcut only.
+    // Controller parity: D-pad navigates; A confirms; B backs out/resumes or
+    // returns to Main Menu after finish; Start pauses; Y is finish-only restart.
     BindMenuKey(EKeys::Gamepad_DPad_Up, &ARIPlayerController::MenuPrevious);
     BindMenuKey(EKeys::Gamepad_DPad_Down, &ARIPlayerController::MenuNext);
     BindMenuKey(EKeys::Gamepad_DPad_Left, &ARIPlayerController::MenuDecrease);
@@ -101,15 +101,17 @@ void ARIPlayerController::SetupInputComponent()
     BindExclusiveKey(EKeys::Y, &ARIPlayerController::FinishQuickRestart);
     BindExclusiveKey(EKeys::Gamepad_FaceButton_Top, &ARIPlayerController::FinishQuickRestart);
 
-    BindMenuKey(EKeys::Escape, &ARIPlayerController::TogglePauseMenu);
-    // PIE often reserves Escape, so P is an editor-friendly equivalent.
+    // Escape is context-sensitive: during a race it pauses, inside a menu it
+    // backs out, and on the finish screen it returns to the real Main Menu.
+    // P/Start remain pure pause/resume inputs and stay blocked after finish.
+    BindMenuKey(EKeys::Escape, &ARIPlayerController::MenuEscape);
     BindMenuKey(EKeys::P, &ARIPlayerController::TogglePauseMenu);
     BindMenuKey(EKeys::Gamepad_Special_Right, &ARIPlayerController::TogglePauseMenu);
 
     UE_LOG(
         LogTemp,
         Display,
-        TEXT("RI INPUT FLOW confirm=ENTER/A finish_restart=ENTER/A/Y back=B pause=START restart_owner=player_controller"));
+        TEXT("RI INPUT FLOW confirm=ENTER/A finish_restart=ENTER/A/Y main_menu=ESC/B pause=P/START restart_owner=player_controller"));
 }
 
 int32 ARIPlayerController::GetCurrentMenuRowCount() const
@@ -147,6 +149,11 @@ bool ARIPlayerController::IsPlayerRaceFinished() const
     return false;
 }
 
+bool ARIPlayerController::IsFinishScreenActive() const
+{
+    return MenuMode == ERIMenuMode::None && IsPlayerRaceFinished();
+}
+
 void ARIPlayerController::MenuPrevious()
 {
     const int32 RowCount = GetCurrentMenuRowCount();
@@ -181,6 +188,38 @@ void ARIPlayerController::MenuBack()
     {
         ResumeGame();
     }
+    else if (IsFinishScreenActive())
+    {
+        ReturnToMainMenu(FName(TEXT("B")));
+    }
+}
+
+void ARIPlayerController::MenuEscape()
+{
+    if (MenuMode == ERIMenuMode::RaceSetup)
+    {
+        return;
+    }
+
+    if (MenuMode == ERIMenuMode::Settings)
+    {
+        ReturnFromSettings();
+        return;
+    }
+
+    if (MenuMode == ERIMenuMode::Pause)
+    {
+        ResumeGame();
+        return;
+    }
+
+    if (IsFinishScreenActive())
+    {
+        ReturnToMainMenu(FName(TEXT("ESC")));
+        return;
+    }
+
+    TogglePauseMenu();
 }
 
 void ARIPlayerController::FinishQuickRestart()
@@ -298,7 +337,7 @@ void ARIPlayerController::MenuConfirm()
         {
         case 0: ResumeGame(); break;
         case 1: RestartConfiguredRace(); break;
-        case 2: ReturnToRaceSetup(); break;
+        case 2: ReturnToMainMenu(FName(TEXT("PAUSE_MENU"))); break;
         case 3: OpenSettingsMenu(); break;
         case 4: QuitToDesktop(); break;
         default: break;
@@ -334,8 +373,8 @@ void ARIPlayerController::TogglePauseMenu()
 
     if (MenuMode == ERIMenuMode::None && IsPlayerRaceFinished())
     {
-        // The finish panel owns the post-race state. Start/P/Escape should not
-        // replace it with the pause menu or hide the race-again action.
+        // The finish panel owns the post-race state. P/Start should not replace
+        // it with Pause; Escape/B have explicit Main Menu semantics instead.
         UE_LOG(LogTemp, Display, TEXT("RI INPUT FINISH_LOCK pause=blocked"));
         return;
     }
@@ -402,8 +441,9 @@ void ARIPlayerController::RestartConfiguredRace()
     ReloadCurrentLevel(true);
 }
 
-void ARIPlayerController::ReturnToRaceSetup()
+void ARIPlayerController::ReturnToMainMenu(const FName Source)
 {
+    UE_LOG(LogTemp, Display, TEXT("RI INPUT MAIN_MENU source=%s"), *Source.ToString());
     ReloadCurrentLevel(false);
 }
 
