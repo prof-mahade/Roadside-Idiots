@@ -362,7 +362,7 @@ void ARITrafficVehicle::HandleImpactOverlap(
 
     if (URIHealthComponent* Health = Bike->GetHealthComponent())
     {
-        Health->ApplyImpact(6.0f * ImpactScale);
+        Health->ApplyImpactFromSource(6.0f * ImpactScale, FName(TEXT("Traffic")));
     }
 
     float HonkPitch = FMath::FRandRange(0.94f, 1.06f);
