@@ -6,6 +6,7 @@
 
 class UBoxComponent;
 class UStaticMeshComponent;
+class UPointLightComponent;
 class ARIBikePawn;
 
 UENUM()
@@ -54,6 +55,11 @@ private:
 
     UPROPERTY(VisibleAnywhere)
     TObjectPtr<UStaticMeshComponent> BlobC;
+
+    // Subtle world-space readability cue. It is intentionally much weaker than
+    // pickup glows: hazards should be noticed at speed, not look like collectibles.
+    UPROPERTY(VisibleAnywhere)
+    TObjectPtr<UPointLightComponent> StinkGlow;
 
     ERIPoopHazardType HazardType = ERIPoopHazardType::Dog;
     TMap<TWeakObjectPtr<ARIBikePawn>, double> LastTriggerTimes;
