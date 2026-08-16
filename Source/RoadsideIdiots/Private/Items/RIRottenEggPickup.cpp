@@ -72,7 +72,7 @@ void ARIRottenEggPickup::HandleOverlap(
     bool bFromSweep,
     const FHitResult& SweepResult)
 {
-    if (!HasAuthority()) return;
+    if (bConsumed || !HasAuthority()) return;
 
     ARIBikePawn* Bike = Cast<ARIBikePawn>(OtherActor);
     if (!Bike) return;
@@ -80,6 +80,10 @@ void ARIRottenEggPickup::HandleOverlap(
     const URIParticipantComponent* Participant = Bike->GetParticipantComponent();
     if (!Participant) return;
 
+    // Destroy is deferred until the end of the frame, so latch consumption
+    // before changing inventory. This matches banana pickup behavior and stops
+    // two overlapping bikes from receiving the same egg.
+    bConsumed = true;
     Bike->AddRottenEgg(1);
 
     if (Participant->IsHumanControlled())
