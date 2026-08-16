@@ -11,9 +11,10 @@ class ARITrafficVehicle;
  * Low-level racing driver for AI bikes.
  *
  * The high-level ARIAIController owns personality, items and chaos decisions.
- * This actor owns only the safety-critical job of following the road smoothly.
- * Keeping those layers separate prevents combat/avoidance steering from fighting
- * the basic racing controller every frame.
+ * This actor owns the safety-critical job of following the road, choosing a
+ * feasible passing corridor and enforcing the final pace envelope. Keeping the
+ * layers separate prevents combat/avoidance steering from fighting the racing
+ * controller every frame.
  */
 UCLASS()
 class ROADSIDEIDIOTS_API ARIRacingLineFollower : public AActor
@@ -43,6 +44,11 @@ private:
         float DistanceCm,
         float LateralOffset,
         FVector* OutTangent = nullptr) const;
+
+    float ComputeRoutePreviewCurvature(
+        int32 SegmentIndex,
+        float SegmentAlpha,
+        float PreviewDistanceCm) const;
 
     void UpdateRivalPassPlan(
         float DeltaSeconds,
@@ -81,7 +87,7 @@ private:
     float RivalPassHoldRemaining = 0.0f;
     float RivalPassCooldownRemaining = 0.0f;
 
-    // VPR-25: pass commitment prevents the avoidance target from changing sides
+    // Traffic pass commitment prevents the avoidance target from changing sides
     // every frame when traffic is near the centre of the bike's lane.
     TWeakObjectPtr<ARITrafficVehicle> ActiveTrafficTarget;
     float TrafficPassLaneOffset = 0.0f;
@@ -106,21 +112,22 @@ private:
     // Overtaking another racer uses a slightly smaller lateral gap than passing
     // a civilian car. A new pass normally starts only on a straight/mild bend;
     // an already side-by-side pass is allowed to finish rather than snapping home.
-    float RivalDetectionDistanceCm = 3000.0f;
+    float RivalDetectionDistanceCm = 3200.0f;
     float RivalLaneConflictCm = 145.0f;
     float RivalPassClearanceCm = 185.0f;
-    float RivalPassHoldSeconds = 0.95f;
-    float RivalPassCooldownSeconds = 0.28f;
-    float RivalMinimumClosingSpeedCmS = 105.0f;
+    float RivalPassHoldSeconds = 1.10f;
+    float RivalPassCooldownSeconds = 0.30f;
+    float RivalMinimumClosingSpeedCmS = 80.0f;
     float RivalPassMaxTurnSeverity = 0.56f;
+    float RivalPredictionSeconds = 0.58f;
 
     // Traffic planning stays intentionally slower than the steering loop. Once
     // a pass side is chosen the AI commits to it long enough to actually clear
     // the car instead of left/right oscillating around the obstacle.
-    float TrafficDetectionDistanceCm = 3400.0f;
+    float TrafficDetectionDistanceCm = 3600.0f;
     float TrafficLaneConflictCm = 190.0f;
     float TrafficPassClearanceCm = 255.0f;
-    float TrafficPassHoldSeconds = 1.15f;
+    float TrafficPassHoldSeconds = 1.20f;
     float TrafficPassCooldownSeconds = 0.35f;
 
     // Mild AI-only lane spring. Old racing games often give computer drivers
@@ -131,5 +138,11 @@ private:
     float MaxLaneAssistAccelCmS2 = 520.0f;
     float MaxRecoveryLaneAssistAccelCmS2 = 760.0f;
 
-    float MaxTrackingLateralAccelCmS2 = 1050.0f;
+    // Pace is based on ROAD curvature, not the temporary Pure-Pursuit curvature
+    // created by a lane change. That distinction lets bots overtake at speed
+    // without mistaking every lateral maneuver for a hairpin.
+    float PacePreviewMinCm = 2600.0f;
+    float PacePreviewMaxCm = 5200.0f;
+    float MaxTrackingLateralAccelCmS2 = 1500.0f;
+    float MinimumTrackingSpeedKph = 56.0f;
 };
