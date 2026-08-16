@@ -131,15 +131,23 @@ foreach ($Phrase in $RequiredBugfixPhrases) {
 $ReadmeText = Get-Content $Readme -Raw
 $RequiredReadmePhrases = @(
     'Y              quick race again after finish',
-    'B              throw rotten egg / menu back / resume from Pause',
-    'Menu / Start   pause / resume'
+    'B              throw rotten egg / menu back / resume; Main Menu after finish',
+    'Esc            pause / menu back; Main Menu after finish',
+    'Enter / A / Y  race again with the same configured setup',
+    'Esc / B        return to Main Menu without auto-starting another race'
 )
 foreach ($Phrase in $RequiredReadmePhrases) {
-    RequireLiteral $ReadmeText $Phrase "Packaged README is missing current controller guidance: $Phrase"
+    RequireLiteral $ReadmeText $Phrase "Packaged README is missing current controller/Main Menu guidance: $Phrase"
 }
 
 $FeedbackText = Get-Content $FeedbackForm -Raw
-foreach ($Phrase in @('Engine remains audible while horn/item/crash sounds play', 'Y after finish restarts the same configured race', 'Would you voluntarily play another race right now?')) {
+foreach ($Phrase in @(
+    'Engine remains audible while horn/item/crash sounds play',
+    'Pause menu contains an explicit **MAIN MENU** option',
+    'After finish, Esc/B returns to Main Menu',
+    'Y after finish restarts the same configured race',
+    'Would you voluntarily play another race right now?'
+)) {
     RequireLiteral $FeedbackText $Phrase "Packaged feedback form is missing a required test question: $Phrase"
 }
 
@@ -225,15 +233,16 @@ Write-Host "  1. Launch from the packaged executable, not Unreal Editor."
 Write-Host "  2. Setup/menu works with keyboard and Xbox-style controller."
 Write-Host "  3. During an unfinished race, Y must do nothing."
 Write-Host "  4. Engine must remain continuously audible underneath horn/item/crash sounds."
-Write-Host "  5. Gameplay: A=peel, B=egg, X=recover, LB/RB=slap, Start=pause."
-Write-Host "  6. Finish a race. Start/P/Esc must NOT replace the finish result with Pause."
-Write-Host "  7. After finish, peel/egg/slap/recovery inputs must be blocked."
-Write-Host "  8. Press Y after finish: same configured race must reload and auto-start."
-Write-Host "  9. Drive over repair patches/skid marks: absolutely zero physical bump."
-Write-Host " 10. Run a busy race: no recurring AI wall oscillation or traffic-induced ping-pong."
-Write-Host " 11. Confirm PN vegetation, roadside details, traffic shell and road markings render."
-Write-Host " 12. Confirm no forbidden/paid pack identity appears anywhere in the build."
-Write-Host " 13. Give the tester PLAYER_TEST_FEEDBACK_FORM.md after the session."
+Write-Host "  5. Gameplay: A=peel, B=egg, X=recover, LB/RB=slap, P/Start=pause."
+Write-Host "  6. Pause menu must show MAIN MENU; selecting it returns to setup without auto-start."
+Write-Host "  7. Finish a race. P/Start must NOT replace the finish result with Pause."
+Write-Host "  8. After finish, peel/egg/slap/recovery inputs must be blocked."
+Write-Host "  9. After finish, Esc/B must return to Main Menu; Y/A/Enter must race again."
+Write-Host " 10. Drive over repair patches/skid marks: absolutely zero physical bump."
+Write-Host " 11. Run a busy race: no recurring AI wall oscillation or traffic-induced ping-pong."
+Write-Host " 12. Confirm PN vegetation, roadside details, traffic shell and road markings render."
+Write-Host " 13. Confirm no forbidden/paid pack identity appears anywhere in the build."
+Write-Host " 14. Give the tester PLAYER_TEST_FEEDBACK_FORM.md after the session."
 Write-Host ""
 
 if ($Launch) {
