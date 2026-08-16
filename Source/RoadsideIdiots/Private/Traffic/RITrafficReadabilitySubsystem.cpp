@@ -100,7 +100,7 @@ void URITrafficReadabilitySubsystem::Tick(const float DeltaTime)
 
     UE_LOG(
         LogTemp,
-        Verbose,
+        Display,
         TEXT("RI TRAFFIC WARN label=%s distance=%.0fcm ttc=%.2fs"),
         *BestTraffic->GetTrafficLabel(),
         BestDistance,
