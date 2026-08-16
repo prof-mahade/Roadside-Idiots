@@ -113,7 +113,7 @@ void ARIDebugHUD::DrawHUD()
     if (!DamageText.IsEmpty()) ++ExtraStatusLines;
     if (bPlayerEggStink) ++ExtraStatusLines;
     if (bPlayerPoopMess) ++ExtraStatusLines;
-    const float LeftPanelHeight = 142.0f + ExtraStatusLines * 20.0f;
+    const float LeftPanelHeight = 122.0f + ExtraStatusLines * 20.0f;
 
     DrawRect(FLinearColor(0.015f, 0.022f, 0.030f, 0.60f), 16.0f, 18.0f, 330.0f, LeftPanelHeight);
 
@@ -125,7 +125,6 @@ void ARIDebugHUD::DrawHUD()
     };
 
     LeftLine(TEXT("ROADSIDE IDIOTS"), FLinearColor(1.0f, 0.76f, 0.18f), 1.02f);
-    LeftLine(TEXT("VPR-20.1 | FREE VEG DENSITY + CLEANUP"), FLinearColor(0.52f, 1.0f, 0.70f), 0.76f);
     LeftLine(FString::Printf(TEXT("SPEED  %.0f km/h"), FMath::Abs(Bike->GetBikeMovement()->GetForwardSpeedKph())));
     LeftLine(FString::Printf(TEXT("CONDITION  %.0f / %.0f"), CurrentCondition, MaxCondition), ConditionColor);
     LeftLine(
@@ -337,8 +336,8 @@ void ARIDebugHUD::DrawHUD()
 
         const bool bMad = AI->IsHoldingGrudgeAgainst(Bike);
         const float DistanceSq = FVector::DistSquared2D(Bike->GetActorLocation(), RivalBike->GetActorLocation());
-        if (!bMad && DistanceSq > FMath::Square(2200.0f)) continue;
-        if (bMad && DistanceSq > FMath::Square(4000.0f)) continue;
+        if (!bMad && DistanceSq > FMath::Square(1400.0f)) continue;
+        if (bMad && DistanceSq > FMath::Square(3000.0f)) continue;
 
         FVector2D ScreenPosition;
         const FVector LabelWorldLocation = RivalBike->GetActorLocation() + FVector::UpVector * 245.0f;
@@ -350,14 +349,9 @@ void ARIDebugHUD::DrawHUD()
             continue;
         }
 
-        const URIParticipantComponent* RivalParticipant = RivalBike->GetParticipantComponent();
-        const FString RivalName = RivalParticipant ? RivalParticipant->GetParticipantId().ToString() : TEXT("RIVAL");
-
-        FString Label = FString::Printf(TEXT("%s [%s]  P%d E%d"),
-            *RivalName,
-            *AI->GetPersonalityLabel(),
-            RivalBike->GetBananaPeelCount(),
-            RivalBike->GetRottenEggCount());
+        FString Label = AI->GetPersonalityLabel();
+        if (RivalBike->GetBananaPeelCount() > 0) Label += TEXT("  PEEL");
+        if (RivalBike->GetRottenEggCount() > 0) Label += TEXT("  EGG");
         if (bMad) Label += TEXT("  MAD!");
 
         FLinearColor LabelColor(0.74f, 0.90f, 1.0f);
@@ -366,7 +360,7 @@ void ARIDebugHUD::DrawHUD()
         else if (AI->GetPersonalityLabel().Equals(TEXT("HOTHEAD"), ESearchCase::IgnoreCase)) LabelColor = FLinearColor(1.0f, 0.55f, 0.12f);
         else if (AI->GetPersonalityLabel().Equals(TEXT("PETTY"), ESearchCase::IgnoreCase)) LabelColor = FLinearColor(0.86f, 0.52f, 1.0f);
 
-        DrawText(Label, LabelColor, ScreenPosition.X - 72.0f, ScreenPosition.Y, Font, 0.70f, false);
+        DrawText(Label, LabelColor, ScreenPosition.X - 55.0f, ScreenPosition.Y, Font, 0.72f, false);
 
         FString RivalImpactText;
         float RivalImpactAlpha = 0.0f;
@@ -389,11 +383,9 @@ void ARIDebugHUD::DrawHUD()
         ARIBikePawn* RivalBike = Cast<ARIBikePawn>(AI->GetPawn());
         if (!RivalBike) continue;
 
-        const URIParticipantComponent* RivalParticipant = RivalBike->GetParticipantComponent();
-        const FString RivalName = RivalParticipant ? RivalParticipant->GetParticipantId().ToString() : TEXT("RIVAL");
         const float DistanceMeters = FVector::Dist2D(Bike->GetActorLocation(), RivalBike->GetActorLocation()) / 100.0f;
         DrawText(
-            FString::Printf(TEXT("MAD: %s [%s]  %.0fm"), *RivalName, *AI->GetPersonalityLabel(), DistanceMeters),
+            FString::Printf(TEXT("%s IS MAD   %.0fm"), *AI->GetPersonalityLabel(), DistanceMeters),
             FLinearColor(1.0f, 0.25f, 0.10f),
             28.0f,
             LeftPanelHeight + 26.0f,
@@ -405,33 +397,55 @@ void ARIDebugHUD::DrawHUD()
 
     if (bHasRaceProgress && PlayerProgress.bFinished)
     {
-        DrawRect(FLinearColor(0.015f, 0.022f, 0.030f, 0.72f), Canvas->SizeX * 0.34f, Canvas->SizeY * 0.31f, 520.0f, 115.0f);
+        FString FinishHeadline;
+        if (PlayerPlace == 1)
+        {
+            FinishHeadline = TEXT("YOU WON. SOMEHOW.");
+        }
+        else if (PlayerPlace <= 3)
+        {
+            FinishHeadline = TEXT("PODIUM. STILL ALIVE.");
+        }
+        else
+        {
+            FinishHeadline = TEXT("FINISHED. BIKE MOSTLY INTACT.");
+        }
+
+        DrawRect(FLinearColor(0.015f, 0.022f, 0.030f, 0.76f), Canvas->SizeX * 0.33f, Canvas->SizeY * 0.30f, 570.0f, 135.0f);
         DrawText(
-            FString::Printf(TEXT("FINISH!   PLACE %d/%d"), PlayerPlace, ParticipantCount),
+            FinishHeadline,
             FLinearColor(0.20f, 1.0f, 0.32f),
-            Canvas->SizeX * 0.39f,
-            Canvas->SizeY * 0.34f,
+            Canvas->SizeX * 0.365f,
+            Canvas->SizeY * 0.33f,
             Font,
-            2.1f,
+            1.85f,
             false);
         DrawText(
-            FString::Printf(TEXT("TIME %s     ENTER TO RACE AGAIN"), *RaceTimeText),
-            FLinearColor(1.0f, 0.86f, 0.22f),
+            FString::Printf(TEXT("PLACE %d/%d     TIME %s"), PlayerPlace, ParticipantCount, *RaceTimeText),
+            FLinearColor(0.96f, 0.98f, 1.0f),
             Canvas->SizeX * 0.37f,
-            Canvas->SizeY * 0.40f,
+            Canvas->SizeY * 0.385f,
             Font,
-            1.25f,
+            1.18f,
+            false);
+        DrawText(
+            TEXT("ENTER / Y  RACE AGAIN"),
+            FLinearColor(1.0f, 0.86f, 0.22f),
+            Canvas->SizeX * 0.415f,
+            Canvas->SizeY * 0.425f,
+            Font,
+            1.02f,
             false);
     }
 
     const float ControlsY = Canvas->SizeY - 47.0f;
-    DrawRect(FLinearColor(0.015f, 0.022f, 0.030f, 0.52f), 16.0f, ControlsY - 8.0f, 570.0f, 34.0f);
+    DrawRect(FLinearColor(0.015f, 0.022f, 0.030f, 0.52f), 16.0f, ControlsY - 8.0f, 590.0f, 34.0f);
     DrawText(
-        TEXT("W/S drive  A/D steer  |  Q/E slap  F peel  G egg  R recover  ENTER restart"),
+        TEXT("W/S drive  A/D steer  |  Q/E slap  F peel  G egg  R recover  |  P pause"),
         FLinearColor(0.76f, 0.86f, 1.0f),
         28.0f,
         ControlsY,
         Font,
-        0.78f,
+        0.76f,
         false);
 }
