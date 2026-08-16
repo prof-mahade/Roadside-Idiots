@@ -29,6 +29,8 @@ public:
 
     static FTransform MakeRouteTransform(float AngleRadians, float LaneOffset);
 
+    const FString& GetTrafficLabel() const { return TrafficLabel; }
+
     // Read-only approximation for rival prediction. Traffic movement remains
     // authoritative in this actor; AI only consumes this as perception data.
     FVector GetTrafficVelocityEstimate() const
