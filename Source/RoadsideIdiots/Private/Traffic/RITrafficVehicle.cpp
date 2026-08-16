@@ -152,6 +152,85 @@ void ARITrafficVehicle::Configure(
     bWanders = bInWanders;
     WanderPhase = InWanderPhase;
     TrafficLabel = InTrafficLabel;
+
+    // Reset the generic sedan silhouette before applying a per-vehicle style.
+    ImpactVolume->SetBoxExtent(FVector(170.0f, 82.0f, 60.0f));
+    BodyVisual->SetRelativeLocation(FVector(0.0f, 0.0f, -12.0f));
+    BodyVisual->SetRelativeScale3D(FVector(3.15f, 1.50f, 0.48f));
+    CabinVisual->SetRelativeLocation(FVector(-24.0f, 0.0f, 38.0f));
+    CabinVisual->SetRelativeScale3D(FVector(1.50f, 1.24f, 0.52f));
+
+    FrontWheelLeft->SetVisibility(true, true);
+    FrontWheelRight->SetVisibility(true, true);
+    RearWheelLeft->SetVisibility(true, true);
+    RearWheelRight->SetVisibility(true, true);
+
+    FrontWheelLeft->SetRelativeLocation(FVector(104.0f, -78.0f, -43.0f));
+    FrontWheelRight->SetRelativeLocation(FVector(104.0f, 78.0f, -43.0f));
+    RearWheelLeft->SetRelativeLocation(FVector(-104.0f, -78.0f, -43.0f));
+    RearWheelRight->SetRelativeLocation(FVector(-104.0f, 78.0f, -43.0f));
+    FrontWheelLeft->SetRelativeScale3D(FVector(0.54f, 0.54f, 0.18f));
+    FrontWheelRight->SetRelativeScale3D(FVector(0.54f, 0.54f, 0.18f));
+    RearWheelLeft->SetRelativeScale3D(FVector(0.54f, 0.54f, 0.18f));
+    RearWheelRight->SetRelativeScale3D(FVector(0.54f, 0.54f, 0.18f));
+
+    if (TrafficLabel.Equals(TEXT("CNG AUTO"), ESearchCase::IgnoreCase))
+    {
+        // Three-wheeler silhouette made only from existing Engine basic shapes:
+        // one centered front wheel, two rear wheels and a tall compact cabin.
+        ImpactVolume->SetBoxExtent(FVector(118.0f, 64.0f, 76.0f));
+        BodyVisual->SetRelativeLocation(FVector(-4.0f, 0.0f, -8.0f));
+        BodyVisual->SetRelativeScale3D(FVector(1.72f, 0.96f, 0.50f));
+        CabinVisual->SetRelativeLocation(FVector(-20.0f, 0.0f, 42.0f));
+        CabinVisual->SetRelativeScale3D(FVector(1.20f, 0.88f, 0.82f));
+
+        FrontWheelLeft->SetRelativeLocation(FVector(82.0f, 0.0f, -38.0f));
+        FrontWheelLeft->SetRelativeScale3D(FVector(0.42f, 0.42f, 0.16f));
+        FrontWheelRight->SetVisibility(false, true);
+        RearWheelLeft->SetRelativeLocation(FVector(-64.0f, -54.0f, -38.0f));
+        RearWheelRight->SetRelativeLocation(FVector(-64.0f, 54.0f, -38.0f));
+        RearWheelLeft->SetRelativeScale3D(FVector(0.44f, 0.44f, 0.16f));
+        RearWheelRight->SetRelativeScale3D(FVector(0.44f, 0.44f, 0.16f));
+
+        FrontMarkerLeft->SetRelativeLocation(FVector(90.0f, -24.0f, -4.0f));
+        FrontMarkerRight->SetRelativeLocation(FVector(90.0f, 24.0f, -4.0f));
+        RearMarkerLeft->SetRelativeLocation(FVector(-88.0f, -30.0f, -4.0f));
+        RearMarkerRight->SetRelativeLocation(FVector(-88.0f, 30.0f, -4.0f));
+    }
+    else if (TrafficLabel.Equals(TEXT("DELIVERY VAN"), ESearchCase::IgnoreCase))
+    {
+        ImpactVolume->SetBoxExtent(FVector(188.0f, 82.0f, 78.0f));
+        BodyVisual->SetRelativeLocation(FVector(-4.0f, 0.0f, -4.0f));
+        BodyVisual->SetRelativeScale3D(FVector(3.45f, 1.52f, 0.64f));
+        CabinVisual->SetRelativeLocation(FVector(-42.0f, 0.0f, 50.0f));
+        CabinVisual->SetRelativeScale3D(FVector(2.10f, 1.30f, 0.72f));
+    }
+    else if (TrafficLabel.Equals(TEXT("MICROBUS"), ESearchCase::IgnoreCase))
+    {
+        ImpactVolume->SetBoxExtent(FVector(190.0f, 84.0f, 82.0f));
+        BodyVisual->SetRelativeLocation(FVector(-2.0f, 0.0f, -2.0f));
+        BodyVisual->SetRelativeScale3D(FVector(3.55f, 1.56f, 0.68f));
+        CabinVisual->SetRelativeLocation(FVector(-18.0f, 0.0f, 52.0f));
+        CabinVisual->SetRelativeScale3D(FVector(2.45f, 1.34f, 0.78f));
+    }
+    else if (TrafficLabel.Equals(TEXT("SUNDAY DRIVER"), ESearchCase::IgnoreCase))
+    {
+        ImpactVolume->SetBoxExtent(FVector(150.0f, 76.0f, 58.0f));
+        BodyVisual->SetRelativeScale3D(FVector(2.72f, 1.36f, 0.44f));
+        CabinVisual->SetRelativeLocation(FVector(-18.0f, 0.0f, 35.0f));
+        CabinVisual->SetRelativeScale3D(FVector(1.30f, 1.12f, 0.48f));
+        FrontWheelLeft->SetRelativeLocation(FVector(88.0f, -68.0f, -40.0f));
+        FrontWheelRight->SetRelativeLocation(FVector(88.0f, 68.0f, -40.0f));
+        RearWheelLeft->SetRelativeLocation(FVector(-88.0f, -68.0f, -40.0f));
+        RearWheelRight->SetRelativeLocation(FVector(-88.0f, 68.0f, -40.0f));
+    }
+    else if (TrafficLabel.Equals(TEXT("LOST DRIVER"), ESearchCase::IgnoreCase))
+    {
+        ImpactVolume->SetBoxExtent(FVector(156.0f, 78.0f, 62.0f));
+        BodyVisual->SetRelativeScale3D(FVector(2.85f, 1.40f, 0.46f));
+        CabinVisual->SetRelativeLocation(FVector(-36.0f, 0.0f, 38.0f));
+        CabinVisual->SetRelativeScale3D(FVector(1.42f, 1.18f, 0.56f));
+    }
 }
 
 void ARITrafficVehicle::BeginPlay()
@@ -219,7 +298,13 @@ void ARITrafficVehicle::Tick(const float DeltaSeconds)
     float LaneOffset = BaseLaneOffset;
     if (bWanders && GetWorld())
     {
-        LaneOffset += FMath::Sin(GetWorld()->GetTimeSeconds() * 0.72f + WanderPhase) * 95.0f;
+        // Slow, low-amplitude drift reads like an imperfect civilian driver.
+        // The previous ~1.9 m side-to-side swing could feel like traffic was
+        // deliberately swerving into the player rather than making a mistake.
+        const bool bCng = TrafficLabel.Equals(TEXT("CNG AUTO"), ESearchCase::IgnoreCase);
+        const float WanderAmplitude = bCng ? 58.0f : 42.0f;
+        const float WanderRate = bCng ? 0.50f : 0.43f;
+        LaneOffset += FMath::Sin(GetWorld()->GetTimeSeconds() * WanderRate + WanderPhase) * WanderAmplitude;
     }
 
     SetActorTransform(MakeRouteTransform(RouteAngleRadians, LaneOffset), false, nullptr, ETeleportType::TeleportPhysics);
@@ -257,21 +342,34 @@ void ARITrafficVehicle::HandleImpactOverlap(
 
     const float Side = FVector::DotProduct(Away, Bike->GetActorRightVector()) >= 0.0f ? 1.0f : -1.0f;
 
+    float ImpactScale = 1.0f;
+    if (TrafficLabel.Equals(TEXT("CNG AUTO"), ESearchCase::IgnoreCase)) ImpactScale = 0.78f;
+    else if (TrafficLabel.Equals(TEXT("DELIVERY VAN"), ESearchCase::IgnoreCase)) ImpactScale = 1.08f;
+    else if (TrafficLabel.Equals(TEXT("MICROBUS"), ESearchCase::IgnoreCase)) ImpactScale = 1.16f;
+    else if (TrafficLabel.Equals(TEXT("SUNDAY DRIVER"), ESearchCase::IgnoreCase)) ImpactScale = 0.92f;
+
     if (UStaticMeshComponent* Chassis = Bike->GetChassis())
     {
-        Chassis->AddImpulse(Away * 260.0f + GetActorForwardVector() * 90.0f, NAME_None, true);
+        Chassis->AddImpulse(
+            (Away * 260.0f + GetActorForwardVector() * 90.0f) * ImpactScale,
+            NAME_None,
+            true);
         Chassis->AddAngularImpulseInRadians(
-            Bike->GetActorForwardVector() * (Side * 2.2f) + FVector::UpVector * (Side * 0.75f),
+            (Bike->GetActorForwardVector() * (Side * 2.2f) + FVector::UpVector * (Side * 0.75f)) * ImpactScale,
             NAME_None,
             true);
     }
 
     if (URIHealthComponent* Health = Bike->GetHealthComponent())
     {
-        Health->ApplyImpact(6.0f);
+        Health->ApplyImpact(6.0f * ImpactScale);
     }
 
-    RIAudioEvents::Play(this, TEXT("Honk"), GetActorLocation(), 1.0f, FMath::FRandRange(0.94f, 1.06f));
+    float HonkPitch = FMath::FRandRange(0.94f, 1.06f);
+    if (TrafficLabel.Equals(TEXT("CNG AUTO"), ESearchCase::IgnoreCase)) HonkPitch *= 1.16f;
+    else if (TrafficLabel.Equals(TEXT("MICROBUS"), ESearchCase::IgnoreCase)) HonkPitch *= 0.86f;
+
+    RIAudioEvents::Play(this, TEXT("Honk"), GetActorLocation(), 1.0f, HonkPitch);
     RIAudioEvents::Play(this, TEXT("TrafficHit"), Bike->GetActorLocation(), 0.95f, FMath::FRandRange(0.94f, 1.04f));
     Bike->TriggerComicImpact(Side, TEXT("HONK!"), 0.85f);
     RIPrototypeVisuals::PlayReaction(Bike, Side);
