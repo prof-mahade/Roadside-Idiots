@@ -28,6 +28,7 @@ $Checks = @(
     @{ Label = "Landmark world layer"; Pattern = "RI WORLD LANDMARKS"; Required = $true },
     @{ Label = "Instanced road markings"; Pattern = "RI ROAD MARKINGS"; Required = $true },
     @{ Label = "Rival personality identity"; Pattern = "RI RIVAL IDENTITY"; Required = $true },
+    @{ Label = "Traffic visual polish"; Pattern = "RI TRAFFIC VISUAL"; Required = $false },
     @{ Label = "Item balance"; Pattern = "RI ITEMS BALANCE"; Required = $true },
     @{ Label = "Playtest start"; Pattern = "RI PLAYTEST START"; Required = $true },
     @{ Label = "Playtest summary"; Pattern = "RI PLAYTEST SUMMARY"; Required = $false },
@@ -57,9 +58,39 @@ foreach ($Check in $Checks) {
 }
 
 Write-Host ""
-if ($MissingRequired.Count -gt 0) {
-    Write-Host "Runtime verification failed required checks:" -ForegroundColor Red
-    $MissingRequired | ForEach-Object { Write-Host " - $_" -ForegroundColor Red }
+Write-Host "Warning regression checks" -ForegroundColor Cyan
+
+$ForbiddenWarningPatterns = @(
+    "has to have 'CollisionEnabled' set to 'Query and Physics'",
+    "Trying to simulate physics on",
+    "Simulate Physics but Collision Enabled is incompatible"
+)
+
+$WarningFailures = @()
+foreach ($Pattern in $ForbiddenWarningPatterns) {
+    $Hits = Select-String -Path $Log.FullName -SimpleMatch $Pattern
+    if ($Hits) {
+        Write-Host ("[FAIL] Physics/collision warning regression: {0} hit(s)" -f $Hits.Count) -ForegroundColor Red
+        $Hits | Select-Object -Last 5 | ForEach-Object {
+            Write-Host ("       " + $_.Line.Trim()) -ForegroundColor DarkGray
+        }
+        $WarningFailures += $Pattern
+    }
+}
+
+if ($WarningFailures.Count -eq 0) {
+    Write-Host "[PASS] No known presentation physics/collision warning regression" -ForegroundColor Green
+}
+
+Write-Host ""
+if ($MissingRequired.Count -gt 0 -or $WarningFailures.Count -gt 0) {
+    if ($MissingRequired.Count -gt 0) {
+        Write-Host "Runtime verification failed required checks:" -ForegroundColor Red
+        $MissingRequired | ForEach-Object { Write-Host " - $_" -ForegroundColor Red }
+    }
+    if ($WarningFailures.Count -gt 0) {
+        Write-Host "Runtime verification found presentation physics/collision warnings." -ForegroundColor Red
+    }
     exit 2
 }
 
