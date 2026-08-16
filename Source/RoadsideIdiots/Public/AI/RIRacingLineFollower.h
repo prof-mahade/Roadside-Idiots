@@ -44,6 +44,17 @@ private:
         float LateralOffset,
         FVector* OutTangent = nullptr) const;
 
+    void UpdateRivalPassPlan(
+        float DeltaSeconds,
+        const FVector& BikeLocation,
+        const FVector& RouteTangent,
+        float CurrentLateralOffset,
+        float SpeedCms,
+        float UpcomingTurnSeverity,
+        float StrategicLaneStrength,
+        float& InOutDesiredLaneOffset,
+        float& OutRivalSpeedScale);
+
     void UpdateTrafficPassPlan(
         float DeltaSeconds,
         const FVector& BikeLocation,
@@ -61,6 +72,14 @@ private:
     float BaseLaneOffset = 0.0f;
     float SmoothedLaneOffset = 0.0f;
     float SmoothedSteering = 0.0f;
+
+    // Professional racecraft pass state. Rival overtaking is handled as a
+    // persistent lane maneuver, not a frame-by-frame dodge, so the AI commits
+    // to a gap and looks intentional rather than weaving behind another bike.
+    TWeakObjectPtr<ARIBikePawn> ActiveRivalPassTarget;
+    float RivalPassLaneOffset = 0.0f;
+    float RivalPassHoldRemaining = 0.0f;
+    float RivalPassCooldownRemaining = 0.0f;
 
     // VPR-25: pass commitment prevents the avoidance target from changing sides
     // every frame when traffic is near the centre of the bike's lane.
@@ -83,6 +102,17 @@ private:
     float LaneInterpSpeed = 2.8f;
     float EmergencyLaneInterpSpeed = 8.5f;
     float SteeringInterpSpeed = 12.0f;
+
+    // Overtaking another racer uses a slightly smaller lateral gap than passing
+    // a civilian car. A new pass normally starts only on a straight/mild bend;
+    // an already side-by-side pass is allowed to finish rather than snapping home.
+    float RivalDetectionDistanceCm = 3000.0f;
+    float RivalLaneConflictCm = 145.0f;
+    float RivalPassClearanceCm = 185.0f;
+    float RivalPassHoldSeconds = 0.95f;
+    float RivalPassCooldownSeconds = 0.28f;
+    float RivalMinimumClosingSpeedCmS = 105.0f;
+    float RivalPassMaxTurnSeverity = 0.56f;
 
     // Traffic planning stays intentionally slower than the steering loop. Once
     // a pass side is chosen the AI commits to it long enough to actually clear
