@@ -18,6 +18,8 @@ namespace
     const FLinearColor RITSTYLE_TaxiSignColor(1.0f, 0.82f, 0.16f, 1.0f);
     const FLinearColor RITSTYLE_TaxiStripeColor(0.92f, 0.92f, 0.82f, 1.0f);
     const FLinearColor RITSTYLE_VanCargoColor(0.58f, 0.11f, 0.035f, 1.0f);
+    const FLinearColor RITSTYLE_CngCanopyColor(0.055f, 0.16f, 0.075f, 1.0f);
+    const FLinearColor RITSTYLE_MicrobusTrimColor(0.78f, 0.78f, 0.72f, 1.0f);
 }
 
 bool URITrafficStyleSubsystem::IsTickable() const
@@ -123,6 +125,7 @@ void URITrafficStyleSubsystem::SetWheelLayout(
     {
         if (UStaticMeshComponent* Component = FindMeshComponent(Vehicle, Wheel.Name))
         {
+            Component->SetVisibility(true, true);
             Component->SetRelativeLocation(Wheel.Location);
             Component->SetRelativeRotation(FRotator(90.0f, 0.0f, 0.0f));
             Component->SetRelativeScale3D(WheelScale);
@@ -144,49 +147,102 @@ void URITrafficStyleSubsystem::StyleVehicle(ARITrafficVehicle* Vehicle, const in
         return;
     }
 
-    const int32 Style = StyleIndex % 3;
-    if (Style == 0)
-    {
-        // Compact slow sedan: lower roof, short overhangs and simple bumpers.
-        Body->SetRelativeLocation(FVector(0.0f, 0.0f, -18.0f));
-        Body->SetRelativeScale3D(FVector(3.18f, 1.42f, 0.36f));
-        Cabin->SetRelativeLocation(FVector(-18.0f, 0.0f, 27.0f));
-        Cabin->SetRelativeScale3D(FVector(1.70f, 1.15f, 0.43f));
-        SetWheelLayout(Vehicle, 104.0f, -104.0f, 72.0f, -42.0f, FVector(0.49f, 0.49f, 0.16f));
+    const FString& Label = Vehicle->GetTrafficLabel();
 
-        CreateDetail(Vehicle, TEXT("VPR22FrontGlass"), FVector(67.0f, 0.0f, 39.0f), FRotator(0.0f, 0.0f, -14.0f), FVector(0.055f, 1.03f, 0.31f), RITSTYLE_GlassColor);
-        CreateDetail(Vehicle, TEXT("VPR22RearGlass"), FVector(-96.0f, 0.0f, 36.0f), FRotator(0.0f, 0.0f, 13.0f), FVector(0.05f, 0.98f, 0.28f), RITSTYLE_GlassColor);
-        CreateDetail(Vehicle, TEXT("VPR22FrontBumper"), FVector(160.0f, 0.0f, -27.0f), FRotator::ZeroRotator, FVector(0.10f, 1.30f, 0.08f), RITSTYLE_ChromeColor);
-        CreateDetail(Vehicle, TEXT("VPR22RearBumper"), FVector(-160.0f, 0.0f, -27.0f), FRotator::ZeroRotator, FVector(0.10f, 1.30f, 0.08f), RITSTYLE_ChromeColor);
-    }
-    else if (Style == 1)
+    if (Label.Equals(TEXT("CNG AUTO"), ESearchCase::IgnoreCase))
     {
-        // Taxi: sedan silhouette plus unmistakable roof sign and side stripe.
+        // Recognizable three-wheeler proportions without importing a new asset.
+        // The mechanical traffic actor already uses a matching compact hit volume.
+        Body->SetRelativeLocation(FVector(-4.0f, 0.0f, -8.0f));
+        Body->SetRelativeScale3D(FVector(1.72f, 0.96f, 0.50f));
+        Cabin->SetRelativeLocation(FVector(-20.0f, 0.0f, 42.0f));
+        Cabin->SetRelativeScale3D(FVector(1.20f, 0.88f, 0.82f));
+
+        if (UStaticMeshComponent* FrontWheel = FindMeshComponent(Vehicle, TEXT("FrontWheelLeft")))
+        {
+            FrontWheel->SetVisibility(true, true);
+            FrontWheel->SetRelativeLocation(FVector(82.0f, 0.0f, -38.0f));
+            FrontWheel->SetRelativeRotation(FRotator(90.0f, 0.0f, 0.0f));
+            FrontWheel->SetRelativeScale3D(FVector(0.42f, 0.42f, 0.16f));
+        }
+        if (UStaticMeshComponent* HiddenFrontWheel = FindMeshComponent(Vehicle, TEXT("FrontWheelRight")))
+        {
+            HiddenFrontWheel->SetVisibility(false, true);
+        }
+        if (UStaticMeshComponent* RearLeft = FindMeshComponent(Vehicle, TEXT("RearWheelLeft")))
+        {
+            RearLeft->SetVisibility(true, true);
+            RearLeft->SetRelativeLocation(FVector(-64.0f, -54.0f, -38.0f));
+            RearLeft->SetRelativeScale3D(FVector(0.44f, 0.44f, 0.16f));
+        }
+        if (UStaticMeshComponent* RearRight = FindMeshComponent(Vehicle, TEXT("RearWheelRight")))
+        {
+            RearRight->SetVisibility(true, true);
+            RearRight->SetRelativeLocation(FVector(-64.0f, 54.0f, -38.0f));
+            RearRight->SetRelativeScale3D(FVector(0.44f, 0.44f, 0.16f));
+        }
+
+        CreateDetail(Vehicle, TEXT("CngFrontGlass"), FVector(50.0f, 0.0f, 61.0f), FRotator(0.0f, 0.0f, -10.0f), FVector(0.045f, 0.71f, 0.43f), RITSTYLE_GlassColor);
+        CreateDetail(Vehicle, TEXT("CngCanopy"), FVector(-24.0f, 0.0f, 91.0f), FRotator::ZeroRotator, FVector(1.12f, 0.91f, 0.10f), RITSTYLE_CngCanopyColor);
+        CreateDetail(Vehicle, TEXT("CngRearRail"), FVector(-82.0f, 0.0f, 34.0f), FRotator::ZeroRotator, FVector(0.05f, 0.72f, 0.48f), RITSTYLE_ChromeColor);
+        return;
+    }
+
+    if (Label.Equals(TEXT("TAXI"), ESearchCase::IgnoreCase))
+    {
         Body->SetRelativeLocation(FVector(0.0f, 0.0f, -15.0f));
         Body->SetRelativeScale3D(FVector(3.28f, 1.46f, 0.39f));
         Cabin->SetRelativeLocation(FVector(-8.0f, 0.0f, 31.0f));
         Cabin->SetRelativeScale3D(FVector(1.82f, 1.20f, 0.48f));
         SetWheelLayout(Vehicle, 108.0f, -108.0f, 74.0f, -43.0f, FVector(0.52f, 0.52f, 0.17f));
 
-        CreateDetail(Vehicle, TEXT("VPR22TaxiGlass"), FVector(74.0f, 0.0f, 45.0f), FRotator(0.0f, 0.0f, -13.0f), FVector(0.055f, 1.07f, 0.34f), RITSTYLE_GlassColor);
-        CreateDetail(Vehicle, TEXT("VPR22TaxiSign"), FVector(-4.0f, 0.0f, 84.0f), FRotator::ZeroRotator, FVector(0.48f, 0.24f, 0.14f), RITSTYLE_TaxiSignColor);
-        CreateDetail(Vehicle, TEXT("VPR22TaxiStripeLeft"), FVector(0.0f, -74.0f, -4.0f), FRotator::ZeroRotator, FVector(1.90f, 0.025f, 0.10f), RITSTYLE_TaxiStripeColor);
-        CreateDetail(Vehicle, TEXT("VPR22TaxiStripeRight"), FVector(0.0f, 74.0f, -4.0f), FRotator::ZeroRotator, FVector(1.90f, 0.025f, 0.10f), RITSTYLE_TaxiStripeColor);
+        CreateDetail(Vehicle, TEXT("TaxiGlass"), FVector(74.0f, 0.0f, 45.0f), FRotator(0.0f, 0.0f, -13.0f), FVector(0.055f, 1.07f, 0.34f), RITSTYLE_GlassColor);
+        CreateDetail(Vehicle, TEXT("TaxiSign"), FVector(-4.0f, 0.0f, 84.0f), FRotator::ZeroRotator, FVector(0.48f, 0.24f, 0.14f), RITSTYLE_TaxiSignColor);
+        CreateDetail(Vehicle, TEXT("TaxiStripeLeft"), FVector(0.0f, -74.0f, -4.0f), FRotator::ZeroRotator, FVector(1.90f, 0.025f, 0.10f), RITSTYLE_TaxiStripeColor);
+        CreateDetail(Vehicle, TEXT("TaxiStripeRight"), FVector(0.0f, 74.0f, -4.0f), FRotator::ZeroRotator, FVector(1.90f, 0.025f, 0.10f), RITSTYLE_TaxiStripeColor);
+        return;
     }
-    else
-    {
-        // Delivery van: high cargo body, forward cab and rear-door break line.
-        Body->SetRelativeLocation(FVector(-32.0f, 0.0f, -9.0f));
-        Body->SetRelativeScale3D(FVector(3.35f, 1.56f, 0.48f));
-        Cabin->SetRelativeLocation(FVector(104.0f, 0.0f, 31.0f));
-        Cabin->SetRelativeScale3D(FVector(1.10f, 1.28f, 0.58f));
-        SetWheelLayout(Vehicle, 112.0f, -112.0f, 79.0f, -43.0f, FVector(0.55f, 0.55f, 0.18f));
 
-        CreateDetail(Vehicle, TEXT("VPR22VanCargo"), FVector(-66.0f, 0.0f, 48.0f), FRotator::ZeroRotator, FVector(1.82f, 1.42f, 0.72f), RITSTYLE_VanCargoColor);
-        CreateDetail(Vehicle, TEXT("VPR22VanGlass"), FVector(155.0f, 0.0f, 48.0f), FRotator(0.0f, 0.0f, -5.0f), FVector(0.055f, 1.10f, 0.38f), RITSTYLE_GlassColor);
-        CreateDetail(Vehicle, TEXT("VPR22VanRearDoorLine"), FVector(-160.0f, 0.0f, 47.0f), FRotator::ZeroRotator, FVector(0.035f, 1.24f, 0.64f), RITSTYLE_ChromeColor);
-        CreateDetail(Vehicle, TEXT("VPR22VanBumper"), FVector(-176.0f, 0.0f, -27.0f), FRotator::ZeroRotator, FVector(0.10f, 1.35f, 0.09f), RITSTYLE_ChromeColor);
+    if (Label.Equals(TEXT("DELIVERY VAN"), ESearchCase::IgnoreCase))
+    {
+        Body->SetRelativeLocation(FVector(-28.0f, 0.0f, -7.0f));
+        Body->SetRelativeScale3D(FVector(3.45f, 1.54f, 0.54f));
+        Cabin->SetRelativeLocation(FVector(105.0f, 0.0f, 35.0f));
+        Cabin->SetRelativeScale3D(FVector(1.12f, 1.28f, 0.60f));
+        SetWheelLayout(Vehicle, 114.0f, -116.0f, 79.0f, -43.0f, FVector(0.55f, 0.55f, 0.18f));
+
+        CreateDetail(Vehicle, TEXT("VanCargo"), FVector(-68.0f, 0.0f, 54.0f), FRotator::ZeroRotator, FVector(1.86f, 1.43f, 0.76f), RITSTYLE_VanCargoColor);
+        CreateDetail(Vehicle, TEXT("VanGlass"), FVector(156.0f, 0.0f, 52.0f), FRotator(0.0f, 0.0f, -5.0f), FVector(0.055f, 1.10f, 0.38f), RITSTYLE_GlassColor);
+        CreateDetail(Vehicle, TEXT("VanRearDoorLine"), FVector(-163.0f, 0.0f, 50.0f), FRotator::ZeroRotator, FVector(0.035f, 1.24f, 0.64f), RITSTYLE_ChromeColor);
+        return;
     }
+
+    if (Label.Equals(TEXT("MICROBUS"), ESearchCase::IgnoreCase))
+    {
+        Body->SetRelativeLocation(FVector(-2.0f, 0.0f, -4.0f));
+        Body->SetRelativeScale3D(FVector(3.55f, 1.56f, 0.60f));
+        Cabin->SetRelativeLocation(FVector(-18.0f, 0.0f, 50.0f));
+        Cabin->SetRelativeScale3D(FVector(2.46f, 1.34f, 0.70f));
+        SetWheelLayout(Vehicle, 116.0f, -116.0f, 80.0f, -43.0f, FVector(0.56f, 0.56f, 0.18f));
+
+        CreateDetail(Vehicle, TEXT("MicrobusFrontGlass"), FVector(126.0f, 0.0f, 66.0f), FRotator(0.0f, 0.0f, -7.0f), FVector(0.05f, 1.16f, 0.46f), RITSTYLE_GlassColor);
+        CreateDetail(Vehicle, TEXT("MicrobusSideTrimLeft"), FVector(-8.0f, -79.0f, 14.0f), FRotator::ZeroRotator, FVector(2.45f, 0.025f, 0.07f), RITSTYLE_MicrobusTrimColor);
+        CreateDetail(Vehicle, TEXT("MicrobusSideTrimRight"), FVector(-8.0f, 79.0f, 14.0f), FRotator::ZeroRotator, FVector(2.45f, 0.025f, 0.07f), RITSTYLE_MicrobusTrimColor);
+        return;
+    }
+
+    // Compact civilian cars. Keep small visual differences by semantic label,
+    // but no player-facing behavior depends on these presentation-only details.
+    const bool bLostDriver = Label.Equals(TEXT("LOST DRIVER"), ESearchCase::IgnoreCase);
+    const float BodyLength = bLostDriver ? 2.88f : 3.02f;
+    Body->SetRelativeLocation(FVector(0.0f, 0.0f, -18.0f));
+    Body->SetRelativeScale3D(FVector(BodyLength, 1.38f, 0.36f));
+    Cabin->SetRelativeLocation(FVector(bLostDriver ? -34.0f : -16.0f, 0.0f, 28.0f));
+    Cabin->SetRelativeScale3D(FVector(bLostDriver ? 1.42f : 1.60f, 1.13f, 0.44f));
+    SetWheelLayout(Vehicle, 98.0f, -98.0f, 70.0f, -41.0f, FVector(0.48f, 0.48f, 0.16f));
+
+    CreateDetail(Vehicle, TEXT("CompactFrontGlass"), FVector(62.0f, 0.0f, 40.0f), FRotator(0.0f, 0.0f, -13.0f), FVector(0.05f, 0.99f, 0.30f), RITSTYLE_GlassColor);
+    CreateDetail(Vehicle, TEXT("CompactFrontBumper"), FVector(148.0f, 0.0f, -27.0f), FRotator::ZeroRotator, FVector(0.09f, 1.23f, 0.07f), RITSTYLE_ChromeColor);
 }
 
 void URITrafficStyleSubsystem::TryStyleTraffic()
@@ -244,8 +300,6 @@ void URITrafficStyleSubsystem::TryStyleTraffic()
         return;
     }
 
-    // Styles repeat for counts above three; the mechanical traffic class remains
-    // identical and only receives collision-free presentation components.
     for (int32 Index = 0; Index < Vehicles.Num(); ++Index)
     {
         StyleVehicle(Vehicles[Index], Index);
