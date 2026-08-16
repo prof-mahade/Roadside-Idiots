@@ -1,14 +1,22 @@
-# Next milestone — Demo 1 Stability Release / Standalone Player Test
+# Next milestone — Demo 1 RC1 / Outside Player Test
 
 ## Current status
 
-Roadside Idiots Demo 1 is **functionally complete** and the accepted driving/AI foundation is frozen.
+Roadside Idiots Demo 1 is **functionally complete enough for release-candidate testing** and the accepted driving/AI foundation remains frozen.
 
 Current release line:
 
-**0.1.2-demo1-stability1**
+**0.1.3-demo1-rc1**
 
-The latest Editor/runtime work has already verified the major presentation passes, approved free vegetation, source-aware telemetry, controller/menu ownership, and the new persistent engine audio channel at the technical-hook level.
+The previous Shipping stability candidate (`0.1.2-demo1-stability1`, runtime commit `ca052ab`) completed build/cook/stage/archive and passed the static package/ZIP verifier. Its standalone smoke test confirmed:
+- persistent engine audio stays audible under competing sounds;
+- Y during an unfinished race does nothing;
+- finish-state gameplay lock works;
+- Y after finish restarts the configured race;
+- road/bike/AI behavior remains stable;
+- packaged presentation/content renders correctly.
+
+The one UX defect found in that standalone test was the lack of an **obvious Main Menu route**. The pause menu called the action `CHANGE RACE SETUP`, while the finish panel exposed only race-again controls. RC1 fixes that explicitly.
 
 Do not reopen solved bike/road/AI systems without a reproducible regression.
 
@@ -51,7 +59,7 @@ Do not retune without a real regression:
 
 # Verified presentation / gameplay state
 
-Verified in local UE 5.8 playtests:
+Verified in UE 5.8 Editor and/or the packaged stability candidate:
 - wall-safe AI baseline remains intact;
 - old flat-road invisible bump is gone;
 - item loop includes banana peel and rotten egg use;
@@ -67,30 +75,41 @@ Verified in local UE 5.8 playtests:
 - PN tropical/banana vegetation loads from approved free assets;
 - finish confetti is kinematic and warning-free;
 - post-process grade is mild and gameplay-neutral;
-- known presentation physics/collision/asset-loading warning scans pass.
+- persistent engine audio is perceptually verified in standalone Shipping;
+- Y finish restart is perceptually verified;
+- post-finish gameplay input lock is verified;
+- road and AI remain stable in the packaged build.
 
 ---
 
-# Stability bugfix batch — technically verified, final human smoke still required
+# RC1 Main Menu UX contract
 
-## Controller / restart ownership
+The race-setup screen is the project Main Menu. RC1 makes that relationship explicit.
 
-Current intended contract:
-- Enter: menu confirm / race again after finish;
-- A: menu confirm / peel in gameplay / race again after finish;
-- Y: finish-only quick restart;
-- B: egg in gameplay / menu back / resume;
-- Start: pause/resume during an unfinished race;
-- after finish, Start/P/Esc must NOT replace the result screen with Pause.
+## During an active race
+- Esc: open Pause;
+- P / Start: open/close Pause;
+- B: gameplay egg on controller, or menu back when a menu owns it.
 
-Restart ownership is now the player controller only. The old pawn-level `RestartRace` mapping/method is removed.
+## Pause
+Rows are:
+1. RESUME
+2. RESTART RACE
+3. **MAIN MENU**
+4. SETTINGS
+5. QUIT GAME
 
-After the human finishes:
-- residual throttle/brake/steering is zeroed;
-- peel/egg/slap/recovery input is blocked;
-- new pickup/hazard/combat effects are blocked from changing the finished player;
-- physical bike coasting remains possible;
-- accepted AI finish/coast behavior is intentionally unchanged.
+`MAIN MENU` reloads the current map without the one-shot auto-start request, returning to race setup instead of automatically starting another race.
+
+## Finish screen
+- Enter / A / Y: race again with the same configured setup;
+- Esc / B: **Main Menu**;
+- P / Start: blocked so Pause cannot replace the result panel;
+- gameplay peel/egg/slap/recovery remains blocked.
+
+Runtime hook for a Main Menu return when logging is available:
+
+`RI INPUT MAIN_MENU source=...`
 
 Static contract:
 
@@ -100,7 +119,9 @@ Combined contract:
 
 `tools/verify_bugfix_contracts.ps1`
 
-## Persistent engine audio
+---
+
+# Persistent engine audio architecture
 
 The old engine implementation was a chain of short one-shot procedural pulses sharing the transient SFX path.
 
@@ -112,116 +133,85 @@ Current architecture:
 - horns/items/crashes remain transient `RIAudioEvents` sounds layered on top;
 - bike movement remains physics-only.
 
+Standalone smoke result: **engine continuity fixed**.
+
 Static contract:
 
 `tools/verify_audio_contract.ps1`
 
-Runtime hook observed successfully:
-
-`RI AUDIO ENGINE channel=persistent_procedural priority=4 remain_active_if_dropped=1 transient_owner=RIAudioEvents`
-
-The remaining question is perceptual: **does the engine actually remain audibly continuous underneath competing sounds?**
-
 ---
 
-# Release engineering completed for the next gate
+# RC1 packaging / cook hygiene
 
-## New canonical package command
-
-Use:
+Canonical package command:
 
 `tools/package_player_test.ps1`
 
-Do not use the old base packager as the primary player-test entry point.
-
-The hardened player-test pipeline now:
+The release pipeline:
 - requires a clean tracked Git tree;
-- deliberately allows untracked approved local `Content/`;
-- fingerprints branch + full/short commit;
+- permits untracked local files only under approved `Content/` / `Build/` locations;
+- fingerprints branch + commit;
 - requires the four approved PN vegetation assets;
-- runs the combined input/audio/lifecycle preflight;
-- invokes the existing UE Shipping cook/archive pipeline;
-- adds `PLAYER_TEST_BUILD_INFO.txt`;
-- adds `BUGFIX_PREFLIGHT.txt`;
-- includes `PLAYER_TEST_FEEDBACK_FORM.md`;
-- rebuilds the final ZIP after evidence is added;
+- runs combined input/audio/lifecycle preflight;
+- builds/cooks/stages/archives Shipping;
+- removes Shipping PDBs before distribution;
+- includes README, test plan, feedback form and build/preflight evidence;
+- rebuilds ZIP after evidence is added;
 - regenerates SHA-256;
-- automatically runs the static package/ZIP verifier.
+- verifies the actual ZIP and rejects forbidden content/source/debug-symbol leakage.
 
-## Package verifier
+The previous cook exposed avoidable missing-dependency warnings from unused free-pack sample content. RC1 narrows cook scope:
+- PN Banana forces only `/Meshes/plants`; mesh dependencies bring required materials/textures;
+- tropical pack forces its mesh folder without forcing every material/texture tree;
+- `MotoInteractionAnims/Demo/Characters` is explicitly excluded because Roadside Idiots uses its own Manny mesh and runtime animation path rather than those demo rig assets.
 
-`tools/verify_demo1_package.ps1` now validates:
-- packaged executable;
-- cooked `.pak` / `.utoc` / `.ucas` files;
-- README;
-- player-test plan;
-- player-test feedback form;
-- reproducibility evidence;
-- combined bugfix preflight evidence;
-- ZIP existence and SHA-256;
-- required files inside the actual ZIP;
-- no forbidden Sankool/CompoundWall names in loose package or ZIP;
-- no accidental C++ source/header files in the distributable.
-
-Shipping runtime logging is **not assumed**. Human standalone testing remains authoritative for audio continuity and control feel.
+Do not broaden these cook paths unless a required runtime asset is proven missing.
 
 ---
 
-# CURRENT ACTIVE GATE — build the real Shipping player-test package
+# CURRENT ACTIVE GATE — RC1 compile + Shipping package
 
-This is now the next justified user intervention.
+This is the next justified local-machine intervention.
 
-## Step A — sync current branch
+Before packaging:
+1. sync latest `dev/mvp-foundation`;
+2. preserve/stash only tracked Unreal-generated Config changes if they block the pull;
+3. do not delete local `Content/`;
+4. inspect any unexpected untracked project-root path rather than deleting it blindly;
+5. run `tools/verify_bugfix_contracts.ps1`;
+6. compile the Editor target once so C++ errors are caught before the longer Shipping cook.
 
-Sync latest `dev/mvp-foundation` and ensure the tracked working tree is clean.
-
-Untracked imported `Content/` is expected and must not be deleted.
-
-If Unreal regenerated tracked Config files, back them up/stash only those tracked config changes rather than resetting or deleting Content.
-
-## Step B — run the canonical package pipeline
-
-Run:
+Then run:
 
 `tools/package_player_test.ps1`
 
-Default configuration is Shipping.
-
-The pipeline should finish with:
+The package must finish with:
 
 `PLAYER TEST PACKAGE READY`
 
-and print:
-- package directory;
-- ZIP path;
-- SHA-256;
-- source branch/commit;
-- feedback form path.
+and the static verifier must report:
 
-## Step C — standalone human smoke gate
+`STATIC PACKAGE + ZIP CHECK: PASSED`
 
-Launch the **packaged executable**, not PIE.
+## RC1 standalone smoke
 
-Required checks:
-1. setup/menu works with keyboard and Xbox-style controller;
-2. Y during an unfinished race does nothing;
-3. engine remains continuously audible underneath horn/item/crash sounds;
-4. A/B/X/LB/RB/Start gameplay controls work during the race;
-5. finish a race;
-6. Start/P/Esc after finish does not replace the result screen with Pause;
-7. peel/egg/slap/recovery controls are blocked after finish;
-8. Y after finish restarts the same configured race and auto-starts it;
-9. visible road repair/skid detail creates zero physical bump;
-10. busy traffic does not restore AI wall ping-pong;
-11. PN vegetation / traffic shells / roadside identity render correctly.
+Only RC1-specific checks need focused human attention:
+1. Pause menu visibly says **MAIN MENU**;
+2. selecting Pause → MAIN MENU returns to setup and does not auto-start;
+3. finish panel visibly offers `ESC / B  MAIN MENU`;
+4. Esc after finish returns to Main Menu;
+5. B after finish returns to Main Menu;
+6. Y/A/Enter after finish still restart the configured race;
+7. P/Start still cannot replace results with Pause;
+8. engine, road, AI and packaged visuals remain as previously accepted.
 
-If any item fails, fix that specific regression before outside testing.
+If these pass, stop internal feature/polish iteration and move to outside testers.
 
 ---
 
-# After standalone smoke passes
+# Outside tester phase
 
-Share the exact verified ZIP with a small mixed tester group.
+Share the exact verified RC1 ZIP with a small mixed tester group.
 
 Give testers:
 - `README_ROADSIDE_IDIOTS.txt`;
