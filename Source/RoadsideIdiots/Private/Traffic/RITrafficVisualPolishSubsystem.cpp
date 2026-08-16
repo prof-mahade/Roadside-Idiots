@@ -54,10 +54,13 @@ void URITrafficVisualPolishSubsystem::Tick(const float DeltaTime)
     for (TActorIterator<ARITrafficVehicle> It(World); It; ++It)
     {
         ARITrafficVehicle* Traffic = *It;
-        if (!Traffic || PolishedTraffic.Contains(Traffic)) continue;
+        if (!Traffic) continue;
+
+        const TWeakObjectPtr<ARITrafficVehicle> TrafficKey(Traffic);
+        if (PolishedTraffic.Contains(TrafficKey)) continue;
 
         EnsurePolish(Traffic);
-        PolishedTraffic.Add(Traffic);
+        PolishedTraffic.Add(TrafficKey);
     }
 }
 
