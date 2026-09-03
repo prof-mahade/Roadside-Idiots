@@ -4,8 +4,8 @@
 #include "Core/RIParticipantComponent.h"
 #include "AI/RIAIController.h"
 #include "Visual/RIPrototypeVisuals.h"
+#include "Audio/RIAudioEvents.h"
 #include "Components/StaticMeshComponent.h"
-#include "Engine/Engine.h"
 #include "Engine/World.h"
 
 URIInteractionComponent::URIInteractionComponent()
@@ -16,7 +16,7 @@ URIInteractionComponent::URIInteractionComponent()
 bool URIInteractionComponent::TrySideInteraction(float Side)
 {
     ARIBikePawn* OwnerBike = Cast<ARIBikePawn>(GetOwner());
-    if (!OwnerBike || !GetWorld())
+    if (!OwnerBike || !OwnerBike->AreRaceControlsEnabled() || !GetWorld())
     {
         return false;
     }
@@ -57,22 +57,27 @@ bool URIInteractionComponent::TrySideInteraction(float Side)
     for (const FHitResult& Hit : Hits)
     {
         ARIBikePawn* OtherBike = Cast<ARIBikePawn>(Hit.GetActor());
-        if (!OtherBike || OtherBike == OwnerBike)
+        if (!OtherBike || OtherBike == OwnerBike || !OtherBike->AreRaceControlsEnabled())
         {
             continue;
         }
 
         if (UStaticMeshComponent* OtherChassis = OtherBike->GetChassis())
         {
-            OtherChassis->AddImpulse(SideDirection * SideVelocityChange + FVector::UpVector * 45.0f, NAME_None, true);
+            OtherChassis->AddImpulse(SideDirection * SideVelocityChange + FVector::UpVector * 38.0f, NAME_None, true);
+
+            const FVector RollKick = OtherBike->GetActorForwardVector() * (-Side * 3.6f);
+            const FVector YawKick = FVector::UpVector * (Side * 0.9f);
+            OtherChassis->AddAngularImpulseInRadians(RollKick + YawKick, NAME_None, true);
         }
 
         if (URIHealthComponent* OtherHealth = OtherBike->GetHealthComponent())
         {
-            OtherHealth->ApplyImpact(ImpactCost);
+            OtherHealth->ApplyImpactFromSource(ImpactCost, FName(TEXT("Slap")));
         }
 
         RIPrototypeVisuals::PlayReaction(OtherBike, -Side);
+        RIAudioEvents::Play(this, TEXT("SlapHit"), OtherBike->GetActorLocation(), 1.0f, FMath::FRandRange(0.94f, 1.06f));
 
         ARIAIController* RivalController = Cast<ARIAIController>(OtherBike->GetController());
         if (RivalController)
@@ -80,36 +85,10 @@ bool URIInteractionComponent::TrySideInteraction(float Side)
             RivalController->NotifyProvokedBy(OwnerBike);
         }
 
-        if (GEngine)
-        {
-            const URIParticipantComponent* OwnerParticipant = OwnerBike->GetParticipantComponent();
-            const URIParticipantComponent* OtherParticipant = OtherBike->GetParticipantComponent();
-            const bool bOwnerHuman = OwnerParticipant && OwnerParticipant->IsHumanControlled();
-            const bool bOtherHuman = OtherParticipant && OtherParticipant->IsHumanControlled();
-            const FString OtherName = OtherParticipant ? OtherParticipant->GetParticipantId().ToString() : TEXT("RIVAL");
-            const FString OwnerName = OwnerParticipant ? OwnerParticipant->GetParticipantId().ToString() : TEXT("RIVAL");
+        const URIParticipantComponent* OtherParticipant = OtherBike->GetParticipantComponent();
+        const bool bOtherHuman = OtherParticipant && OtherParticipant->IsHumanControlled();
 
-            if (bOwnerHuman)
-            {
-                const FString Personality = RivalController ? RivalController->GetPersonalityLabel() : TEXT("IDIOT");
-                GEngine->AddOnScreenDebugMessage(
-                    -1,
-                    1.55f,
-                    FColor::Yellow,
-                    FString::Printf(TEXT("SMACK! %s [%s] IS MAD!"), *OtherName, *Personality));
-            }
-            else if (bOtherHuman)
-            {
-                ARIAIController* AttackerAI = Cast<ARIAIController>(OwnerBike->GetController());
-                const FString Personality = AttackerAI ? AttackerAI->GetPersonalityLabel() : TEXT("IDIOT");
-                GEngine->AddOnScreenDebugMessage(
-                    -1,
-                    1.55f,
-                    FColor::Red,
-                    FString::Printf(TEXT("WHACK! %s [%s] hit YOU!"), *OwnerName, *Personality));
-            }
-        }
-
+        OtherBike->TriggerComicImpact(-Side, bOtherHuman ? TEXT("WHACK!") : TEXT("SMACK!"), 0.72f);
         return true;
     }
 

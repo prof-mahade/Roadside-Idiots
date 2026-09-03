@@ -32,6 +32,15 @@ public:
     UFUNCTION(BlueprintPure, Category="Roadside Idiots|Bike")
     bool IsGrounded() const { return bGrounded; }
 
+    UFUNCTION(BlueprintPure, Category="Roadside Idiots|Bike")
+    float GetThrottleInput() const { return ThrottleInput; }
+
+    UFUNCTION(BlueprintPure, Category="Roadside Idiots|Bike")
+    float GetSteeringInput() const { return SteeringInput; }
+
+    UFUNCTION(BlueprintPure, Category="Roadside Idiots|Bike")
+    float GetBrakeInput() const { return BrakeInput; }
+
 private:
     UPrimitiveComponent* GetPhysicsBody() const;
     void UpdateGroundedState();
@@ -56,8 +65,21 @@ private:
     UPROPERTY(EditAnywhere, Category="Tuning|Speed")
     float RollingDrag = 0.07f;
 
+    // VPR-24D: steering input is a requested yaw rate, not an open-loop torque.
+    // This gives the vehicle an inner damping loop: when the requested yaw rate
+    // is reached, steering torque naturally falls toward zero instead of
+    // continuing to accelerate rotation and overshooting the road centerline.
     UPROPERTY(EditAnywhere, Category="Tuning|Handling")
-    float SteeringAcceleration = 5.4f;
+    float MaxYawRateLowSpeed = 1.55f;
+
+    UPROPERTY(EditAnywhere, Category="Tuning|Handling")
+    float MaxYawRateHighSpeed = 0.82f;
+
+    UPROPERTY(EditAnywhere, Category="Tuning|Handling")
+    float YawRateResponse = 6.5f;
+
+    UPROPERTY(EditAnywhere, Category="Tuning|Handling")
+    float MaxYawAcceleration = 8.0f;
 
     UPROPERTY(EditAnywhere, Category="Tuning|Handling")
     float MaxLeanDegrees = 34.0f;
@@ -69,7 +91,7 @@ private:
     float BalanceDamping = 7.0f;
 
     UPROPERTY(EditAnywhere, Category="Tuning|Handling")
-    float LateralGrip = 4.2f;
+    float LateralGrip = 4.6f;
 
     UPROPERTY(EditAnywhere, Category="Tuning|Handling")
     float GroundTraceLength = 145.0f;

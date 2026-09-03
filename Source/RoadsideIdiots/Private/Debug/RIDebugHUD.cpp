@@ -5,7 +5,11 @@
 #include "Core/RIParticipantComponent.h"
 #include "Race/RIRaceManager.h"
 #include "AI/RIAIController.h"
+#include "Items/RIRottenEggStinkEffect.h"
+#include "Traffic/RITrafficVehicle.h"
+#include "Hazards/RIPoopMessEffect.h"
 #include "Engine/Engine.h"
+#include "Engine/Canvas.h"
 #include "EngineUtils.h"
 #include "GameFramework/PlayerController.h"
 
@@ -27,83 +31,439 @@ void ARIDebugHUD::DrawHUD()
     }
 
     UFont* Font = GEngine ? GEngine->GetSmallFont() : nullptr;
-    float Y = 28.0f;
-    auto Line = [&](const FString& Text, const FLinearColor& Color = FLinearColor::White)
+    if (!Font) return;
+
+    const FName PlayerId = Bike->GetParticipantComponent()->GetParticipantId();
+    FRIRaceProgress PlayerProgress;
+    const bool bHasRaceProgress = CachedRaceManager && CachedRaceManager->GetProgress(PlayerId, PlayerProgress);
+    const int32 TotalLaps = CachedRaceManager ? CachedRaceManager->GetTotalLaps() : 1;
+    const int32 PlayerPlace = CachedRaceManager ? CachedRaceManager->GetPlace(PlayerId) : 1;
+    const int32 ParticipantCount = CachedRaceManager ? CachedRaceManager->GetParticipantCount() : 1;
+    const int32 CurrentLap = bHasRaceProgress
+        ? FMath::Clamp(PlayerProgress.bFinished ? TotalLaps : PlayerProgress.CompletedLaps + 1, 1, TotalLaps)
+        : 1;
+    const float RaceTime = CachedRaceManager
+        ? (PlayerProgress.bFinished ? PlayerProgress.FinishTime : CachedRaceManager->GetRaceElapsedTime())
+        : 0.0f;
+
+    const int32 RaceMinutes = FMath::FloorToInt(RaceTime / 60.0f);
+    const float RaceSeconds = RaceTime - static_cast<float>(RaceMinutes * 60);
+    const FString RaceTimeText = FString::Printf(TEXT("%d:%05.2f"), RaceMinutes, RaceSeconds);
+
+    const float CurrentCondition = Bike->GetHealthComponent()->GetCurrentHealth();
+    const float MaxCondition = FMath::Max(1.0f, Bike->GetHealthComponent()->GetMaxHealth());
+    const float ConditionFraction = CurrentCondition / MaxCondition;
+
+    FLinearColor ConditionColor = FLinearColor::White;
+    FString DamageText;
+    if (ConditionFraction <= 0.25f)
     {
-        DrawText(Text, Color, 28.0f, Y, Font, 1.05f, false);
-        Y += 24.0f;
+        ConditionColor = FLinearColor(1.0f, 0.18f, 0.10f);
+        DamageText = TEXT("HELD TOGETHER BY BANDAGES");
+    }
+    else if (ConditionFraction <= 0.50f)
+    {
+        ConditionColor = FLinearColor(1.0f, 0.48f, 0.10f);
+        DamageText = TEXT("ROUGH SHAPE");
+    }
+    else if (ConditionFraction <= 0.75f)
+    {
+        ConditionColor = FLinearColor(1.0f, 0.82f, 0.18f);
+        DamageText = TEXT("BANGED UP");
+    }
+
+    TArray<ARITrafficVehicle*> TrafficVehicles;
+    for (TActorIterator<ARITrafficVehicle> It(GetWorld()); It; ++It)
+    {
+        if (*It) TrafficVehicles.Add(*It);
+    }
+
+    TArray<ARIAIController*> RivalControllers;
+    for (TActorIterator<ARIAIController> It(GetWorld()); It; ++It)
+    {
+        if (*It) RivalControllers.Add(*It);
+    }
+
+    bool bPlayerEggStink = false;
+    bool bPlayerPoopMess = false;
+    bool bPlayerCowMess = false;
+
+    for (TActorIterator<ARIRottenEggStinkEffect> It(GetWorld()); It; ++It)
+    {
+        ARIRottenEggStinkEffect* Effect = *It;
+        if (Effect && Cast<ARIBikePawn>(Effect->GetOwner()) == Bike)
+        {
+            bPlayerEggStink = true;
+            break;
+        }
+    }
+
+    for (TActorIterator<ARIPoopMessEffect> It(GetWorld()); It; ++It)
+    {
+        ARIPoopMessEffect* Mess = *It;
+        if (Mess && Mess->GetAffectedBike() == Bike)
+        {
+            bPlayerPoopMess = true;
+            bPlayerCowMess = Mess->IsCowMess();
+            break;
+        }
+    }
+
+    int32 ExtraStatusLines = 0;
+    if (!DamageText.IsEmpty()) ++ExtraStatusLines;
+    if (bPlayerEggStink) ++ExtraStatusLines;
+    if (bPlayerPoopMess) ++ExtraStatusLines;
+    const float LeftPanelHeight = 122.0f + ExtraStatusLines * 20.0f;
+
+    DrawRect(FLinearColor(0.015f, 0.022f, 0.030f, 0.60f), 16.0f, 18.0f, 330.0f, LeftPanelHeight);
+
+    float LeftY = 28.0f;
+    auto LeftLine = [&](const FString& Text, const FLinearColor& Color = FLinearColor::White, float Scale = 0.92f)
+    {
+        DrawText(Text, Color, 28.0f, LeftY, Font, Scale, false);
+        LeftY += 20.0f;
     };
 
-    Line(TEXT("ROADSIDE IDIOTS - MVP"), FLinearColor(1.0f, 0.75f, 0.2f));
-    Line(TEXT("BUILD: VPR-06 | RIVALS: PERSONALITY | ROAD: SEAMLESS"), FLinearColor(0.55f, 1.0f, 0.70f));
-    Line(FString::Printf(TEXT("Speed: %.0f km/h"), FMath::Abs(Bike->GetBikeMovement()->GetForwardSpeedKph())));
-    Line(FString::Printf(TEXT("Condition: %.0f / %.0f"), Bike->GetHealthComponent()->GetCurrentHealth(), Bike->GetHealthComponent()->GetMaxHealth()));
+    LeftLine(TEXT("ROADSIDE IDIOTS"), FLinearColor(1.0f, 0.76f, 0.18f), 1.02f);
+    LeftLine(FString::Printf(TEXT("SPEED  %.0f km/h"), FMath::Abs(Bike->GetBikeMovement()->GetForwardSpeedKph())));
+    LeftLine(FString::Printf(TEXT("CONDITION  %.0f / %.0f"), CurrentCondition, MaxCondition), ConditionColor);
+    LeftLine(
+        FString::Printf(TEXT("PEELS %d/3     EGGS %d/%d"), Bike->GetBananaPeelCount(), Bike->GetRottenEggCount(), Bike->GetMaxRottenEggs()),
+        FLinearColor(0.95f, 0.86f, 0.28f),
+        0.88f);
+
+    if (!DamageText.IsEmpty())
+    {
+        LeftLine(FString::Printf(TEXT("DAMAGE  %s"), *DamageText), ConditionColor, 0.80f);
+    }
+    if (bPlayerPoopMess)
+    {
+        LeftLine(
+            bPlayerCowMess ? TEXT("FILTH  COW PATTY") : TEXT("FILTH  DOG POOP"),
+            bPlayerCowMess ? FLinearColor(0.70f, 0.52f, 0.10f) : FLinearColor(0.58f, 0.70f, 0.12f),
+            0.82f);
+    }
+    if (bPlayerEggStink)
+    {
+        LeftLine(TEXT("STINK  ROTTEN EGG"), FLinearColor(0.52f, 0.82f, 0.10f), 0.82f);
+    }
+
+    if (CachedRaceManager && bHasRaceProgress)
+    {
+        const float StripX = Canvas->SizeX * 0.37f;
+        const float StripW = 390.0f;
+        DrawRect(FLinearColor(0.015f, 0.022f, 0.030f, 0.64f), StripX - 15.0f, 17.0f, StripW, 38.0f);
+        DrawText(
+            FString::Printf(TEXT("LAP %d/%d     POS %d/%d     %s"), CurrentLap, TotalLaps, PlayerPlace, ParticipantCount, *RaceTimeText),
+            FLinearColor(0.96f, 0.98f, 1.0f),
+            StripX,
+            27.0f,
+            Font,
+            1.25f,
+            false);
+
+        if (!PlayerProgress.bFinished && TotalLaps > 1 && CurrentLap == TotalLaps)
+        {
+            DrawText(
+                TEXT("FINAL LAP"),
+                FLinearColor(1.0f, 0.76f, 0.10f),
+                StripX + 126.0f,
+                59.0f,
+                Font,
+                0.88f,
+                false);
+        }
+    }
 
     if (CachedRaceManager)
     {
-        const FName Id = Bike->GetParticipantComponent()->GetParticipantId();
-        FRIRaceProgress Progress;
-        if (CachedRaceManager->GetProgress(Id, Progress))
+        const float SecondsUntilStart = CachedRaceManager->GetSecondsUntilStart();
+        if (SecondsUntilStart > 0.0f)
         {
-            if (Progress.bFinished)
-            {
-                Line(FString::Printf(TEXT("FINISHED - Place %d/%d"), CachedRaceManager->GetPlace(Id), CachedRaceManager->GetParticipantCount()), FLinearColor::Green);
-                Line(TEXT("Press ENTER for another race."), FLinearColor(1.0f, 0.85f, 0.25f));
-            }
-            else
-            {
-                Line(FString::Printf(TEXT("Checkpoint: %d/%d"), Progress.NextCheckpoint, CachedRaceManager->GetCheckpointCount()));
-                Line(FString::Printf(TEXT("Place: %d/%d"), CachedRaceManager->GetPlace(Id), CachedRaceManager->GetParticipantCount()));
-            }
+            const int32 Count = FMath::Max(1, FMath::CeilToInt(SecondsUntilStart));
+            DrawText(
+                FString::FromInt(Count),
+                FLinearColor(1.0f, 0.72f, 0.08f),
+                Canvas->SizeX * 0.49f,
+                Canvas->SizeY * 0.27f,
+                Font,
+                4.0f,
+                false);
+        }
+        else if (CachedRaceManager->GetRaceElapsedTime() < 0.85f)
+        {
+            DrawText(
+                TEXT("GO!"),
+                FLinearColor(0.20f, 1.0f, 0.28f),
+                Canvas->SizeX * 0.46f,
+                Canvas->SizeY * 0.27f,
+                Font,
+                3.6f,
+                false);
         }
     }
 
-    int32 AngryRivalCount = 0;
-    for (TActorIterator<ARIAIController> It(GetWorld()); It; ++It)
-    {
-        ARIAIController* AI = *It;
-        if (!AI || !AI->IsHoldingGrudgeAgainst(Bike)) continue;
+    constexpr float MapPanelWidth = 234.0f;
+    constexpr float MapPanelHeight = 264.0f;
+    const float MapPanelX = Canvas->SizeX - 262.0f;
+    const float MapPanelY = 15.0f;
 
+    {
+        constexpr float MapWorldRadiusX = 9000.0f;
+        constexpr float MapWorldRadiusY = 5000.0f;
+        constexpr int32 CircleSegments = 48;
+        const FVector2D MapCenter(Canvas->SizeX - 145.0f, 150.0f);
+        const float OuterRadius = 105.0f;
+        const float TrackRadius = 80.0f;
+
+        DrawRect(FLinearColor(0.015f, 0.022f, 0.030f, 0.58f), MapPanelX, MapPanelY, MapPanelWidth, MapPanelHeight);
+
+        auto CirclePoint = [&](float Radius, int32 Index)
+        {
+            const float Angle = 2.0f * PI * static_cast<float>(Index) / static_cast<float>(CircleSegments);
+            return MapCenter + FVector2D(FMath::Cos(Angle), FMath::Sin(Angle)) * Radius;
+        };
+
+        auto DrawCircle = [&](float Radius, const FLinearColor& Color, float Thickness)
+        {
+            for (int32 Index = 0; Index < CircleSegments; ++Index)
+            {
+                const FVector2D A = CirclePoint(Radius, Index);
+                const FVector2D B = CirclePoint(Radius, (Index + 1) % CircleSegments);
+                DrawLine(A.X, A.Y, B.X, B.Y, Color, Thickness);
+            }
+        };
+
+        auto WorldToMap = [&](const FVector& WorldLocation)
+        {
+            FVector2D Normalized(WorldLocation.X / MapWorldRadiusX, -WorldLocation.Y / MapWorldRadiusY);
+            const float Length = Normalized.Size();
+            if (Length > 1.16f)
+            {
+                Normalized *= 1.16f / Length;
+            }
+            return MapCenter + Normalized * TrackRadius;
+        };
+
+        auto DrawMarker = [&](const FVector2D& Position, const FLinearColor& Color, float Size, float Thickness)
+        {
+            DrawLine(Position.X - Size, Position.Y, Position.X + Size, Position.Y, Color, Thickness);
+            DrawLine(Position.X, Position.Y - Size, Position.X, Position.Y + Size, Color, Thickness);
+        };
+
+        DrawText(TEXT("MAP"), FLinearColor(0.90f, 0.94f, 1.0f), MapCenter.X - 16.0f, MapCenter.Y - OuterRadius - 22.0f, Font, 0.90f, false);
+        DrawCircle(OuterRadius, FLinearColor(0.34f, 0.39f, 0.45f, 0.95f), 2.0f);
+        DrawCircle(TrackRadius - 6.0f, FLinearColor(0.30f, 0.34f, 0.39f, 0.95f), 1.8f);
+        DrawCircle(TrackRadius + 6.0f, FLinearColor(0.76f, 0.82f, 0.88f, 0.98f), 2.3f);
+
+        DrawLine(
+            MapCenter.X + TrackRadius - 7.0f,
+            MapCenter.Y - 9.0f,
+            MapCenter.X + TrackRadius + 7.0f,
+            MapCenter.Y + 9.0f,
+            FLinearColor(1.0f, 0.85f, 0.18f),
+            3.0f);
+
+        for (ARITrafficVehicle* Traffic : TrafficVehicles)
+        {
+            if (Traffic)
+            {
+                DrawMarker(WorldToMap(Traffic->GetActorLocation()), FLinearColor(0.66f, 0.70f, 0.74f), 2.2f, 1.3f);
+            }
+        }
+
+        for (ARIAIController* AI : RivalControllers)
+        {
+            ARIBikePawn* RivalBike = AI ? Cast<ARIBikePawn>(AI->GetPawn()) : nullptr;
+            if (!AI || !RivalBike) continue;
+
+            FLinearColor MarkerColor(0.35f, 0.85f, 1.0f);
+            if (AI->IsHoldingGrudgeAgainst(Bike))
+            {
+                MarkerColor = FLinearColor(1.0f, 0.18f, 0.08f);
+            }
+            else if (AI->GetPersonalityLabel().Equals(TEXT("HOTHEAD"), ESearchCase::IgnoreCase))
+            {
+                MarkerColor = FLinearColor(1.0f, 0.55f, 0.12f);
+            }
+            else if (AI->GetPersonalityLabel().Equals(TEXT("PETTY"), ESearchCase::IgnoreCase))
+            {
+                MarkerColor = FLinearColor(0.86f, 0.52f, 1.0f);
+            }
+
+            DrawMarker(WorldToMap(RivalBike->GetActorLocation()), MarkerColor, 3.8f, 2.0f);
+        }
+
+        const FVector2D PlayerMapPosition = WorldToMap(Bike->GetActorLocation());
+        DrawMarker(PlayerMapPosition, FLinearColor(1.0f, 0.86f, 0.08f), 5.2f, 2.8f);
+
+        FVector2D Heading(Bike->GetActorForwardVector().X / MapWorldRadiusX, -Bike->GetActorForwardVector().Y / MapWorldRadiusY);
+        if (!Heading.IsNearlyZero())
+        {
+            Heading.Normalize();
+            const FVector2D Tip = PlayerMapPosition + Heading * 12.0f;
+            DrawLine(PlayerMapPosition.X, PlayerMapPosition.Y, Tip.X, Tip.Y, FLinearColor(1.0f, 0.86f, 0.08f), 2.5f);
+        }
+    }
+
+    FString PlayerImpactText;
+    float PlayerImpactAlpha = 0.0f;
+    if (Bike->GetActiveComicImpact(PlayerImpactText, PlayerImpactAlpha))
+    {
+        const FLinearColor ImpactColor(1.0f, 0.20f, 0.07f, PlayerImpactAlpha);
+        const float CenterX = Canvas->SizeX * 0.50f;
+        const float CenterY = Canvas->SizeY * 0.43f;
+        DrawText(PlayerImpactText, ImpactColor, CenterX - 48.0f, CenterY - 12.0f, Font, 1.9f, false);
+
+        const float Inner = 70.0f + (1.0f - PlayerImpactAlpha) * 20.0f;
+        const float Outer = Inner + 44.0f * PlayerImpactAlpha;
+        for (int32 Index = 0; Index < 8; ++Index)
+        {
+            const float Angle = 2.0f * PI * static_cast<float>(Index) / 8.0f;
+            const FVector2D Direction(FMath::Cos(Angle), FMath::Sin(Angle));
+            const FVector2D A(CenterX + Direction.X * Inner, CenterY + Direction.Y * Inner);
+            const FVector2D B(CenterX + Direction.X * Outer, CenterY + Direction.Y * Outer);
+            DrawLine(A.X, A.Y, B.X, B.Y, ImpactColor, 2.0f + PlayerImpactAlpha * 2.0f);
+        }
+
+        const float EdgeAlpha = 0.11f * PlayerImpactAlpha;
+        DrawRect(FLinearColor(0.55f, 0.03f, 0.01f, EdgeAlpha), 0.0f, 0.0f, Canvas->SizeX, 18.0f);
+        DrawRect(FLinearColor(0.55f, 0.03f, 0.01f, EdgeAlpha), 0.0f, Canvas->SizeY - 18.0f, Canvas->SizeX, 18.0f);
+        DrawRect(FLinearColor(0.55f, 0.03f, 0.01f, EdgeAlpha), 0.0f, 0.0f, 18.0f, Canvas->SizeY);
+        DrawRect(FLinearColor(0.55f, 0.03f, 0.01f, EdgeAlpha), Canvas->SizeX - 18.0f, 0.0f, 18.0f, Canvas->SizeY);
+    }
+
+    auto IsReservedHudPoint = [&](const FVector2D& Point)
+    {
+        const bool bLeftPanel = Point.X < 370.0f && Point.Y < LeftPanelHeight + 36.0f;
+        const bool bRaceStrip = Point.Y < 78.0f && Point.X > Canvas->SizeX * 0.32f && Point.X < Canvas->SizeX * 0.72f;
+        const bool bMapPanel = Point.X > MapPanelX - 20.0f && Point.Y < MapPanelY + MapPanelHeight + 25.0f;
+        return bLeftPanel || bRaceStrip || bMapPanel;
+    };
+
+    for (ARIAIController* AI : RivalControllers)
+    {
+        ARIBikePawn* RivalBike = AI ? Cast<ARIBikePawn>(AI->GetPawn()) : nullptr;
+        if (!AI || !RivalBike) continue;
+
+        const bool bMad = AI->IsHoldingGrudgeAgainst(Bike);
+        const float DistanceSq = FVector::DistSquared2D(Bike->GetActorLocation(), RivalBike->GetActorLocation());
+        if (!bMad && DistanceSq > FMath::Square(1400.0f)) continue;
+        if (bMad && DistanceSq > FMath::Square(3000.0f)) continue;
+
+        FVector2D ScreenPosition;
+        const FVector LabelWorldLocation = RivalBike->GetActorLocation() + FVector::UpVector * 245.0f;
+        if (!PlayerOwner->ProjectWorldLocationToScreen(LabelWorldLocation, ScreenPosition, true)) continue;
+        if (ScreenPosition.X < -80.0f || ScreenPosition.X > Canvas->SizeX + 80.0f ||
+            ScreenPosition.Y < -50.0f || ScreenPosition.Y > Canvas->SizeY + 50.0f ||
+            IsReservedHudPoint(ScreenPosition))
+        {
+            continue;
+        }
+
+        FString Label = AI->GetPersonalityLabel();
+        if (RivalBike->GetBananaPeelCount() > 0) Label += TEXT("  PEEL");
+        if (RivalBike->GetRottenEggCount() > 0) Label += TEXT("  EGG");
+        if (bMad) Label += TEXT("  MAD!");
+
+        FLinearColor LabelColor(0.74f, 0.90f, 1.0f);
+        if (bMad) LabelColor = FLinearColor(1.0f, 0.20f, 0.08f);
+        else if (AI->GetPersonalityLabel().Equals(TEXT("LEECH"), ESearchCase::IgnoreCase)) LabelColor = FLinearColor(0.30f, 1.0f, 0.72f);
+        else if (AI->GetPersonalityLabel().Equals(TEXT("HOTHEAD"), ESearchCase::IgnoreCase)) LabelColor = FLinearColor(1.0f, 0.55f, 0.12f);
+        else if (AI->GetPersonalityLabel().Equals(TEXT("PETTY"), ESearchCase::IgnoreCase)) LabelColor = FLinearColor(0.86f, 0.52f, 1.0f);
+
+        DrawText(Label, LabelColor, ScreenPosition.X - 55.0f, ScreenPosition.Y, Font, 0.72f, false);
+
+        FString RivalImpactText;
+        float RivalImpactAlpha = 0.0f;
+        if (RivalBike->GetActiveComicImpact(RivalImpactText, RivalImpactAlpha))
+        {
+            DrawText(
+                RivalImpactText,
+                FLinearColor(1.0f, 0.88f, 0.05f, RivalImpactAlpha),
+                ScreenPosition.X - 30.0f,
+                ScreenPosition.Y - 28.0f,
+                Font,
+                1.0f + RivalImpactAlpha * 0.40f,
+                false);
+        }
+    }
+
+    for (ARIAIController* AI : RivalControllers)
+    {
+        if (!AI || !AI->IsHoldingGrudgeAgainst(Bike)) continue;
         ARIBikePawn* RivalBike = Cast<ARIBikePawn>(AI->GetPawn());
         if (!RivalBike) continue;
 
-        const URIParticipantComponent* RivalParticipant = RivalBike->GetParticipantComponent();
-        const FString RivalName = RivalParticipant ? RivalParticipant->GetParticipantId().ToString() : TEXT("RIVAL");
+        const float DistanceMeters = FVector::Dist2D(Bike->GetActorLocation(), RivalBike->GetActorLocation()) / 100.0f;
+        DrawText(
+            FString::Printf(TEXT("%s IS MAD   %.0fm"), *AI->GetPersonalityLabel(), DistanceMeters),
+            FLinearColor(1.0f, 0.25f, 0.10f),
+            28.0f,
+            LeftPanelHeight + 26.0f,
+            Font,
+            0.82f,
+            false);
+        break;
+    }
 
-        FVector ToRival = RivalBike->GetActorLocation() - Bike->GetActorLocation();
-        ToRival.Z = 0.0f;
-        const float DistanceMeters = ToRival.Size() / 100.0f;
-        const FVector RivalDirection = ToRival.GetSafeNormal();
-        const float ForwardDot = FVector::DotProduct(RivalDirection, Bike->GetActorForwardVector().GetSafeNormal2D());
-        const float RightDot = FVector::DotProduct(RivalDirection, Bike->GetActorRightVector().GetSafeNormal2D());
-
-        FString RelativeDirection;
-        if (FMath::Abs(ForwardDot) >= FMath::Abs(RightDot))
+    if (bHasRaceProgress && PlayerProgress.bFinished)
+    {
+        FString FinishHeadline;
+        if (PlayerPlace == 1)
         {
-            RelativeDirection = ForwardDot >= 0.0f ? TEXT("AHEAD") : TEXT("BEHIND");
+            FinishHeadline = TEXT("YOU WON. SOMEHOW.");
+        }
+        else if (PlayerPlace <= 3)
+        {
+            FinishHeadline = TEXT("PODIUM. STILL ALIVE.");
         }
         else
         {
-            RelativeDirection = RightDot >= 0.0f ? TEXT("RIGHT") : TEXT("LEFT");
+            FinishHeadline = TEXT("FINISHED. BIKE MOSTLY INTACT.");
         }
 
-        if (AngryRivalCount == 0)
-        {
-            Y += 4.0f;
-        }
-
-        Line(
-            FString::Printf(TEXT("MAD: %s [%s] | %.0fs | %s %.0fm"),
-                *RivalName,
-                *AI->GetPersonalityLabel(),
-                AI->GetGrudgeTimeRemaining(),
-                *RelativeDirection,
-                DistanceMeters),
-            FLinearColor(1.0f, 0.28f, 0.12f));
-        ++AngryRivalCount;
+        DrawRect(FLinearColor(0.015f, 0.022f, 0.030f, 0.76f), Canvas->SizeX * 0.33f, Canvas->SizeY * 0.30f, 570.0f, 135.0f);
+        DrawText(
+            FinishHeadline,
+            FLinearColor(0.20f, 1.0f, 0.32f),
+            Canvas->SizeX * 0.365f,
+            Canvas->SizeY * 0.33f,
+            Font,
+            1.85f,
+            false);
+        DrawText(
+            FString::Printf(TEXT("PLACE %d/%d     TIME %s"), PlayerPlace, ParticipantCount, *RaceTimeText),
+            FLinearColor(0.96f, 0.98f, 1.0f),
+            Canvas->SizeX * 0.37f,
+            Canvas->SizeY * 0.385f,
+            Font,
+            1.18f,
+            false);
+        DrawText(
+            TEXT("ENTER / Y  RACE AGAIN"),
+            FLinearColor(1.0f, 0.86f, 0.22f),
+            Canvas->SizeX * 0.415f,
+            Canvas->SizeY * 0.425f,
+            Font,
+            1.02f,
+            false);
     }
 
-    Y += 12.0f;
-    Line(TEXT("W accelerate | S brake/reverse | A/D steer"), FLinearColor(0.75f, 0.85f, 1.0f));
-    Line(TEXT("Q/E slap left/right | R recover | ENTER restart"), FLinearColor(0.75f, 0.85f, 1.0f));
+    // Teach controls at the beginning, then get out of the player's way. They
+    // remain available from the pause screen and packaged README at any time.
+    const bool bShowControlHints = !bHasRaceProgress || (!PlayerProgress.bFinished && RaceTime <= 12.0f);
+    if (bShowControlHints)
+    {
+        const float ControlsY = Canvas->SizeY - 47.0f;
+        DrawRect(FLinearColor(0.015f, 0.022f, 0.030f, 0.52f), 16.0f, ControlsY - 8.0f, 590.0f, 34.0f);
+        DrawText(
+            TEXT("W/S drive  A/D steer  |  Q/E slap  F peel  G egg  R recover  |  P pause"),
+            FLinearColor(0.76f, 0.86f, 1.0f),
+            28.0f,
+            ControlsY,
+            Font,
+            0.76f,
+            false);
+    }
 }

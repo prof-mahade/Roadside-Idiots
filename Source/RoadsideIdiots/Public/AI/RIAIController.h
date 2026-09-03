@@ -5,6 +5,15 @@
 
 class ARIBikePawn;
 
+enum class ERITacticalIntent : uint8
+{
+    None,
+    SidePressure,
+    Block,
+    PeelTrap,
+    EggShot
+};
+
 UCLASS()
 class ROADSIDEIDIOTS_API ARIAIController : public AAIController
 {
@@ -13,15 +22,104 @@ public:
     ARIAIController();
     virtual void Tick(float DeltaSeconds) override;
     virtual void OnPossess(APawn* InPawn) override;
+
     void SetRoute(const TArray<FVector>& InRoutePoints, int32 StartTargetIndex, float InLaneOffset);
     void NotifyProvokedBy(ARIBikePawn* InstigatorBike);
+
+    bool AssignTacticalIntent(ARIBikePawn* Target, ERITacticalIntent Intent, float DurationSeconds);
+    bool IsTacticalIntentActive() const;
+    float GetTacticalTimeRemaining() const { return TacticalTimeRemaining; }
+    float GetTacticalCooldownRemaining() const { return TacticalCooldownRemaining; }
+    ERITacticalIntent GetTacticalIntent() const { return TacticalIntent; }
+    ARIBikePawn* GetTacticalTarget() const { return TacticalTarget.Get(); }
+
+    /**
+     * High-level maneuver request consumed by ARIRacingLineFollower.
+     *
+     * This deliberately exposes a lane target rather than a steering command.
+     * The low-level Pure-Pursuit follower remains the only authority that can
+     * actually steer the motorcycle. Pickup seeking, static-hazard avoidance and
+     * tactical behavior therefore influence racecraft without reopening the old
+     * competing-steering / wall-oscillation failure mode.
+     */
+    bool GetStrategicLaneRequest(float& OutLaneOffset, float& OutStrength) const
+    {
+        OutLaneOffset = SmoothedLaneOffset;
+        OutStrength = 0.0f;
+
+        if (IsTacticalIntentActive())
+        {
+            OutStrength = 0.82f;
+        }
+        else if (bHasCachedPickupTarget && GrudgeTimeRemaining <= 0.0f)
+        {
+            OutStrength = 0.36f;
+        }
+
+        // The old awareness layer still sees every obstacle. It is now only a
+        // hint because persistent rival/traffic planning belongs to the follower.
+        // This avoids two planners pulling the lane target in opposite directions.
+        if (FMath::Abs(CachedAvoidanceShift) > 28.0f)
+        {
+            OutStrength = FMath::Max(OutStrength, 0.30f);
+        }
+
+        return OutStrength > KINDA_SMALL_NUMBER;
+    }
+
+    /**
+     * Requested unobstructed race pace. The low-level driver owns the final
+     * curvature/proximity safety cap, so this can be assertive without being a
+     * hidden speed boost or a second physics controller.
+     */
+    float GetProfessionalPaceTargetKph() const
+    {
+        float Pace = FMath::Clamp(TargetSpeedKph + 5.0f, 148.0f, 155.0f);
+        if (GrudgeTimeRemaining > 0.0f || IsTacticalIntentActive())
+        {
+            Pace = FMath::Max(Pace, FMath::Clamp(GrudgeCatchupSpeedKph + 1.0f, 150.0f, 155.0f));
+        }
+        return Pace;
+    }
 
     FString GetPersonalityLabel() const { return PersonalityLabel; }
     float GetGrudgeTimeRemaining() const { return GrudgeTimeRemaining; }
     bool IsHoldingGrudgeAgainst(const ARIBikePawn* Target) const;
 
+    void SetDirectorRoleLabel(const FString& InLabel)
+    {
+        if (!InLabel.IsEmpty()) PersonalityLabel = InLabel;
+    }
+
 private:
     void ConfigurePersonality();
+    void TryUseComedyItems();
+    void EndTacticalIntent(float CooldownSeconds = 0.0f);
+
+    ARIBikePawn* FindBestItemVictim() const;
+    bool FindUsefulPickupTarget(FVector& OutTarget) const;
+
+    bool ProjectOntoRoute(
+        const FVector& WorldLocation,
+        FVector& OutProjection,
+        FVector& OutTangent,
+        FVector& OutRight,
+        float& OutLateralOffset,
+        int32& OutSegmentIndex,
+        float& OutSegmentAlpha) const;
+
+    FVector SampleRouteAhead(
+        int32 SegmentIndex,
+        float SegmentAlpha,
+        float DistanceCm,
+        float LateralOffset,
+        FVector* OutTangent = nullptr) const;
+
+    float ComputePreviewCurvature(int32 SegmentIndex, float SegmentAlpha, float PreviewDistanceCm) const;
+    float ComputeAvoidanceShift(const FVector& BikeLocation, const FVector& PathForward, const FVector& RouteRight, float CurrentLateralOffset) const;
+    float ComputeCrowdSpeedScale(const FVector& BikeLocation, const FVector& PathForward, const FVector& RouteRight) const;
+    float ComputeWallTraceSteer(const FVector& BikeLocation, const FVector& Forward, float& OutWallSpeedScale) const;
+    void ApplyTacticalLanePlan(float& InOutDesiredLaneOffset, const FVector& BikeLocation, float TurnSeverity);
 
     UPROPERTY() TObjectPtr<ARIBikePawn> Bike;
     TArray<FVector> RoutePoints;
@@ -31,12 +129,67 @@ private:
     TWeakObjectPtr<ARIBikePawn> GrudgeTarget;
     float GrudgeTimeRemaining = 0.0f;
     float AttackCooldownRemaining = 0.0f;
+    float EggUseCooldownRemaining = 0.0f;
+    float PeelUseCooldownRemaining = 0.0f;
     FString PersonalityLabel = TEXT("IDIOT");
 
-    UPROPERTY(EditAnywhere, Category="AI Tuning") float TargetSpeedKph = 132.0f;
-    UPROPERTY(EditAnywhere, Category="AI Tuning") float WaypointReachDistance = 520.0f;
-    UPROPERTY(EditAnywhere, Category="AI Tuning|Retaliation") float GrudgeDurationSeconds = 8.0f;
-    UPROPERTY(EditAnywhere, Category="AI Tuning|Retaliation") float GrudgeCatchupSpeedKph = 145.0f;
+    TWeakObjectPtr<ARIBikePawn> TacticalTarget;
+    ERITacticalIntent TacticalIntent = ERITacticalIntent::None;
+    float TacticalTimeRemaining = 0.0f;
+    float TacticalCooldownRemaining = 0.0f;
+    bool bTacticalItemCommitted = false;
+    float TacticalSideSign = 1.0f;
+
+    FVector CachedPickupTarget = FVector::ZeroVector;
+    bool bHasCachedPickupTarget = false;
+    float CachedAvoidanceShift = 0.0f;
+    float CachedCrowdSpeedScale = 1.0f;
+    float SenseRefreshRemaining = 0.0f;
+    float ItemDecisionRemaining = 0.0f;
+    float LowMotionTime = 0.0f;
+    float SmoothedLaneOffset = 0.0f;
+    float SmoothedSteering = 0.0f;
+    float SmoothedThrottle = 0.0f;
+    float SmoothedBrake = 0.0f;
+
+    // Pace planner: road curvature sets the normal speed envelope; the low-level
+    // driver may still veto speed for a blocked pass or genuine stability risk.
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Speed") float TargetSpeedKph = 150.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Speed") float MaxLateralAccelCmS2 = 1450.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Speed") float MinimumCornerSpeedKph = 56.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Speed") float CurvePreviewMinDistance = 3400.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Speed") float CurvePreviewMaxDistance = 5800.0f;
+
+    // Legacy high-level steering model is retained only for recovery/context.
+    // Final race steering is owned by ARIRacingLineFollower.
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float MinLookAheadDistance = 1400.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float MaxLookAheadDistance = 3600.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float HeadingGain = 0.82f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float CrossTrackGain = 3.1f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float StanleySofteningSpeedCmS = 850.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float CurvatureFeedForwardDistance = 3000.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float SteeringCommandRadians = 0.64f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float SteeringInterpSpeed = 6.5f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float LaneChangeInterpSpeed = 3.2f;
+
+    // AI safety corridor only. The physical/visual road remains 12 m wide.
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float SafeRoadHalfWidth = 320.0f;
+
+    // Short emergency feeler only. Normal cornering is path-controlled.
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Path") float WallTraceLength = 700.0f;
+
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Retaliation") float GrudgeDurationSeconds = 4.5f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Retaliation") float GrudgeCatchupSpeedKph = 154.0f;
     UPROPERTY(EditAnywhere, Category="AI Tuning|Retaliation") float AttackRange = 235.0f;
     UPROPERTY(EditAnywhere, Category="AI Tuning|Retaliation") float AttackCooldownSeconds = 1.60f;
+
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Awareness") float PickupSeekRange = 1600.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Awareness") float AvoidanceStrength = 0.92f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Awareness") float SenseRefreshIntervalSeconds = 0.14f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Awareness") float CrowdLookAhead = 3000.0f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Awareness") float CrowdSideClearance = 260.0f;
+
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Items") float ItemDecisionIntervalSeconds = 0.28f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Items") float EggUseCooldownSeconds = 4.5f;
+    UPROPERTY(EditAnywhere, Category="AI Tuning|Items") float PeelUseCooldownSeconds = 5.0f;
 };

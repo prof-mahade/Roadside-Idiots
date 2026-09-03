@@ -17,6 +17,14 @@ public:
     UFUNCTION(BlueprintCallable, Category="Roadside Idiots|Health")
     float ApplyImpact(float Amount);
 
+    // C++ gameplay callers can attach a lightweight source tag for passive
+    // playtest telemetry. This uses the exact same immunity and health math as
+    // ApplyImpact; the tag never changes gameplay behavior.
+    float ApplyImpactFromSource(float Amount, FName SourceTag);
+
+    UFUNCTION(BlueprintCallable, Category="Roadside Idiots|Health")
+    float Heal(float Amount);
+
     UFUNCTION(BlueprintCallable, Category="Roadside Idiots|Health")
     void ResetHealth();
 
@@ -25,6 +33,11 @@ public:
 
     UFUNCTION(BlueprintPure, Category="Roadside Idiots|Health")
     float GetMaxHealth() const { return MaxHealth; }
+
+    // Read-only telemetry metadata for the most recent accepted condition loss.
+    FName GetLastImpactSource() const { return LastImpactSource; }
+    float GetLastImpactAmount() const { return LastImpactAmount; }
+    uint32 GetImpactSerial() const { return ImpactSerial; }
 
     UPROPERTY(BlueprintAssignable, Category="Roadside Idiots|Health")
     FRIHealthChangedSignature OnHealthChanged;
@@ -46,6 +59,12 @@ private:
     float CurrentHealth = 100.0f;
 
     double LastAppliedImpactTime = -100.0;
+
+    // Not replicated: these exist only so local/server-side playtest telemetry can
+    // attribute condition loss without guessing from transient presentation text.
+    FName LastImpactSource = NAME_None;
+    float LastImpactAmount = 0.0f;
+    uint32 ImpactSerial = 0;
 
     UFUNCTION()
     void OnRep_CurrentHealth();

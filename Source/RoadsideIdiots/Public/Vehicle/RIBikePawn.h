@@ -11,6 +11,7 @@ class URIBikeMovementComponent;
 class URIHealthComponent;
 class URIParticipantComponent;
 class URIInteractionComponent;
+class ARIRaceManager;
 
 UCLASS()
 class ROADSIDEIDIOTS_API ARIBikePawn : public APawn
@@ -32,6 +33,31 @@ public:
 
     UFUNCTION(BlueprintCallable, Category="Roadside Idiots|Bike")
     void SetRecoveryTransform(const FTransform& InTransform);
+
+    UFUNCTION(BlueprintCallable, Category="Roadside Idiots|Items")
+    void AddBananaPeel(int32 Amount = 1);
+
+    UFUNCTION(BlueprintPure, Category="Roadside Idiots|Items")
+    int32 GetBananaPeelCount() const { return BananaPeelCount; }
+
+    UFUNCTION(BlueprintCallable, Category="Roadside Idiots|Items")
+    void AddRottenEgg(int32 Amount = 1);
+
+    UFUNCTION(BlueprintPure, Category="Roadside Idiots|Items")
+    int32 GetRottenEggCount() const { return RottenEggCount; }
+
+    UFUNCTION(BlueprintPure, Category="Roadside Idiots|Items")
+    int32 GetMaxRottenEggs() const { return MaxRottenEggs; }
+
+    bool DropBananaPeel();
+    bool ThrowRottenEggAt(ARIBikePawn* TargetBike = nullptr);
+    ARIBikePawn* FindNearestEggTarget(float MaxRangeCm = 1000.0f) const;
+
+    bool AreRaceControlsEnabled() const { return IsRaceInputEnabled(); }
+
+    void TriggerComicImpact(float Side, const FString& Text, float Duration = 0.70f);
+    bool GetActiveComicImpact(FString& OutText, float& OutAlpha) const;
+    float GetDizzyTimeRemaining() const { return DizzyTimeRemaining; }
 
     UFUNCTION(BlueprintPure, Category="Roadside Idiots|Bike")
     UStaticMeshComponent* GetChassis() const { return Chassis; }
@@ -55,8 +81,10 @@ private:
     void UpdatePlayerDriveInputs();
     void InteractLeft();
     void InteractRight();
-    void RestartRace();
+    void UseItem();
+    void UseEgg();
     void RecoverUprightHere();
+    bool IsRaceInputEnabled() const;
 
     UFUNCTION()
     void HandleChassisHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
@@ -94,12 +122,35 @@ private:
     UPROPERTY(VisibleAnywhere, Category="Components")
     TObjectPtr<URIInteractionComponent> Interaction;
 
+    UPROPERTY()
+    TObjectPtr<ARIRaceManager> CachedRaceManager;
+
+    UPROPERTY(VisibleAnywhere, Category="Items")
+    int32 BananaPeelCount = 0;
+
+    UPROPERTY(EditDefaultsOnly, Category="Items")
+    int32 MaxBananaPeels = 3;
+
+    UPROPERTY(VisibleAnywhere, Category="Items")
+    int32 RottenEggCount = 0;
+
+    UPROPERTY(EditDefaultsOnly, Category="Items")
+    int32 MaxRottenEggs = 2;
+
     FTransform RecoveryTransform = FTransform::Identity;
     bool bHasRecoveryTransform = false;
     float PlayerThrottleInput = 0.0f;
     float PlayerBrakeInput = 0.0f;
     float TippedStillTime = 0.0f;
     bool bCrashLatched = false;
+    float DizzyTimeRemaining = 0.0f;
     double LastImpactTime = -100.0;
     double DamageEnabledAfterTime = 0.0;
+
+    FString ComicImpactText;
+    double ComicImpactStartedAt = -100.0;
+    double ComicImpactExpiresAt = -100.0;
+    float ComicImpactDuration = 0.70f;
+    float CameraKickYaw = 0.0f;
+    float CameraKickRoll = 0.0f;
 };
